@@ -1,0 +1,26 @@
+# Reference deployment of the completed module — the answer key.
+#
+# This is NOT what you use while working through the course. In Chapter 01 you
+# author your own config.<YOURNAME>-training.yaml pointing at
+# modules/participants/<YOURNAME>. Use this one only to deploy the finished
+# implementation and compare it against your own work.
+#
+# Set `project:` to your own CDF project before using it.
+environment:
+  name: REFERENCE-training
+  project: <your-cdf-project>
+  validation-type: dev
+  selected:
+    - modules/reference
+variables:
+  modules:
+    reference:
+      participant: REFERENCE
+      site_code: TRN
+      instance_space: isp_REFERENCE_TRN
+      schema_space_edm: ssp_REFERENCE_TrainingCore_edm
+      schema_space_sdm: ssp_REFERENCE_MaintenanceInsight_sdm
+      dataset: dts_REFERENCE_Training_TRN
+      raw_db: rwd_REFERENCE_Training_TRN
+      model_version: v1.0.0
+      function_runtime: py311

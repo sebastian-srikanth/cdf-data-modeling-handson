@@ -1,0 +1,3 @@
+externalId: wkf_{{ participant }}_Training_TRN
+description: End-to-end contextualization pipeline for {{ participant }}.
+dataSetExternalId: {{ dataset }}

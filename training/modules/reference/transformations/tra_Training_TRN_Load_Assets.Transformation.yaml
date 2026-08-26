@@ -1,0 +1,20 @@
+externalId: tra_{{ participant }}_Training_TRN_Load_Assets
+name: tra_{{ participant }}_Training_TRN_Load_Assets
+dataSetExternalId: {{ dataset }}
+ignoreNullFields: true
+conflictMode: upsert
+isPublic: true
+queryFile: tra_Training_TRN_Load_Assets.sql
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+  instanceSpace: {{ instance_space }}
+authentication:
+  clientId: ${TRAINING_CDF_CLIENT_ID}
+  clientSecret: ${TRAINING_CDF_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}

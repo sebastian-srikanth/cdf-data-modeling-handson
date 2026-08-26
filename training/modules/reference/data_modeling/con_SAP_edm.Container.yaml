@@ -1,0 +1,61 @@
+space: {{ schema_space_edm }}
+externalId: con_SAP_edm
+name: SAP Work Order
+description: Custom container for SAP PM work-order enrichment properties (training).
+usedFor: node
+properties:
+  workOrderNumber:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: false
+  status:
+    type:
+      type: enum
+      values:
+        OPEN:
+          name: Open
+        IN_PROGRESS:
+          name: In progress
+        CLOSED:
+          name: Closed
+    nullable: true
+  orderType:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  priority:
+    type:
+      type: int32
+      list: false
+    nullable: true
+  actualCost:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  currency:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  sourceSystem:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+constraints:
+  uniqueWorkOrderNumber:
+    constraintType: uniqueness
+    properties:
+      - workOrderNumber
+indexes:
+  statusIndex:
+    indexType: btree
+    properties:
+      - status

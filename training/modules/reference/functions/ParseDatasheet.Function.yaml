@@ -1,0 +1,14 @@
+externalId: fnc_{{ participant }}_Training_ParseDatasheet
+name: fnc_{{ participant }}_Training_ParseDatasheet
+owner: Training
+description: Parse pump datasheet PDF into viw_EquipmentHealthProfile_sdm.
+functionPath: handler.py
+runtime: {{ function_runtime }}
+dataSetExternalId: {{ dataset }}
+envVars:
+  PARTICIPANT: "{{ participant }}"
+  INSTANCE_SPACE: "{{ instance_space }}"
+  SCHEMA_SPACE_EDM: "{{ schema_space_edm }}"
+  SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
+  DATASET: "{{ dataset }}"
+  MODEL_VERSION: "{{ model_version }}"

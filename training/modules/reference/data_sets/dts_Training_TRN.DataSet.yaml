@@ -1,0 +1,6 @@
+externalId: {{ dataset }}
+name: {{ participant }} Training TRN
+description: Hands-on training resources for {{ participant }}.
+metadata:
+  course: cdf-data-modeling-handson
+  participant: "{{ participant }}"

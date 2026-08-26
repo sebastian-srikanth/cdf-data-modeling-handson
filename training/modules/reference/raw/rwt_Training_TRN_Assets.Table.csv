@@ -1,0 +1,9 @@
+key,assetExternalId,name,description,parentExternalId,assetClass,level
+TRN-FPSO,TRN-FPSO,TRN FPSO,Training FPSO - floating production storage and offloading unit,,Site,1
+TRN-21,TRN-21,Area 21 - Separation,Process area 21 hosting first-stage separation,TRN-FPSO,Area,2
+TRN-21-SEP,TRN-21-SEP,Separation System,First-stage crude separation and export system,TRN-21,System,3
+21-VG-2001,21-VG-2001,21-VG-2001,First-stage three-phase separator,TRN-21-SEP,Tag,4
+21-PA-2001A,21-PA-2001A,21-PA-2001A,Crude oil export pump A,TRN-21-SEP,Tag,4
+21-PA-2001B,21-PA-2001B,21-PA-2001B,Crude oil export pump B (installed spare),TRN-21-SEP,Tag,4
+21-HA-2001,21-HA-2001,21-HA-2001,Crude heater / shell-and-tube heat exchanger,TRN-21-SEP,Tag,4
+21-XV-2001,21-XV-2001,21-XV-2001,Emergency shutdown valve on separator outlet,TRN-21-SEP,Tag,4

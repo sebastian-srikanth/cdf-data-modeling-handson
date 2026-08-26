@@ -1,0 +1,5 @@
+externalId: file_{{ participant }}_TRN_3D_21_SEP
+name: TRN-21-SEP-3D.obj
+dataSetExternalId: {{ dataset }}
+mimeType: application/octet-stream
+directory: /{{ participant }}/TRN/training

@@ -1,0 +1,6 @@
+key,equipmentExternalId,name,description,tagExternalId,equipmentType,manufacturer,serialNumber
+EQ-1001,EQ-1001,Separator V-2001,Three-phase horizontal separator,21-VG-2001,Vessel,Sulzer,SN-VG-77120
+EQ-1002,EQ-1002,Export Pump A,Centrifugal crude oil export pump,21-PA-2001A,Pump,Flowserve,SN-PA-44821
+EQ-1003,EQ-1003,Export Pump B,Centrifugal crude oil export pump (spare),21-PA-2001B,Pump,Flowserve,SN-PA-44822
+EQ-1004,EQ-1004,Crude Heater E-2001,Shell and tube heat exchanger,21-HA-2001,HeatExchanger,Alfa Laval,SN-HA-31009
+EQ-1005,EQ-1005,ESD Valve XV-2001,Fail-safe close emergency shutdown valve,21-XV-2001,Valve,Emerson,SN-XV-90233

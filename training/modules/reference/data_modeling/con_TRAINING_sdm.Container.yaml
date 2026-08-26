@@ -1,0 +1,73 @@
+space: {{ schema_space_sdm }}
+externalId: con_TRAINING_sdm
+name: Equipment Health Profile
+description: Solution-only enrichment container for rotating-equipment health (training).
+usedFor: node
+properties:
+  asset:
+    type:
+      type: direct
+      list: false
+    nullable: true
+  equipment:
+    type:
+      type: direct
+      list: false
+    nullable: true
+  datasheetFile:
+    type:
+      type: direct
+      list: false
+    nullable: true
+  ratedFlowM3h:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  ratedHeadM:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  ratedPowerKw:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  designPressureBarg:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  designTemperatureC:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  dryWeightKg:
+    type:
+      type: float64
+      list: false
+    nullable: true
+  casingMaterial:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  sealType:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  openWorkOrderCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+  lastParsedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true

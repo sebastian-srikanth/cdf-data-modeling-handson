@@ -1,0 +1,7 @@
+key,tsExternalId,name,description,tagExternalId,sourceUnit,measurementType,isStep
+21-PT-2001,21-PT-2001,21-PT-2001,Separator operating pressure,21-VG-2001,barg,Pressure,false
+21-TT-2001,21-TT-2001,21-TT-2001,Separator outlet temperature,21-VG-2001,degC,Temperature,false
+21-LT-2001,21-LT-2001,21-LT-2001,Separator oil interface level,21-VG-2001,%,Level,false
+21-FT-2002,21-FT-2002,21-FT-2002,Export pump A discharge flow,21-PA-2001A,m3/h,Flow,false
+21-VT-2002,21-VT-2002,21-VT-2002,Export pump A bearing vibration,21-PA-2001A,mm/s,Vibration,false
+21-PT-2003,21-PT-2003,21-PT-2003,Export pump A discharge pressure,21-PA-2001A,barg,Pressure,false

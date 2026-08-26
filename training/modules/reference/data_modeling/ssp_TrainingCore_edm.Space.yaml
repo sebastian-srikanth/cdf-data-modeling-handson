@@ -1,0 +1,3 @@
+space: {{ schema_space_edm }}
+name: {{ participant }} Training Core EDM
+description: Enterprise schema space for {{ participant }} - Training Core EDM.

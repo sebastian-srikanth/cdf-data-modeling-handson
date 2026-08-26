@@ -1,0 +1,50 @@
+space: {{ schema_space_edm }}
+externalId: dam_TrainingCore_edm
+version: {{ model_version }}
+name: {{ participant }} Training Core EDM
+description: Enterprise data model — CDM core plus custom WorkOrder view.
+views:
+  - space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteEquipment
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteActivity
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteDiagramAnnotation
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: Cognite3DObject
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteCADModel
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteCADRevision
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteCADNode
+    version: v1
+    type: view
+  - space: {{ schema_space_edm }}
+    externalId: viw_WorkOrder_edm
+    version: {{ model_version }}
+    type: view

@@ -1,0 +1,14 @@
+externalId: fnc_{{ participant }}_Training_MatchDocuments
+name: fnc_{{ participant }}_Training_MatchDocuments
+owner: Training
+description: Entity-match PDF files to CogniteAsset nodes and update file.assets.
+functionPath: handler.py
+runtime: {{ function_runtime }}
+dataSetExternalId: {{ dataset }}
+envVars:
+  PARTICIPANT: "{{ participant }}"
+  INSTANCE_SPACE: "{{ instance_space }}"
+  SCHEMA_SPACE_EDM: "{{ schema_space_edm }}"
+  SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
+  DATASET: "{{ dataset }}"
+  MODEL_VERSION: "{{ model_version }}"

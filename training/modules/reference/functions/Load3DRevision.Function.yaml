@@ -1,0 +1,14 @@
+externalId: fnc_{{ participant }}_Training_Load3DRevision
+name: fnc_{{ participant }}_Training_Load3DRevision
+owner: Training
+description: Upload 3D revision for the TRN CAD model and map CAD nodes to assets (upserts Cognite3DModel before CAD node links).
+functionPath: handler.py
+runtime: {{ function_runtime }}
+dataSetExternalId: {{ dataset }}
+envVars:
+  PARTICIPANT: "{{ participant }}"
+  INSTANCE_SPACE: "{{ instance_space }}"
+  SCHEMA_SPACE_EDM: "{{ schema_space_edm }}"
+  SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
+  DATASET: "{{ dataset }}"
+  MODEL_VERSION: "{{ model_version }}"

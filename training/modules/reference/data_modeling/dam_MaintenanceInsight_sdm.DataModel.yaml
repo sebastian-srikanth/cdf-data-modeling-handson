@@ -1,0 +1,40 @@
+space: {{ schema_space_sdm }}
+externalId: dam_MaintenanceInsight_sdm
+version: {{ model_version }}
+name: {{ participant }} Maintenance Insight SDM
+description: >-
+  Rotating-Equipment Maintenance Insight — one pump tag with live sensors, P&ID
+  annotations, 3D, datasheet specs, and open work orders.
+views:
+  - space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteEquipment
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteDiagramAnnotation
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: Cognite3DObject
+    version: v1
+    type: view
+  - space: {{ schema_space_edm }}
+    externalId: viw_WorkOrder_edm
+    version: {{ model_version }}
+    type: view
+  - space: {{ schema_space_sdm }}
+    externalId: viw_EquipmentHealthProfile_sdm
+    version: {{ model_version }}
+    type: view

@@ -1,0 +1,10 @@
+space: {{ instance_space }}
+externalId: file_{{ participant }}_TRN_PID_21_SEP
+name: TRN-21-SEP-PID.pdf
+description: P&ID for Area 21 separation system.
+mimeType: application/pdf
+directory: /{{ participant }}/TRN/training
+assets:
+  - space: "{{ instance_space }}"
+    externalId: TRN-21-SEP
+$FILEPATH: TRN-21-SEP-PID.pdf

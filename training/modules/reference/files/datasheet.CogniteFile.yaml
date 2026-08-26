@@ -1,0 +1,10 @@
+space: {{ instance_space }}
+externalId: file_{{ participant }}_TRN_DS_21_PA_2001A
+name: TRN-21-PA-2001A-Datasheet.pdf
+description: Equipment datasheet for crude export pump 21-PA-2001A.
+mimeType: application/pdf
+directory: /{{ participant }}/TRN/training
+assets:
+  - space: "{{ instance_space }}"
+    externalId: 21-PA-2001A
+$FILEPATH: TRN-21-PA-2001A-Datasheet.pdf

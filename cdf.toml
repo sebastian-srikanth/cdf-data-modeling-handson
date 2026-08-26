@@ -1,0 +1,23 @@
+[cdf]
+default_organization_dir = "training"
+default_env = "REFERENCE-training"
+
+[modules]
+# Managed by 'cdf modules upgrade' — do not hand-edit.
+version = "0.8.125"
+
+[plugins]
+run = true
+dump = true
+data = true
+
+[alpha_flags]
+profile = true
+streams = true
+search-config = true
+data_products = true
+signals = true
+
+[library.cognite]
+url = "https://github.com/cognitedata/library/releases/download/latest/packages.zip"
+checksum = "sha256:795a1d303af6994cff10656057238e7634ebbe1cac1a5962a5c654038a88b078"

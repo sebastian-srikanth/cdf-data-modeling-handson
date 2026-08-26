@@ -1,0 +1,9 @@
+participant: REFERENCE
+site_code: TRN
+instance_space: isp_REFERENCE_TRN
+schema_space_edm: ssp_REFERENCE_TrainingCore_edm
+schema_space_sdm: ssp_REFERENCE_MaintenanceInsight_sdm
+dataset: dts_REFERENCE_Training_TRN
+raw_db: rwd_REFERENCE_Training_TRN
+model_version: v1.0.0
+function_runtime: py311

@@ -1,0 +1,14 @@
+externalId: fnc_{{ participant }}_Training_DetectDiagramTags
+name: fnc_{{ participant }}_Training_DetectDiagramTags
+owner: Training
+description: Run diagram detect on the Area 21 P&ID and create CogniteDiagramAnnotation edges.
+functionPath: handler.py
+runtime: {{ function_runtime }}
+dataSetExternalId: {{ dataset }}
+envVars:
+  PARTICIPANT: "{{ participant }}"
+  INSTANCE_SPACE: "{{ instance_space }}"
+  SCHEMA_SPACE_EDM: "{{ schema_space_edm }}"
+  SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
+  DATASET: "{{ dataset }}"
+  MODEL_VERSION: "{{ model_version }}"

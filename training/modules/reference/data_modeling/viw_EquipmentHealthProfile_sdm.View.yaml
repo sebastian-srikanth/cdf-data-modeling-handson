@@ -1,0 +1,84 @@
+space: {{ schema_space_sdm }}
+externalId: viw_EquipmentHealthProfile_sdm
+version: {{ model_version }}
+name: EquipmentHealthProfile
+description: Solution view holding parsed datasheet specs and open-WO count (training).
+properties:
+  asset:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: asset
+  equipment:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: equipment
+  datasheetFile:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: datasheetFile
+  ratedFlowM3h:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: ratedFlowM3h
+  ratedHeadM:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: ratedHeadM
+  ratedPowerKw:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: ratedPowerKw
+  designPressureBarg:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: designPressureBarg
+  designTemperatureC:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: designTemperatureC
+  dryWeightKg:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: dryWeightKg
+  casingMaterial:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: casingMaterial
+  sealType:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: sealType
+  openWorkOrderCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: openWorkOrderCount
+  lastParsedTime:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: con_TRAINING_sdm
+      type: container
+    containerPropertyIdentifier: lastParsedTime

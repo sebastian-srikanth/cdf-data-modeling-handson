@@ -1,0 +1,2 @@
+cognite-sdk==8.10.0
+pypdf==5.4.0

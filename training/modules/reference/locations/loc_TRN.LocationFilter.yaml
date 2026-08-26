@@ -1,0 +1,10 @@
+externalId: loc_{{ participant }}_TRN
+name: TRN FPSO - {{ participant }}
+description: Hands-on training location for {{ participant }}.
+dataModelingType: DATA_MODELING_ONLY
+instanceSpaces:
+  - {{ instance_space }}
+dataModels:
+  - space: {{ schema_space_sdm }}
+    externalId: dam_MaintenanceInsight_sdm
+    version: {{ model_version }}

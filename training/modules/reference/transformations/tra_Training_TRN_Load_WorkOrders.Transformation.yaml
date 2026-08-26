@@ -1,0 +1,20 @@
+externalId: tra_{{ participant }}_Training_TRN_Load_WorkOrders
+name: tra_{{ participant }}_Training_TRN_Load_WorkOrders
+dataSetExternalId: {{ dataset }}
+ignoreNullFields: true
+conflictMode: upsert
+isPublic: true
+queryFile: tra_Training_TRN_Load_WorkOrders.sql
+destination:
+  type: nodes
+  view:
+    space: {{ schema_space_edm }}
+    externalId: viw_WorkOrder_edm
+    version: {{ model_version }}
+  instanceSpace: {{ instance_space }}
+authentication:
+  clientId: ${TRAINING_CDF_CLIENT_ID}
+  clientSecret: ${TRAINING_CDF_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}

@@ -1,0 +1,3 @@
+space: {{ instance_space }}
+name: {{ participant }} TRN Training Instances
+description: Instance (data) space for {{ participant }} - CDF data modeling hands-on.

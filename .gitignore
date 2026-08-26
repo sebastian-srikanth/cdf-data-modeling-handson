@@ -1,0 +1,31 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# CDF Toolkit build artifacts
+build/
+training/build/
+tmp/
+training/tmp/
+build_info*
+deploy_logs*
+
+# Participant configs are authored locally, not committed
+# (see docs/01 — commit yours only if you intend to share it)
+training/config.*-training.yaml
+!training/config.REFERENCE-training.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.python-version
+.ipynb_checkpoints/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp

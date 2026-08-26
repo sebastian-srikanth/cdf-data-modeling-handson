@@ -1,0 +1,4 @@
+key,workOrderNumber,title,description,status,orderType,priority,tagExternalId,plannedStart,plannedEnd,actualCost,currency
+WO-1001,WO-1001,Replace mechanical seal on 21-PA-2001A,Rising bearing vibration and falling discharge flow indicate mechanical seal wear on export pump A.,IN_PROGRESS,PM02,1,21-PA-2001A,2026-07-20T06:00:00,2026-07-21T18:00:00,18500,EUR
+WO-1002,WO-1002,Calibrate pressure transmitter 21-PT-2001,Annual calibration of the separator pressure transmitter.,OPEN,PM01,3,21-VG-2001,2026-08-03T08:00:00,2026-08-03T12:00:00,,EUR
+WO-1003,WO-1003,Internal inspection of separator 21-VG-2001,Scheduled internal inspection during the planned shutdown window.,CLOSED,PM01,2,21-VG-2001,2026-06-10T06:00:00,2026-06-12T18:00:00,42000,EUR

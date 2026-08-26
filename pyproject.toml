@@ -1,0 +1,31 @@
+[project]
+name = "cdf-data-modeling-handson"
+version = "1.0.0"
+description = "A from-zero, hands-on course through Cognite Data Fusion, the Cognite Toolkit, and one deliberately real industrial data model."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "cognite-toolkit==0.8.125",
+    "setuptools<81.0",
+    "pyjwt[crypto]==2.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.0",
+]
+# Jupyter notebooks used in chapters 07-11 and 15
+notebooks = [
+    "jupyterlab>=4.0",
+    "ipykernel>=6.29",
+    "pandas>=2.2",
+]
+# Only needed to regenerate the sample PID / datasheet / 3D assets (_generators/)
+assets = [
+    "reportlab>=4.0",
+    "pypdf>=5.0",
+    "trimesh>=4.0",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,115 @@
+workflowExternalId: wkf_{{ participant }}_Training_TRN
+version: v1
+workflowDefinition:
+  description: Load, contextualize and enrich {{ participant }}'s TRN data model.
+  tasks:
+    - externalId: load_assets
+      type: transformation
+      name: 1. Load asset hierarchy
+      parameters:
+        transformation:
+          externalId: tra_{{ participant }}_Training_TRN_Load_Assets
+          concurrencyPolicy: fail
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn: []
+
+    - externalId: load_equipment
+      type: transformation
+      name: 2. Load equipment
+      parameters:
+        transformation:
+          externalId: tra_{{ participant }}_Training_TRN_Load_Equipment
+          concurrencyPolicy: fail
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_assets
+
+    - externalId: load_timeseries
+      type: transformation
+      name: 3. Load timeseries
+      parameters:
+        transformation:
+          externalId: tra_{{ participant }}_Training_TRN_Load_TimeSeries
+          concurrencyPolicy: fail
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_equipment
+
+    - externalId: load_workorders
+      type: transformation
+      name: 4. Load work orders
+      parameters:
+        transformation:
+          externalId: tra_{{ participant }}_Training_TRN_Load_WorkOrders
+          concurrencyPolicy: fail
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_equipment
+
+    - externalId: generate_datapoints
+      type: function
+      name: 5. Generate datapoints
+      parameters:
+        function:
+          externalId: fnc_{{ participant }}_Training_GenerateDatapoints
+          data: {}
+        isAsyncComplete: false
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_timeseries
+
+    # detect_diagram_tags omitted for now — CDF diagram detect jobs stuck at Distributed.
+    # Re-add when the engineering-diagrams service is healthy again.
+
+    - externalId: match_documents
+      type: function
+      name: 6. Match documents to assets
+      parameters:
+        function:
+          externalId: fnc_{{ participant }}_Training_MatchDocuments
+          data: {}
+        isAsyncComplete: false
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_equipment
+
+    - externalId: parse_datasheet
+      type: function
+      name: 7. Parse datasheet
+      parameters:
+        function:
+          externalId: fnc_{{ participant }}_Training_ParseDatasheet
+          data: {}
+        isAsyncComplete: false
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: match_documents
+        - externalId: load_workorders
+
+    - externalId: load_3d_revision
+      type: function
+      name: 8. Upload 3D revision and map to assets
+      parameters:
+        function:
+          externalId: fnc_{{ participant }}_Training_Load3DRevision
+          data: {}
+        isAsyncComplete: false
+      retries: 0
+      timeout: 3600
+      onFailure: skipTask
+      dependsOn:
+        - externalId: load_equipment

@@ -1,0 +1,53 @@
+space: {{ schema_space_edm }}
+externalId: viw_WorkOrder_edm
+version: {{ model_version }}
+name: WorkOrder
+description: Enterprise work-order view implementing CogniteActivity (training).
+implements:
+  - space: cdf_cdm
+    externalId: CogniteActivity
+    version: v1
+    type: view
+properties:
+  workOrderNumber:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: workOrderNumber
+  status:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: status
+  orderType:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: orderType
+  priority:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: priority
+  actualCost:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: actualCost
+  currency:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: currency
+  sourceSystem:
+    container:
+      space: {{ schema_space_edm }}
+      externalId: con_SAP_edm
+      type: container
+    containerPropertyIdentifier: sourceSystem
