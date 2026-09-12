@@ -38,7 +38,13 @@ BOARD = ["03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "15"]
 
 
 def read_roster(path: str) -> list[str]:
-    lines = pathlib.Path(path).read_text().splitlines()
+    roster = pathlib.Path(path)
+    if not roster.is_file():
+        raise SystemExit(
+            f"  no roster at {roster}\n"
+            f"  Expected a text file with one participant name per line, for example:\n"
+            f"      ALICE\n      BRUNO\n      CHIOMA")
+    lines = roster.read_text().splitlines()
     names = [l.strip() for l in lines if l.strip() and not l.lstrip().startswith("#")]
     if not names:
         raise SystemExit(f"  {path} has no names in it")
@@ -87,12 +93,12 @@ def board(client, names: list[str]) -> int:
     print(f"\n  PROGRESS · {len(names)} participant(s) · project {client.config.project}")
     print(f"  a chapter is complete only when every one of its checks passes\n")
     header = "".join(f"{c:>5}" for c in BOARD)
-    print(f"    {'participant':<16}{header}   furthest")
+    print(f"    {'participant':<16}{header}   up to")
     print(f"    {'-' * (16 + len(header) + 11)}")
 
     stuck: dict[str, list[str]] = {}
     for name in names:
-        cells, furthest = [], "-"
+        cells, done = [], []
         for chapter in BOARD:
             report = Report(chapter)
             try:
@@ -104,13 +110,21 @@ def board(client, names: list[str]) -> int:
                 passed, total = 0, 1
             if total and passed == total:
                 cells.append("  ok ")
-                furthest = chapter
+                done.append(chapter)
             elif passed:
                 cells.append(f" {passed}/{total:<2}")
                 stuck.setdefault(chapter, []).append(name)
             else:
                 cells.append("  .  ")
-        print(f"    {name:<16}{''.join(cells)}   {furthest}")
+        # "up to" means the last UNBROKEN run of passes. Reporting the highest chapter
+        # that happens to pass would say 15 for someone who has not finished 05.
+        up_to = "-"
+        for chapter in BOARD:
+            if chapter in done:
+                up_to = chapter
+            else:
+                break
+        print(f"    {name:<16}{''.join(cells)}   {up_to}")
 
     if stuck:
         print("\n    partially done — likely where they are working, or stuck:")

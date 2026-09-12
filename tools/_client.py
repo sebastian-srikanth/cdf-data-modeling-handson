@@ -7,10 +7,17 @@ from __future__ import annotations
 
 import os
 import pathlib
+import warnings
 
 from cognite.client import CogniteClient, global_config
 
 global_config.disable_pypi_version_check = True
+
+# Atlas AI is alpha and the SDK says so on every call. Chapter 15 quotes that warning
+# where a learner should see it; in tool output it is just noise over a results grid.
+warnings.filterwarnings("ignore", message=".*alpha.*", module="cognite.*")
+warnings.filterwarnings(
+    "ignore", category=UserWarning, module="cognite.client.utils._experimental")
 from cognite.client.config import ClientConfig  # noqa: E402
 from cognite.client.credentials import (  # noqa: E402
     OAuthClientCredentials,

@@ -18,7 +18,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from _client import Report, cdf_client, participant  # noqa: E402
 
 from cognite.client.data_classes import filters as flt  # noqa: E402
-from cognite.client.data_classes.data_modeling import ViewId  # noqa: E402
+from cognite.client.data_classes.data_modeling import NodeId, ViewId  # noqa: E402
 
 MODEL_VERSION = "v1.0.0"
 
@@ -237,7 +237,8 @@ def check_11(client, name, r: Report) -> None:
     with_data = 0
     for node in series:
         # retrieve_latest returns ONE LatestDatapoint, not a list -- len() raises TypeError.
-        latest = client.time_series.data.retrieve_latest(instance_id=(isp, node.external_id))
+        latest = client.time_series.data.retrieve_latest(
+            instance_id=NodeId(isp, node.external_id))
         if latest is not None and getattr(latest, "value", None) is not None:
             with_data += 1
     r.check("series carrying datapoints", with_data, 6)

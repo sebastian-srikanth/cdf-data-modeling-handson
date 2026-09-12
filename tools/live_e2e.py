@@ -201,6 +201,14 @@ def teardown(client, name: str) -> None:
 
     delete_location_filter(client, name)
 
+    # Chapter 16's groups are global resources. Purging spaces does not remove them, and
+    # a group bound to a placeholder sourceId matches nobody but still clutters the
+    # project's access list.
+    mine = [g for g in client.iam.groups.list(all=True)
+            if f"_{name}_training_" in (g.name or "")]
+    for group in mine:
+        attempt(f"group {group.name}", lambda g=group: client.iam.groups.delete(g.id))
+
     # the generated module and config are build artefacts, not course content
     generated = ROOT / "training" / "modules" / "participants" / name
     if generated.exists():
@@ -237,7 +245,7 @@ def main() -> int:
     run("uv", "run", "cdf", "deploy", "--cdf-project", client.config.project,
         "--include", "data_sets", "--include", "raw", "--include", "data_modeling",
         "--include", "transformations", "--include", "files", "--include", "locations",
-        "--include", "workflows", "--include", "functions")
+        "--include", "workflows", "--include", "functions", "--include", "auth")
 
     print("  4. wait for functions to build")
     wait_for_functions(client, name)

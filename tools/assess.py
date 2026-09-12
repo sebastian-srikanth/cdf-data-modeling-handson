@@ -31,7 +31,7 @@ from _client import Report, cdf_client, participant  # noqa: E402
 import selfcheck  # noqa: E402
 
 from cognite.client.data_classes import filters as flt  # noqa: E402
-from cognite.client.data_classes.data_modeling import ViewId  # noqa: E402
+from cognite.client.data_classes.data_modeling import NodeId, ViewId  # noqa: E402
 
 MODEL_VERSION = "v1.0.0"
 
@@ -130,9 +130,18 @@ def part_b(client, name: str, r: Report) -> None:
         r.check("B2   it is published in MaintenanceInsight", "Equipment" in listed, True)
 
     # ---- B3: the phantom is gone, and nothing points at it ----------------------
+    # Guard first: an empty graph would otherwise score this for free. You cannot be
+    # credited with repairing a dangling relation you never created.
+    activity = ViewId("cdf_cdm", "CogniteActivity", "v1")
+    operations = client.data_modeling.instances.list(
+        sources=activity, space=isp, limit=-1)
+    if len(operations) < 6:
+        r.check("B3 the operations from Chapter 05 are loaded", len(operations), ">= 6", ok=False)
+        r.note("B3   hint", "nothing to repair yet -- run Chapter 05 first")
+        return
+
     phantom = client.data_modeling.instances.retrieve(nodes=(isp, "21-XX-9999")).nodes
     r.check("B3 the phantom node 21-XX-9999 is gone", len(phantom), 0)
-    activity = ViewId("cdf_cdm", "CogniteActivity", "v1")
     still_pointing = client.data_modeling.instances.list(
         sources=activity, space=isp, limit=-1,
         filter=flt.ContainsAny(activity.as_property_ref("assets"),
@@ -142,8 +151,10 @@ def part_b(client, name: str, r: Report) -> None:
 
     # ---- B4: datapoints, in range, in the right window --------------------------
     now = datetime.now(timezone.utc)
+    # retrieve() requires a NodeId -- a (space, externalId) tuple raises TypeError,
+    # unlike retrieve_latest() which accepts one.
     points = client.time_series.data.retrieve(
-        instance_id=(isp, "21-PT-2001"),
+        instance_id=NodeId(isp, "21-PT-2001"),
         start="24h-ago", end="now", limit=None)
     values = list(getattr(points, "value", []) or [])
     r.check("B4 at least 24 datapoints in the last 24 h on 21-PT-2001",
