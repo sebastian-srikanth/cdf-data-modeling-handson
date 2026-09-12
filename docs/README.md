@@ -85,7 +85,7 @@ PARTICIPANT=<YOURNAME> uv run python tools/selfcheck.py 03
 ```
 
 It asks CDF what you actually deployed and prints PASS/FAIL per Gate item. Read-only — it
-never writes to your project. Covers chapters 03, 04, 05, 07–13.
+never writes to your project. Covers chapters 03–13, 15 and 18.
 
 ## The shape of every chapter
 

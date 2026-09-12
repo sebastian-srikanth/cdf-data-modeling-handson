@@ -291,10 +291,15 @@ def check_13(client, name, r: Report) -> None:
 
 
 CHECKS = {
-    "03": check_03, "04": check_04, "05": check_05, "07": check_07,
-    "08": check_08, "09": check_09, "10": check_10, "11": check_11,
-    "12": check_12, "13": check_13,
+    "03": check_03, "04": check_04, "05": check_05, "06": check_06,
+    "07": check_07, "08": check_08, "09": check_09, "10": check_10,
+    "11": check_11, "12": check_12, "13": check_13, "15": check_15,
+    "18": check_18,
 }
+
+# Chapter 18 asserts the OPPOSITE of every other chapter: it passes when your resources are
+# gone. Running it inside `all` would fail for anyone mid-course, so ask for it by name.
+EXCLUDE_FROM_ALL = {"18"}
 
 
 def main() -> int:
@@ -302,7 +307,10 @@ def main() -> int:
         print(__doc__)
         return 2
     which = sys.argv[1]
-    chapters = sorted(CHECKS) if which == "all" else [which.zfill(2)]
+    if which == "all":
+        chapters = sorted(set(CHECKS) - EXCLUDE_FROM_ALL)
+    else:
+        chapters = [which.zfill(2)]
 
     unknown = [c for c in chapters if c not in CHECKS]
     if unknown:

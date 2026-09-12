@@ -2,9 +2,12 @@
 
 For whoever runs this with a cohort. Participants do not need this file.
 
-> **Human timings below are estimates and marked 🔶. They need calibrating against a real
-> cohort — replace them after the first run.** The ⏱ machine timings are *measured*, on
-> `bluefield` with Toolkit 0.8.202, and are the ones that will surprise you.
+> **Two kinds of number here.** The *machine* timings are **measured**, on `bluefield` with
+> Toolkit 0.8.202. The *chapter* timings are **derived**, not observed — from each
+> chapter's word count, its `[ACTION]` and `[WRITE]` counts, the measured machine waits, and
+> a friction allowance for the chapters that always run long. They are a defensible first
+> pass, not gospel. **Correct them after your first cohort** — that is the one thing in this
+> file only you can supply.
 
 ## Machine time you cannot compress
 
@@ -24,18 +27,55 @@ These are the waits that wreck a schedule if you don't plan around them.
 `cdf deploy --include functions` at the *start* of the Chapter 07 session and let it build
 while you teach entity-matching theory.
 
-## Suggested shape — two days
+## How long it actually takes
 
-| Session | Chapters | 🔶 Estimate | Notes |
-|---|---|---|---|
-| Day 1 AM | 00–02 | 🔶 2 h | Setup and auth. Expect the long tail here: `.env`, tenant, redirect URI |
-| Day 1 AM | 03 | 🔶 2 h | The longest chapter, and the one worth the time. Do not rush §3.9 |
-| Day 1 PM | 04–06 | 🔶 2 h | Mechanical. Good recovery slot if the morning ran over |
-| Day 1 PM | 07–08 | 🔶 1.5 h | **Deploy functions at the start of this block** |
-| Day 2 AM | 09–12 | 🔶 2.5 h | 3D and datasheet parsing. Start the 3D revision early |
-| Day 2 AM | 13–14 | 🔶 1.5 h | Querying and debugging. The most interactive chapters — 19 and 13 `[ACTION]`s |
-| Day 2 PM | 15 | 🔶 1 h | The payoff. Agents API is **alpha** — check it still behaves the week before |
-| Day 2 PM | 16–18 | 🔶 1 h | Recap, PR, teardown |
+Derived per chapter — reading at 180 wpm, 2.5 min per `[WRITE]`, 2.5 min per `[ACTION]`,
+plus measured machine waits and a friction allowance where noted.
+
+| Ch | Topic | Est. | Where the time goes |
+|---|---|---:|---|
+| 00 | Bootstrap | 45 m | +15 friction: toolchain installs never go cleanly for everyone |
+| 01 | Naming and isolation | 30 m | |
+| 02 | Auth and security | 45 m | +20 friction: **the single most over-running chapter.** Redirect URIs, tenants, consent |
+| 03 | Data modeling | **100 m** | 14 `[WRITE]` files. The longest chapter, and worth every minute |
+| 04 | Data sets, RAW, files | 45 m | 9 `[WRITE]` |
+| 05 | Transformations | **70 m** | 17 `[WRITE]` — the most files in the course |
+| 06 | Location filters | 15 m | The shortest. Good recovery slot |
+| 07 | Entity matching | 65 m | +8 machine: **deploy the Functions at the start of this block** |
+| 08 | Diagram annotation | 55 m | |
+| 09 | 3D | 50 m | +4 machine: start the revision, teach while it converts |
+| 10 | Datasheet parsing | 60 m | |
+| 11 | Datapoints | 35 m | |
+| 12 | Workflows | 25 m | Mostly reading; the run itself is 47 s |
+| 13 | Querying the graph | **75 m** | 19 `[ACTION]` — the most interactive chapter in the course |
+| 14 | Debugging broken links | 55 m | 13 `[ACTION]` |
+| 15 | Atlas AI agent | 45 m | |
+| 16 | Cross-cutting mastery | 15 m | Discussion, not typing |
+| 17 | PR and merge | 40 m | +10 friction: git goes wrong for somebody |
+| 18 | Teardown | 20 m | |
+
+**Total ≈ 14.8 hours of contact time.**
+
+⚠️ That does **not** fit two days. A realistic day is 6–6.5 working hours once you remove
+breaks, lunch and restarts. Pick one:
+
+- **Three half-days** (~5 h each) — the comfortable shape, and the one to quote by default.
+- **Two full days** — workable only if you cut. Cut in this order: 16 (discussion),
+  09 (3D), 11 (datapoints). Never cut 03 or 13.
+- **Two days plus pre-work** — have participants complete 00–02 *before* day one against a
+  checklist. That removes 2 hours and, more importantly, moves the auth pain out of the room.
+
+### A three-half-day shape
+
+| Session | Chapters | Est. |
+|---|---|---:|
+| 1 | 00–03 | 3 h 40 m |
+| 2 | 04–08 | 4 h 30 m |
+| 3 | 09–12 | 2 h 50 m |
+| 4 | 13–18 | 4 h 10 m |
+
+Sessions 2 and 4 are the long ones. **Start the Function deploy at the top of session 2**
+and it builds while you teach Chapter 07's theory.
 
 ## Before the cohort — a week ahead
 

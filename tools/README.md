@@ -29,7 +29,19 @@ A failure tells you what CDF actually contains versus what the chapter expects:
   Not ready for the next chapter — fix the FAILs above.
 ```
 
-Chapters covered: 03, 04, 05, 07, 08, 09, 10, 11, 12, 13.
+Chapters covered: **03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 15, 18.**
+
+Two behave differently and are worth knowing about:
+
+- **18 (teardown)** asserts the *opposite* of every other chapter — it passes when nothing
+  of yours is left. `selfcheck.py all` therefore skips it; ask for it by name once you have
+  torn down: `uv run python tools/selfcheck.py 18`.
+- **15 (Atlas AI)** treats a missing agent as a **note, not a failure** — deleting it is the
+  documented end state of §15.7, and the API is alpha.
+
+Chapters 00, 01, 02, 14, 16 and 17 have no self-check: they are toolchain setup, auth,
+querying you verify by reading output, discussion, and git process. There is nothing
+durable in CDF to assert.
 
 ## If you are maintaining the course
 
