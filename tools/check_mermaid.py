@@ -36,6 +36,12 @@ def main() -> int:
         print("  no mermaid blocks found")
         return 0
 
+    # CI runners need a sandbox-free Chromium; without this every render fails with
+    # "Failed to launch the browser process", which looks exactly like a broken diagram.
+    config = pathlib.Path(__file__).resolve().parent / "puppeteer-config.json"
+    if config.exists():
+        runner = [*runner, "-p", str(config)]
+
     failures = 0
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = pathlib.Path(tmp)
@@ -48,10 +54,20 @@ def main() -> int:
             )
             if proc.returncode == 0:
                 print(f"  OK   {name} block {index}")
-            else:
-                failures += 1
-                first = next((l for l in proc.stderr.splitlines() if "rror" in l), "")
-                print(f"  FAIL {name} block {index}: {first[:160]}")
+                continue
+
+            # Distinguish "this machine cannot run a browser" from "this diagram is
+            # wrong". Reporting an environment problem as six broken diagrams sends
+            # whoever reads the log hunting through correct markup.
+            if "Failed to launch the browser" in proc.stderr:
+                print("\n  CANNOT RUN: mermaid-cli could not start a browser on this machine.")
+                print("  This says nothing about your diagrams. On CI, install Chromium;")
+                print("  locally, `npm install -g @mermaid-js/mermaid-cli` and retry.")
+                return 2
+
+            failures += 1
+            first = next((l for l in proc.stderr.splitlines() if "rror" in l), "")
+            print(f"  FAIL {name} block {index}: {first[:160]}")
 
     print(f"\n  {len(blocks)} mermaid block(s) checked, {failures} broken")
     return 1 if failures else 0

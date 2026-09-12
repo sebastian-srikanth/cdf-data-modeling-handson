@@ -38,17 +38,36 @@ jobs:
       PROVIDER: entra_id
       CI: "true"
     steps:
+      # Without secrets this job cannot do anything useful. Skip cleanly rather than
+      # fail the weekly cron and mail the owner about it every Monday.
+      - name: Are the CDF secrets configured?
+        id: guard
+        run: |
+          if [ -z "${CDF_PROJECT}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No CDF secrets on the live-verification environment — skipping."
+            echo "Set CDF_PROJECT, CDF_CLUSTER, IDP_CLIENT_ID, IDP_CLIENT_SECRET and"
+            echo "IDP_TENANT_ID on that environment, pointed at a THROWAWAY project."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v6
+        if: steps.guard.outputs.configured == 'true'
 
       - uses: astral-sh/setup-uv@v4
+        if: steps.guard.outputs.configured == 'true'
 
       - uses: actions/setup-python@v6
+        if: steps.guard.outputs.configured == 'true'
         with:
           python-version: "3.11"
 
       - run: uv sync --frozen
+        if: steps.guard.outputs.configured == 'true'
 
       - name: Derive the remaining CDF variables
+        if: steps.guard.outputs.configured == 'true'
         run: |
           echo "CDF_URL=https://${CDF_CLUSTER}.cognitedata.com" >> "$GITHUB_ENV"
           echo "IDP_SCOPES=https://${CDF_CLUSTER}.cognitedata.com/.default" >> "$GITHUB_ENV"
@@ -57,11 +76,13 @@ jobs:
           echo "TRAINING_CDF_CLIENT_SECRET=${IDP_CLIENT_SECRET}" >> "$GITHUB_ENV"
 
       - name: Offline checks first — never deploy a broken tree
+        if: steps.guard.outputs.configured == 'true'
         run: uv run python tools/check_docs.py
 
       - name: Deploy, run, verify
+        if: steps.guard.outputs.configured == 'true'
         run: uv run python tools/live_e2e.py "$PARTICIPANT"
 
       - name: Tear down (always, even if the verification failed)
-        if: always()
+        if: always() && steps.guard.outputs.configured == 'true'
         run: uv run python tools/live_e2e.py "$PARTICIPANT" --teardown-only

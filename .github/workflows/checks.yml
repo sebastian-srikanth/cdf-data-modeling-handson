@@ -29,10 +29,12 @@ jobs:
       - name: Documentation and notebook checks
         run: uv run python tools/check_docs.py
 
-      # Installed explicitly so a puppeteer/Chromium problem fails here, visibly,
-      # instead of looking like a broken diagram.
-      - name: Install mermaid-cli
-        run: npm install -g @mermaid-js/mermaid-cli@11
+      # Installed explicitly, with its browser, so a Chromium problem fails here and
+      # visibly rather than looking like six broken diagrams.
+      - name: Install mermaid-cli and Chromium
+        run: |
+          npm install -g @mermaid-js/mermaid-cli@11
+          npx puppeteer browsers install chrome-headless-shell
 
       - name: Mermaid diagrams render
         run: uv run python tools/check_mermaid.py
