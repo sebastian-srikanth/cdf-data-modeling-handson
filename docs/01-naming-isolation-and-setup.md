@@ -57,9 +57,9 @@ achieve that.
 
 | Goes in `YOURNAME` | Stays literal, never `YOURNAME`-scoped |
 |---|---|
-| Space names: `isp_YOURNAME_TRN`, `ssp_YOURNAME_TrainingCore_edm`, `ssp_YOURNAME_MaintenanceInsight_sdm` | Container external IDs: `con_SAP_edm`, `con_TRAINING_sdm` |
-| Functions: `fnc_YOURNAME_Training_ParseDatasheet` | View external IDs: `viw_WorkOrder_edm`, `viw_EquipmentHealthProfile_sdm` |
-| Transformations: `tra_YOURNAME_Training_TRN_Load_Assets` | Data model external IDs: `dam_TrainingCore_edm`, `dam_MaintenanceInsight_sdm` |
+| Space names: `isp_YOURNAME_TRN`, `ssp_YOURNAME_TrainingCore_edm`, `ssp_YOURNAME_MaintenanceInsight_sdm` | Container external IDs: `WorkOrder`, `EquipmentHealthProfile` |
+| Functions: `fnc_YOURNAME_Training_ParseDatasheet` | View external IDs: `WorkOrder`, `EquipmentHealthProfile` |
+| Transformations: `tra_YOURNAME_Training_TRN_Load_Assets` | Data model external IDs: `TrainingCore`, `MaintenanceInsight` |
 | Workflows: `wkf_YOURNAME_Training_TRN` | Node/instance external IDs: `21-PA-2001A`, `EQ-1002`, `ehp_21-PA-2001A`, `WO-1001` |
 | Data sets: `dts_YOURNAME_Training_TRN` | |
 | RAW databases: `rwd_YOURNAME_Training_TRN` | |
@@ -126,7 +126,7 @@ training/modules/participants/<YOURNAME>/**
 ```
 
 Never edit `docs/`, `modules/reference/`, or another participant's folder. If it is
-not one of your own two paths, it is not yours to touch. Full PR checklist in [Chapter 14](14-pr-and-merge.md).
+not one of your own two paths, it is not yours to touch. Full PR checklist in [Chapter 17](17-pr-and-merge.md).
 
 ---
 
@@ -172,7 +172,7 @@ friction you hit at 11am, the thing actually worth capturing, will be gone.
 Write `n/a` under any heading you genuinely have nothing to say about. Leave nothing blank,
 so "nothing to add" is distinguishable from "ran out of time".
 
-📋 `FEEDBACK.md` you complete **once, at the end**, in Chapter 14. Leave it alone until then.
+📋 `FEEDBACK.md` you complete **once, at the end**, in Chapter 17. Leave it alone until then.
 
 ---
 

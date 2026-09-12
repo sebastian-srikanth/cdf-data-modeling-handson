@@ -35,11 +35,12 @@ only safe response is: **stop submitting new detect jobs and escalate** — repe
 resubmitting does not un-stick anything, it just queues more jobs behind the stuck
 one and makes the backlog worse.
 
-This is exactly why the workflow you build in [Chapter 12](12-workflows.md)
-**deliberately leaves `detect_diagram_tags` out of the orchestrated pipeline** — it's
-called manually, once, exactly as you're about to do. Follow the same
-discipline: call it once, verify the result, and don't loop retries against it hoping
-for a different outcome.
+This shapes how the task is orchestrated later. In
+[Chapter 12](12-workflows.md) `detect_diagram_tags` **is** in the pipeline, but it is one
+of only two tasks carrying `onFailure: skipTask` with `retries: 1` — the workflow is
+allowed to finish without it, and it is never allowed to retry-loop. Contain a flaky
+dependency; don't let it abort the run, and don't let it hammer the service. Right now,
+before any of that, call it **once** by hand and read the result.
 
 ---
 
@@ -351,9 +352,96 @@ actually legible at that zoom level/rotation? Diagram OCR confidence is genuinel
 lower than the other techniques in this course; a partial `tags_found` list is an
 expected, acceptable outcome for this lab, not a failure to chase.
 
-🔀 `[PR]` Per §8.2, do **not** wire `detect_diagram_tags` into your workflow DAG in
-[Chapter 12](12-workflows.md) — call it manually here, exactly once, and leave it out
-of the orchestrated pipeline.
+🔀 `[PR]` Per §8.2, when you wire this into your workflow DAG in
+[Chapter 12](12-workflows.md) it gets `onFailure: skipTask` and `retries: 1` — never
+`abortWorkflow`, and never a high retry count. Here, call it manually exactly once.
+
+---
+
+## 8.7 [ACTION] Read the edges back — from both ends
+
+§8.5 claimed edges "give you both directions". Prove it, because this is the payoff for
+the `diagramAnnotations` connection you declared on your `Asset` view in
+[Chapter 03](03-data-modeling.md) §3.12.
+
+🟢 `[ACTION]` First, the edges themselves — the raw instances your Function wrote:
+
+```python
+from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.data_classes import filters as flt
+
+ANNOTATION = ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1")
+
+edges = client.data_modeling.instances.list(
+    instance_type="edge", sources=ANNOTATION,
+    space=space, limit=-1)          # `space` from the notebook setup, §8.4
+
+for e in edges:
+    p = e.properties[ANNOTATION]
+    print(f"{e.start_node.external_id:<28} -> {e.end_node.external_id:<14} "
+          f"'{p.get('startNodeText')}' conf={p.get('confidence')}")
+```
+
+✅ `[VERIFY]` One line per annotation your Function created. `start_node` is the P&ID
+file, `end_node` is the asset — which is exactly why the connection you declared uses
+`direction: inwards`: the asset sits at the **end** of the edge.
+
+⚠️ `[COMMON MISTAKE]` Omitting `instance_type="edge"`. The default is `"node"`, and the
+error names neither the parameter nor the view:
+
+```
+CogniteAPIError: A property from a node or edge only container was referenced
+in a context where it is not allowed. | code: 400
+```
+
+Translated: you asked for **nodes** while selecting properties from
+`CogniteDiagramAnnotation`, whose container is `usedFor: edge`. Annotations are edges, so
+you must ask for edges. Whenever you meet that sentence, check `instance_type` first.
+
+🟢 `[ACTION]` Now traverse from the asset back to the files that mention it:
+
+```python
+from cognite.client.data_classes.data_modeling.query import (
+    Query, Select, SourceSelector, NodeResultSetExpression, EdgeResultSetExpression)
+
+FILE = ViewId("cdf_cdm", "CogniteFile", "v1")
+
+q = Query(
+    with_={
+        "pump": NodeResultSetExpression(
+            filter=flt.Equals(["node", "externalId"], "21-PA-2001A"), limit=1),
+        "links": EdgeResultSetExpression(
+            from_="pump", direction="inwards", limit=100,
+            filter=flt.Equals(["edge", "type"],
+                              {"space": "cdf_cdm", "externalId": "diagrams.AssetLink"})),
+        "diagrams": NodeResultSetExpression(from_="links", limit=100),
+    },
+    select={
+        "links": Select([SourceSelector(ANNOTATION, ["startNodeText", "confidence"])]),
+        "diagrams": Select([SourceSelector(FILE, ["name"])]),
+    },
+)
+res = client.data_modeling.instances.query(q)
+print("annotations:", len(res["links"]), "| diagrams:", len(res["diagrams"]))
+for n in res["diagrams"]:
+    print("  ", n.properties[FILE].get("name"))
+```
+
+✅ `[VERIFY]` At least one annotation and your P&ID PDF by name. If `annotations` is
+non-zero but `diagrams` is empty, your edge is pointing the wrong way — re-read which
+side your Function used as `start_node`.
+
+💡 `[GOOD TO KNOW]` `direction="inwards"` on the **edge** step means "edges arriving at
+`pump`". The third step then follows each edge to its *other* node. That is three
+result-set expressions to express one English sentence: *the diagrams that mention this
+pump*. Declaring the connection in Chapter 03 is what lets Fusion, Canvas and an Atlas AI
+agent ask the same question without writing any of this — see
+[Chapter 13](13-querying-the-graph.md) §13.5 for why "the query works anyway" is not an
+argument against declaring it.
+
+✅ `[VERIFY]` In Fusion, open your `MaintenanceInsight` model → `Asset` → `21-PA-2001A`.
+The `diagramAnnotations` property now lists the annotations it showed as empty at the end
+of Chapter 03.
 
 ---
 
@@ -363,6 +451,9 @@ of the orchestrated pipeline.
 
 - You have called `DetectDiagramTags` **exactly once** and it returned successfully
 - At least one `CogniteDiagramAnnotation` edge exists and renders in Fusion
+- §8.7 ran: you listed the edges with `instance_type="edge"` and traversed from the
+  pump back to the P&ID, and `diagramAnnotations` on your `Asset` view is no longer
+  empty in Fusion
 - You can state, from memory, why there's no cancel API workaround for a stuck
   `Distributed` job, and why that means "stop submitting, don't retry-loop"
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight

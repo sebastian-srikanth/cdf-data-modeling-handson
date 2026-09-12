@@ -62,7 +62,7 @@ re-finds it the same way. The scoped identity lives **inside** the file
 
 🛑 `[COMMON MISTAKE]` — **Do NOT add a `queryFile:` key** (some older guides still show
 one). On Toolkit
-0.8.125 deploy resolves `queryFile` *literally* relative to `build/transformations/` —
+0.8.202 deploy resolves `queryFile` *literally* relative to `build/transformations/` —
 but build stages the SQL under the built YAML's prefixed stem, so
 `queryFile: tra_Training_TRN_Load_Assets.sql` points at a file that isn't there and
 deploy dies with `ToolkitFileNotFoundError: Query file
@@ -123,10 +123,23 @@ wide, stringly-typed scans joined late.
 ```yaml
 externalId: tra_<YOURNAME>_Training_TRN_Load_Equipment
 name: tra_<YOURNAME>_Training_TRN_Load_Equipment
+dataSetExternalId: dts_<YOURNAME>_Training_TRN
+ignoreNullFields: true
+conflictMode: upsert
+isPublic: true
 destination:
   type: nodes
-  view: { space: cdf_cdm, externalId: CogniteEquipment, version: v1 }
+  view:
+    space: cdf_cdm
+    externalId: CogniteEquipment
+    version: v1
   instanceSpace: isp_<YOURNAME>_TRN
+authentication:
+  clientId: ${TRAINING_CDF_CLIENT_ID}
+  clientSecret: ${TRAINING_CDF_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}
 ```
 
 (`dataSetExternalId`, `ignoreNullFields`, `conflictMode`, `isPublic`, and
@@ -186,16 +199,28 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_TimeSeries`
 ## 5.5 [WRITE] Transform 4 — Load Work Orders
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_WorkOrders.Transformation.yaml`
-— same shape (unscoped filename, no `queryFile`), `destination.view` → your own `viw_WorkOrder_edm`:
+— same shape (unscoped filename, no `queryFile`), `destination.view` → your own `WorkOrder`:
 
 ```yaml
+externalId: tra_<YOURNAME>_Training_TRN_Load_WorkOrders
+name: tra_<YOURNAME>_Training_TRN_Load_WorkOrders
+dataSetExternalId: dts_<YOURNAME>_Training_TRN
+ignoreNullFields: true
+conflictMode: upsert
+isPublic: true
 destination:
   type: nodes
   view:
     space: ssp_<YOURNAME>_TrainingCore_edm
-    externalId: viw_WorkOrder_edm
+    externalId: WorkOrder
     version: v1.0.0
   instanceSpace: isp_<YOURNAME>_TRN
+authentication:
+  clientId: ${TRAINING_CDF_CLIENT_ID}
+  clientSecret: ${TRAINING_CDF_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}
 ```
 
 📝 `[WRITE]` `tra_Training_TRN_Load_WorkOrders.sql`:
@@ -219,12 +244,12 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_WorkOrders`
 ```
 
 This is your first transform writing into a **custom** view instead of a bare CDM
-view — every property you defined on `con_SAP_edm` (§3.10) plus the CDM-inherited
+view — every property you defined on `WorkOrder` (§3.11) plus the CDM-inherited
 `name`, `description`, `assets`, `scheduledStartTime`, `scheduledEndTime` from
 `CogniteActivity` (§3.5), all in one `select`.
 
 - `externalId` is set to `workOrderNumber` itself — the business key doubles as the
-  node identity here, which is why `con_SAP_edm` also enforces a uniqueness
+  node identity here, which is why `WorkOrder` also enforces a uniqueness
   constraint on `workOrderNumber` (§3.7): two mechanisms protecting the same
   invariant.
 - `upper(trim(...))` on `status` — defensive normalization against source-system
@@ -248,7 +273,211 @@ someone queries `where currency is null` and gets zero rows they expected.
 
 ---
 
-## 5.6 [LIMITS] and [OPTIMIZE]
+## 5.6 [WRITE] Transform 5 — Work-order operations, and four ways SQL lies to you
+
+The four transformations above each read one RAW table. Real pipelines join, and the
+moment you join, a new class of bug appears: the kind that reports **success** and
+quietly gives you the wrong number of rows.
+
+This transformation loads **work-order operations** — the individual jobs that make up
+one work order — from `rwt_Training_TRN_WorkOrderOperations`, joined to the work orders
+you loaded in §5.5. Eight source rows go in. Six nodes come out. That is correct, and
+by the end of this section you will be able to say exactly why.
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.yaml`
+
+```yaml
+dbName: rwd_<YOURNAME>_Training_TRN
+tableName: rwt_Training_TRN_WorkOrderOperations
+```
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.csv`
+
+```csv
+key,operationNumber,workOrderNumber,tagExternalId,description,durationHours,craft
+OP-1001-0010,0010,WO-1001,21-PA-2001A,Isolate and drain export pump A,4,MECH
+OP-1001-0020,0020,WO-1001,21-PA-2001A,Replace mechanical seal cartridge,8,MECH
+OP-1001-0020-REV,0020,WO-1001,21-PA-2001A,Replace mechanical seal cartridge (revised scope),10,MECH
+OP-1001-0030,0030,WO-1001,21-XX-9999,Replace outboard bearing,5,MECH
+OP-1002-0010,0010,WO-1002,21-VG-2001,Calibrate transmitter loop,3,INST
+OP-1003-0010,0010,WO-1003,21-VG-2001,Open manway and inspect internals,12,MECH
+OP-1003-BLANK,,WO-1003,21-VG-2001,Close manway and pressure test,6,MECH
+OP-9999-0010,0010,WO-9999,21-PA-2001A,Operation left behind by a deleted work order,2,MECH
+```
+
+ℹ️ `[INFO]` Four of those eight rows are deliberately damaged, in four different ways.
+This is what a real SAP extract looks like on a Tuesday.
+
+### 5.6.1 The INNER JOIN that deletes your data
+
+The obvious query joins operations to their work order to pick up the title:
+
+```sql
+from      `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_WorkOrderOperations` o
+inner join `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_WorkOrders`         w
+        on o.`workOrderNumber` = w.`workOrderNumber`
+```
+
+`OP-9999-0010` belongs to `WO-9999`, which does not exist. An `INNER JOIN` drops it —
+**no error, no warning, one fewer row than you expected.**
+
+⚠️ `[COMMON MISTAKE]` Reaching for `INNER JOIN` by reflex. Use `LEFT JOIN` while you are
+developing, precisely so unmatched rows stay visible, then decide deliberately whether
+to keep or exclude them. The choice should be yours, not the join's.
+
+### 5.6.2 The duplicate external ID that fails the whole batch
+
+`OP-1001-0020` and `OP-1001-0020-REV` are an operation and its revision. Both derive the
+same external ID `WO-1001-0020`, and CDF rejects the entire request:
+
+```
+Duplicate node externalIds for space 'isp_<YOURNAME>_TRN' present in request: WO-1001-0020
+```
+
+⚠️ `[COMMON MISTAKE]` Reaching for `DISTINCT`. It cannot help — the rows genuinely
+differ, that is the point. You must *choose* a winner:
+
+```sql
+row_number() over (partition by opExternalId order by sourceKey desc) as rn
+...
+where rn = 1
+```
+
+`ORDER BY` inside the window is where you encode the business rule: newest wins, highest
+revision wins, most complete wins. Make it explicit; a future reader cannot guess it.
+
+### 5.6.3 The NULL that eats your external ID
+
+`OP-1003-BLANK` has no `operationNumber`. In Spark, `concat()` returns **NULL** if any
+argument is NULL — so the external ID for that row is not `"WO-1003-"`, it is nothing at
+all, and the row fails to ingest.
+
+```sql
+concat(
+  nullif(trim(cast(o.`workOrderNumber`  as STRING)), ''),
+  '-',
+  nullif(trim(cast(o.`operationNumber` as STRING)), '')
+) as opExternalId
+...
+where opExternalId is not null
+```
+
+`nullif(trim(x), '')` turns the blank cells RAW hands you into real NULLs, so the guard
+can catch them. Without it, an empty string sails through and you create a node with a
+malformed ID that nothing will ever match.
+
+💡 `[GOOD TO KNOW]` Filtering the row out is the *right* behaviour — but log it. A
+silently discarded record and a correctly excluded record look identical from the
+outside. [Chapter 14](14-debugging-broken-links.md) §14.5 shows you how to find them.
+
+### 5.6.4 The reference that points at nothing
+
+`OP-1001-0030` names asset `21-XX-9999`, which does not exist.
+
+```sql
+array(node_reference('isp_<YOURNAME>_TRN', tagExternalId)) as assets
+```
+
+`node_reference()` builds a reference out of a string. It does **not** check that the
+string names anything — and what happens next surprises most people:
+
+> `auto_create_direct_relations` defaults to **True**. CDF does not reject the bad
+> reference and does not leave it dangling. It **creates** `21-XX-9999` as a bare node
+> with no properties at all.
+
+So after this runs you have a brand-new asset in your graph that nobody designed, which
+is invisible through `CogniteAsset` (it has no data in any container that view maps) but
+perfectly real in the registry. Your asset count stays at 8; your node count goes up.
+
+⚠️ `[COMMON MISTAKE]` Assuming a typo'd reference will fail loudly, or at least leave a
+detectably broken link. It does neither. This is the single most silent failure in the
+whole course, and hunting it is the first thing you do in
+[Chapter 14](14-debugging-broken-links.md) §14.3.
+
+You cannot fix this one in SQL: nothing about the row is malformed. The data is simply
+wrong, and it has to be fixed at the source.
+
+### 5.6.5 The leading zeros RAW silently ate
+
+One more, and it is the kind that survives review because the output *looks* fine.
+
+SAP operation numbers are `0010`, `0020`, `0030`. Your CSV says exactly that. But RAW
+**infers types on upload**, sees a column of digits, and stores it as an **integer** —
+so `0010` comes back as `10`, and `cast(... as STRING)` gives you `"10"`.
+
+Your external IDs become `WO-1001-10` instead of `WO-1001-0010`: still unique, still
+functional, and no longer matching the source system anybody will cross-reference them
+against.
+
+```sql
+lpad(nullif(trim(cast(o.`operationNumber` as STRING)), ''), 4, '0')
+```
+
+✅ `[VERIFY]` Read the RAW row back and look at the Python type, not the rendering:
+
+```python
+row = client.raw.rows.retrieve(db_name=f"rwd_{YOURNAME}_Training_TRN",
+                               table_name="rwt_Training_TRN_WorkOrderOperations",
+                               key="OP-1001-0010")
+print(repr(row.columns["operationNumber"]), type(row.columns["operationNumber"]))
+```
+
+You will see `10 <class 'int'>`, not `'0010'`.
+
+💡 `[GOOD TO KNOW]` This applies to anything zero-padded: cost centres, well numbers,
+ISO codes, phone numbers. If a leading zero carries meaning, either pad it back
+explicitly as above, or make sure the source writes a value RAW cannot read as a number.
+
+### 5.6.6 The finished transformation
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations.Transformation.yaml`
+
+```yaml
+externalId: tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations
+name: tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations
+dataSetExternalId: dts_<YOURNAME>_Training_TRN
+ignoreNullFields: true
+conflictMode: upsert
+isPublic: true
+queryFile: tra_Training_TRN_Load_WorkOrderOperations.sql
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteActivity
+    version: v1
+  instanceSpace: isp_<YOURNAME>_TRN
+authentication:
+  clientId: ${TRAINING_CDF_CLIENT_ID}
+  clientSecret: ${TRAINING_CDF_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}
+```
+
+📝 `[WRITE]` `.../transformations/tra_Training_TRN_Load_WorkOrderOperations.sql` — the
+full query is in the reference module at
+`training/modules/reference/transformations/`, with every clause commented against the
+subsection it came from. Type it yourself; the comments are the lesson.
+
+✅ `[VERIFY]` After running it:
+
+| Check | Expected |
+|---|---|
+| Source rows | 8 |
+| Nodes created | 6 |
+| Dropped for NULL external ID | 1 (`OP-1003-BLANK`) |
+| Dropped by deduplication | 1 (`OP-1001-0020-REV`) |
+| Kept but orphaned | 1 (`WO-9999-0010`) |
+| Kept, pointing at an autocreated phantom | 1 (`WO-1001-0030` → `21-XX-9999`) |
+| Activities in your space afterwards | 9 — 6 operations **plus** your 3 work orders |
+
+If you get 8 nodes, your NULL guard or your dedup is missing. If you get 5, you used an
+`INNER JOIN`. If the run fails outright, you have the duplicate ID.
+
+---
+
+## 5.7 [LIMITS] and [OPTIMIZE]
 
 🚧 `[LIMITS]`
 
@@ -262,23 +491,23 @@ someone queries `where currency is null` and gets zero rows they expected.
 ⚡ `[OPTIMIZE]`
 
 - **Idempotent loads**: `conflictMode: upsert` + `ignoreNullFields: true` means
-  re-running any of these four transforms any number of times converges to the same
+  re-running any of these five transforms any number of times converges to the same
   state — it never duplicates nodes and never wipes a property to null just because
   this run's `select` didn't include it. This is not an accident; it's why you can
   safely re-run the whole pipeline in [Chapter 12](12-workflows.md) without fear.
 - **Staging discipline**: RAW → Transformation → model, never source system →
   Transformation → model directly. If a transform ever fails, you still have the
   RAW rows to re-run against; you haven't lost provenance.
-- Avoid wide scans: every `select` above reads exactly one RAW table with no joins.
-  The moment you *do* need a join (you won't, in this lab), filter each side down
-  before joining, not after.
+- Avoid wide scans: the first four transforms read exactly one RAW table each. The
+  fifth (§5.6) joins two — and when you join, filter each side down **before** the
+  join, not after, or you pay for rows you are about to discard.
 
 📚 `[DOCS]` https://docs.cognite.com/cdf/integration/guides/transformation/write_sql_queries ·
 https://docs.cognite.com/cdf/integration/guides/transformation/troubleshooting
 
 ---
 
-## 5.7 [ACTION] Build, deploy, run
+## 5.8 [ACTION] Build, deploy, run
 
 ```bash
 uv run cdf build --config-yaml training/config.<YOURNAME>-training.yaml
@@ -295,10 +524,31 @@ relations once the target exists).
 ✅ `[VERIFY]`
 
 ```python
+import os
 from cognite.client import CogniteClient
+from cognite.client.config import ClientConfig
+from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
+
+def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
+    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    read .env -- the SDK dropped implicit construction in v8."""
+    base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
+    scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
+    if os.environ.get("LOGIN_FLOW", "interactive").lower() == "interactive":
+        creds = OAuthInteractive(authority_url=os.environ["IDP_AUTHORITY_URL"],
+                                 client_id=os.environ["IDP_CLIENT_ID"], scopes=scopes)
+    else:
+        creds = OAuthClientCredentials(token_url=os.environ["IDP_TOKEN_URL"],
+                                       client_id=os.environ["IDP_CLIENT_ID"],
+                                       client_secret=os.environ["IDP_CLIENT_SECRET"],
+                                       scopes=scopes)
+    return CogniteClient(ClientConfig(client_name=client_name,
+                                      project=os.environ["CDF_PROJECT"],
+                                      base_url=base, credentials=creds))
+
 from cognite.client.data_classes.data_modeling import ViewId
 
-client = CogniteClient()
+client = cdf_client()   # see Chapter 07 §7.3
 space = "isp_<YOURNAME>_TRN"
 
 for view_id, expected in [

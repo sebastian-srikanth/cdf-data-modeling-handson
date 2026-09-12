@@ -1,4 +1,4 @@
-"""Parse the pump datasheet PDF into viw_EquipmentHealthProfile_sdm."""
+"""Parse the pump datasheet PDF into EquipmentHealthProfile."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         else:
             parsed[key] = raw
 
-    v_wo = ViewId(schema_edm, "viw_WorkOrder_edm", model_version)
+    v_wo = ViewId(schema_edm, "WorkOrder", model_version)
     work_orders = client.data_modeling.instances.list(
         instance_type="node",
         sources=[v_wo],
@@ -87,9 +87,15 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         if "21-PA-2001A" in asset_ids and status != "CLOSED":
             open_count += 1
 
-    v_ehp = ViewId(schema_sdm, "viw_EquipmentHealthProfile_sdm", model_version)
+    v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", model_version)
     v_eq = ViewId("cdf_cdm", "CogniteEquipment", "v1")
     ehp_props = {
+        # EquipmentHealthProfile implements CogniteDescribable, so the view
+        # references TWO containers. The implicit hasData filter requires data in
+        # BOTH: without name/description here the node exists in the registry but
+        # the view returns nothing. See Chapter 03 §3.8b.
+        "name": "Health profile — 21-PA-2001A",
+        "description": "Parsed datasheet specs and open work-order rollup for export pump A.",
         "asset": DirectRelationReference(space, "21-PA-2001A"),
         "equipment": DirectRelationReference(space, "EQ-1002"),
         "datasheetFile": DirectRelationReference(space, file_xid),

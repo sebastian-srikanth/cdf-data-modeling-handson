@@ -11,7 +11,7 @@ A CDF project can host many data models and many participants' data side by side
 Without a location filter, opening Search/Explore shows *everything* the model
 allows — every participant's `TRN-FPSO`, all at once, indistinguishable from each
 other except by inspecting the space of every node. A **location filter** gives end
-users (and you, in [Chapter 13](13-cross-cutting-mastery.md)'s aha-moment walkthrough)
+users (and you, in [Chapter 16](16-cross-cutting-mastery.md)'s aha-moment walkthrough)
 a named, scoped entry point: "show me only this instance space, through this data
 model."
 
@@ -23,15 +23,15 @@ on," not "what can a user access."
 
 ## 6.2 [INFO] Why it points at the *solution* model
 
-Recall §3.4: `dam_MaintenanceInsight_sdm` is the narrow, curated surface for one use
-case; `dam_TrainingCore_edm` is the broad enterprise surface. A location filter is a
+Recall §3.4: `MaintenanceInsight` is the narrow, curated surface for one use
+case; `TrainingCore` is the broad enterprise surface. A location filter is a
 **product decision** about what an end user should land on — and the answer is
 almost always the narrow, purpose-built surface, not the broad enterprise one.
 Pointing it at the enterprise model here would hand every viewer the full 10-view
 surface (including 3D CAD views this use case doesn't need) instead of the 8-view
 "Rotating-Equipment Maintenance Insight" product you actually built for.
 
-⚠️ `[COMMON MISTAKE]` Pointing your location filter at `dam_TrainingCore_edm` because
+⚠️ `[COMMON MISTAKE]` Pointing your location filter at `TrainingCore` because
 "it has more stuff." More views is not more useful to the end user you're building
 for — it's noise relative to the one use case the solution model was designed around.
 
@@ -50,7 +50,7 @@ instanceSpaces:
   - isp_<YOURNAME>_TRN
 dataModels:
   - space: ssp_<YOURNAME>_MaintenanceInsight_sdm
-    externalId: dam_MaintenanceInsight_sdm
+    externalId: MaintenanceInsight
     version: v1.0.0
 ```
 
@@ -85,7 +85,7 @@ https://docs.cognite.com/llms.txt if this section of the docs has moved by the t
 you read this).
 
 ⚠️ `[COMMON MISTAKE]` Building the location filter *before* Chapter 03's data model
-is deployed. The Toolkit will complain it can't resolve `dam_MaintenanceInsight_sdm`
+is deployed. The Toolkit will complain it can't resolve `MaintenanceInsight`
 — location filters are a downstream, scoping resource, never the first thing you
 deploy.
 

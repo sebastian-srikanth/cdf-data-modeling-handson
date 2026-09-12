@@ -1,8 +1,11 @@
 space: {{ schema_space_edm }}
-externalId: viw_WorkOrder_edm
+externalId: WorkOrder
 version: {{ model_version }}
 name: WorkOrder
-description: Enterprise work-order view implementing CogniteActivity (training).
+description: >-
+  Enterprise work-order view. Implements CogniteActivity so work orders appear
+  on timelines and in Charts alongside every other dated activity, and adds the
+  SAP PM fields on top. Query this, not the container.
 implements:
   - space: cdf_cdm
     externalId: CogniteActivity
@@ -12,42 +15,42 @@ properties:
   workOrderNumber:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: workOrderNumber
   status:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: status
   orderType:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: orderType
   priority:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: priority
   actualCost:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: actualCost
   currency:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: currency
   sourceSystem:
     container:
       space: {{ schema_space_edm }}
-      externalId: con_SAP_edm
+      externalId: WorkOrder
       type: container
     containerPropertyIdentifier: sourceSystem

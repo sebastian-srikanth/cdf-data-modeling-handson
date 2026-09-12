@@ -6,5 +6,5 @@ instanceSpaces:
   - {{ instance_space }}
 dataModels:
   - space: {{ schema_space_sdm }}
-    externalId: dam_MaintenanceInsight_sdm
+    externalId: MaintenanceInsight
     version: {{ model_version }}

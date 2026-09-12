@@ -1,9 +1,18 @@
 space: {{ schema_space_edm }}
-externalId: dam_TrainingCore_edm
+externalId: TrainingCore
 version: {{ model_version }}
 name: {{ participant }} Training Core EDM
-description: Enterprise data model — CDM core plus custom WorkOrder view.
+description: >-
+  Enterprise data model — the Cognite Core Data Model plus one custom view,
+  WorkOrder. Owned by the participant. The view order below is for the human
+  reading this file - DMS does not preserve it. See Chapter 03 §3.4.
 views:
+  # Your own views first, for the reader. The API returns them in its own order.
+  - space: {{ schema_space_edm }}
+    externalId: WorkOrder
+    version: {{ model_version }}
+    type: view
+  # Then the inherited CDM views, in the order a reader meets them.
   - space: cdf_cdm
     externalId: CogniteAsset
     version: v1
@@ -43,8 +52,4 @@ views:
   - space: cdf_cdm
     externalId: CogniteCADNode
     version: v1
-    type: view
-  - space: {{ schema_space_edm }}
-    externalId: viw_WorkOrder_edm
-    version: {{ model_version }}
     type: view

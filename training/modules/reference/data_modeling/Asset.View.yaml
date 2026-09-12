@@ -1,0 +1,61 @@
+space: {{ schema_space_sdm }}
+externalId: Asset
+version: {{ model_version }}
+name: Asset
+description: >-
+  Solution view of a functional location. Everything CogniteAsset already gives
+  you, plus the two things the core view cannot: the pump's health profile,
+  reached *backwards* through EquipmentHealthProfile.asset, and the P&ID
+  annotations that resolved to this tag. Neither adds a container — connection
+  properties live only in the view.
+implements:
+  - space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+    type: view
+properties:
+  # --- reverse direct relation ------------------------------------------------
+  # EquipmentHealthProfile.asset points AT this asset. A reverse direct relation
+  # lets you walk that pointer backwards, which a plain direct relation cannot do.
+  # `single_` because one asset has at most one health profile; the value still
+  # comes back as a list (see Chapter 03 §3.9).
+  healthProfile:
+    connectionType: single_reverse_direct_relation
+    name: Health profile
+    description: The EquipmentHealthProfile whose asset property points at this asset.
+    source:
+      space: {{ schema_space_sdm }}
+      externalId: EquipmentHealthProfile
+      version: {{ model_version }}
+      type: view
+    through:
+      source:
+        space: {{ schema_space_sdm }}
+        externalId: EquipmentHealthProfile
+        version: {{ model_version }}
+        type: view
+      identifier: asset
+
+  # --- edge connection --------------------------------------------------------
+  # Chapter 08 writes edges of type cdf_cdm:diagrams.AssetLink from the P&ID file
+  # to each asset it mentions. Declaring the connection here makes those edges
+  # traversable from the asset end, and tells applications what sits on either
+  # side. direction: inwards because the asset is the END node.
+  diagramAnnotations:
+    connectionType: multi_edge_connection
+    name: Diagram annotations
+    description: P&ID tag detections that resolved to this asset.
+    type:
+      space: cdf_cdm
+      externalId: diagrams.AssetLink
+    source:
+      space: cdf_cdm
+      externalId: CogniteFile
+      version: v1
+      type: view
+    edgeSource:
+      space: cdf_cdm
+      externalId: CogniteDiagramAnnotation
+      version: v1
+      type: view
+    direction: inwards

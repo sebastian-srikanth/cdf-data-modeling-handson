@@ -73,17 +73,17 @@ so we can tell "nothing to add" apart from "ran out of time".
 **What I'd have to look up again:**
 **Question I still have:**
 
-## Ch 13 — Cross-cutting mastery
+## Ch 15 — Cross-cutting mastery
 **What clicked:**
 **What I'd have to look up again:**
 **Question I still have:**
 
-## Ch 14 — PR & merge
+## Ch 16 — PR & merge
 **What clicked:**
 **What I'd have to look up again:**
 **Question I still have:**
 
-## Ch 15 — Teardown
+## Ch 17 — Teardown
 **What clicked:**
 **What I'd have to look up again:**
 **Question I still have:**

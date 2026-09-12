@@ -7,4 +7,3 @@ directory: /{{ participant }}/TRN/training
 assets:
   - space: "{{ instance_space }}"
     externalId: TRN-21-SEP
-$FILEPATH: TRN-21-SEP-PID.pdf

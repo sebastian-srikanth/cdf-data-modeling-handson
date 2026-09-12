@@ -1,0 +1,91 @@
+space: {{ schema_space_edm }}
+externalId: WorkOrder
+name: WorkOrder
+description: >-
+  Physical storage for SAP PM work-order properties. Holds the maintenance
+  history that explains why a pump's condition changed. Example instance:
+  work order WO-1001, a seal replacement on pump 21-PA-2001A.
+usedFor: node
+properties:
+  workOrderNumber:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: false
+    name: Work order number
+    description: SAP PM work-order number, unique per site. Example "WO-1001".
+  status:
+    type:
+      type: enum
+      values:
+        OPEN:
+          name: Open
+        IN_PROGRESS:
+          name: In progress
+        CLOSED:
+          name: Closed
+    nullable: true
+    name: Status
+    description: Lifecycle state of the order. One of OPEN, IN_PROGRESS, CLOSED.
+  orderType:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    name: Order type
+    description: SAP order type. Example "PM01" (corrective), "PM02" (preventive).
+  priority:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Priority
+    description: 1 is most urgent, 4 least. Example 1.
+  actualCost:
+    type:
+      type: float64
+      list: false
+    nullable: true
+    name: Actual cost
+    description: Booked cost of the completed work, in the currency below [EUR]. Example 18500.
+  currency:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    name: Currency
+    description: ISO 4217 code for actualCost. Example "EUR".
+  sourceSystem:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    immutable: true
+    name: Source system
+    description: >-
+      System of record this order was extracted from. Immutable — a record's
+      origin never changes. Example "SAP-PM".
+constraints:
+  # Chapter 03 §3.7 — a view that implements another view should always have a
+  # requires constraint from its own container to the implemented container.
+  # It guarantees the data is co-located, so a query needs one fewer JOIN.
+  requiresCogniteActivity:
+    constraintType: requires
+    require:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+  uniqueWorkOrderNumber:
+    constraintType: uniqueness
+    properties:
+      - workOrderNumber
+indexes:
+  statusIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - status

@@ -17,7 +17,7 @@ expected, not an omission:** RAW tables live inside your RAW *database*, and DMS
 
 ⚠️ `[COMMON MISTAKE]` Assuming you can delete a data set in teardown. **You can't —
 CDF has no hard delete for data sets.** The best you can do is *archive* it (if your
-ACL allows), which is why [teardown](15-teardown.md) treats "data set still present but
+ACL allows), which is why [teardown](18-teardown.md) treats "data set still present but
 archived" as an acceptable end state, not a failure.
 
 ---
@@ -96,6 +96,11 @@ WO-1003,WO-1003,Internal inspection of separator 21-VG-2001,Scheduled internal i
 ```
 
 Note `WO-1002`'s `actualCost` is **empty** — also deliberate, see §4.5.
+
+ℹ️ `[INFO]` A **fifth** table, `rwt_Training_TRN_WorkOrderOperations`, arrives in
+[Chapter 05](05-transformations.md) §5.6. It is held back deliberately: it is the one
+table whose rows are damaged on purpose, and it only makes sense once you have a clean
+pipeline to contrast it against.
 
 ---
 
@@ -198,7 +203,7 @@ description: P&ID for Area 21 separation system.
 mimeType: application/pdf
 directory: /<YOURNAME>/TRN/training
 assets:
-  - space: isp_<YOURNAME>_TRN
+  - space: "isp_<YOURNAME>_TRN"
     externalId: TRN-21-SEP
 ```
 
@@ -212,7 +217,7 @@ description: Equipment datasheet for crude export pump 21-PA-2001A.
 mimeType: application/pdf
 directory: /<YOURNAME>/TRN/training
 assets:
-  - space: isp_<YOURNAME>_TRN
+  - space: "isp_<YOURNAME>_TRN"
     externalId: 21-PA-2001A
 ```
 
@@ -242,7 +247,7 @@ are located and uploaded at deploy — no special key.
 
 🛑 `[COMMON MISTAKE]` — **Do NOT add a `$FILEPATH:` key** (some older guides still show
 one). On Toolkit
-0.8.125 `$FILEPATH` takes precedence and is resolved *literally, relative to the YAML's
+0.8.202 `$FILEPATH` takes precedence and is resolved *literally, relative to the YAML's
 own directory* — but build renamed the staged binary, so at deploy
 `$FILEPATH: TRN-21-SEP-PID.pdf` resolves to `build/files/TRN-21-SEP-PID.pdf`, which no
 longer exists. Deploy then dies with

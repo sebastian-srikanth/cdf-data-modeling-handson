@@ -1,0 +1,43 @@
+name: checks
+
+# Offline only: no credentials, no network calls to CDF. Runs in seconds on every push
+# and pull request, and is the gate that stops a chapter silently drifting from the
+# reference module it teaches.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Documentation and notebook checks
+        run: uv run python tools/check_docs.py
+
+      # Installed explicitly so a puppeteer/Chromium problem fails here, visibly,
+      # instead of looking like a broken diagram.
+      - name: Install mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli@11
+
+      - name: Mermaid diagrams render
+        run: uv run python tools/check_mermaid.py
+
+      - name: Toolkit build (structure only, no CDF verification)
+        run: uv run cdf build --config-yaml training/config.REFERENCE-training.yaml
+        env:
+          CI: "true"

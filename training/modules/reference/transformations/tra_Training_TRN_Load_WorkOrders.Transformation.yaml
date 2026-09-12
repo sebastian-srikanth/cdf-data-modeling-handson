@@ -4,12 +4,11 @@ dataSetExternalId: {{ dataset }}
 ignoreNullFields: true
 conflictMode: upsert
 isPublic: true
-queryFile: tra_Training_TRN_Load_WorkOrders.sql
 destination:
   type: nodes
   view:
     space: {{ schema_space_edm }}
-    externalId: viw_WorkOrder_edm
+    externalId: WorkOrder
     version: {{ model_version }}
   instanceSpace: {{ instance_space }}
 authentication:

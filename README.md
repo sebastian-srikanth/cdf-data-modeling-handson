@@ -46,15 +46,28 @@ uv run cdf auth verify --dry-run
 | [10 — Datasheet parsing](docs/10-datasheet-parsing.md) | Regex vs. the agentic Document Parser API |
 | [11 — Datapoints](docs/11-datapoints.md) | 4,320 datapoints — the degradation story becomes visible |
 | [12 — Workflows](docs/12-workflows.md) | The whole pipeline running as one DAG |
-| [13 — Cross-cutting mastery](docs/13-cross-cutting-mastery.md) | Idempotency, observability, cost |
-| [14 — PR & merge](docs/14-pr-and-merge.md) | A PR scoped so tightly a dozen could merge at once |
-| [15 — Teardown](docs/15-teardown.md) | Your resources removed cleanly |
+| [13 — Querying the graph](docs/13-querying-the-graph.md) | Ask the graph real questions — traversal, filters, aggregates, sync |
+| [14 — Debugging broken links](docs/14-debugging-broken-links.md) | Find what is quietly wrong, trace it to source, and undo a bad delete |
+| [15 — Atlas AI agent](docs/15-atlas-ai-agent.md) | Point an agent at your model and see every Chapter 03 decision pay off |
+| [16 — Cross-cutting mastery](docs/16-cross-cutting-mastery.md) | Idempotency, observability, cost |
+| [17 — PR & merge](docs/17-pr-and-merge.md) | A PR scoped so tightly a dozen could merge at once |
+| [18 — Teardown](docs/18-teardown.md) | Your resources removed cleanly |
 
 Chapters that introduce a Cognite Function always meet the capability in a **Jupyter
 notebook** first — raw SDK calls, cell by cell — before it is packaged into a
 `handler.py`.
 
 ---
+
+## Check your own work
+
+```bash
+PARTICIPANT=<YOURNAME> uv run python tools/selfcheck.py 03
+```
+
+Every chapter's Gate is executable. `selfcheck.py` asks CDF what you actually deployed and
+prints PASS/FAIL per item, so you never have to guess whether you are ready to move on.
+See [tools/README.md](tools/README.md).
 
 ## Running this alone vs. running it for a team
 
@@ -63,13 +76,13 @@ The course was built for a cohort — every participant works in
 (Chapter 01) lets a dozen people build the *same* model in the *same* CDF project
 without a single collision.
 
-**Alone**, that still works — you are simply a cohort of one. Chapter 14 has you open
+**Alone**, that still works — you are simply a cohort of one. Chapter 17 has you open
 the PR against your own fork or branch and merge it yourself.
 
 **For a team**, the isolation model is the point: one CDF project, one repo, N
 participants, zero collisions. Everyone clones this repo, picks a unique `YOURNAME`,
 and works through the same chapters — Chapter 01 explains why that does not collide,
-and Chapter 14 explains why the pull requests don't either.
+and Chapter 17 explains why the pull requests don't either.
 
 ---
 
@@ -80,12 +93,12 @@ README.md            You are here
 PREREQUISITES.md     Access and tooling you need before Chapter 00
 .env.example         Copy to .env and fill in — Chapter 00 walks you through it
 cdf.toml             Toolkit config — organization dir is training/
-pyproject.toml       Pins cognite-toolkit 0.8.125
+pyproject.toml       Pins cognite-toolkit 0.8.202
 
 docs/                THE COURSE
 ├── README.md          Start here
-├── 00-…md … 15-…md    16 chapters, in order
-├── notebooks/         6 Jupyter notebooks (chapters 07–11, 15)
+├── 00-…md … 18-…md    19 chapters, in order
+├── notebooks/         9 Jupyter notebooks (chapters 07–11, 13–15, 18)
 ├── assets/            The P&ID, datasheet and 3D model you load
 └── templates/         NOTES.md / FEEDBACK.md, seeded in Chapter 01
 
@@ -105,12 +118,13 @@ training/            The Cognite Toolkit organization directory
 ## Teardown
 
 Every resource this course creates can be removed — see
-[Chapter 15](docs/15-teardown.md), which walks through it with an SDK notebook and
+[Chapter 18](docs/18-teardown.md), which walks through it with an SDK notebook and
 `cdf` commands. Entity-matching models are global to a project: if you create one, you
 must delete it.
 
 ---
 
-*Last validated against cognite-toolkit 0.8.125 and the Python 3.11 Function runtime.
+*Last validated September 2026 against cognite-toolkit 0.8.202, cognite-sdk 8.14 and the
+Python 3.11 Function runtime.
 The Document Parser API used in Chapter 10 is a Cognite public-preview capability and
 may change — check the current Cognite documentation before relying on it.*

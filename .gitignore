@@ -29,3 +29,11 @@ venv/
 .vscode/
 .idea/
 *.swp
+
+# mkdocs build output
+site/
+
+# Participant modules are each learner's own work, and CI generates throwaway ones.
+# The reference module is the thing this repo ships.
+training/modules/participants/*
+!training/modules/participants/README.md

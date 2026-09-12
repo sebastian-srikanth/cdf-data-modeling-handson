@@ -51,7 +51,7 @@ this clone.
 
 ⚠️ `[COMMON MISTAKE]` Downloading a ZIP of the repo from GitHub's web UI instead of
 `git clone`. You need real git history and a real remote to open a PR later
-([Chapter 14](14-pr-and-merge.md)) — a ZIP download gives you neither.
+([Chapter 17](17-pr-and-merge.md)) — a ZIP download gives you neither.
 
 ---
 
@@ -71,9 +71,9 @@ grep function_runtime training/modules/reference/default.config.yaml
 You should see:
 
 ```
-cognite-toolkit==0.8.125
+cognite-toolkit==0.8.202
 requires-python = ">=3.12,<3.14"
-version = "0.8.125"
+version = "0.8.202"
 function_runtime: py311
 ```
 
@@ -119,7 +119,7 @@ uv sync
 uv run cdf --version
 ```
 
-Expected output contains `0.8.125`. If you see a different version, you are not
+Expected output contains `0.8.202`. If you see a different version, you are not
 running inside this repo's venv — re-run `uv sync` from the repo root.
 
 💡 `[GOOD TO KNOW]` The generic Cognite docs show `pip install cognite-toolkit` or
@@ -144,7 +144,7 @@ default_organization_dir = "training"
 default_env = "REFERENCE-training"
 
 [modules]
-version = "0.8.125"
+version = "0.8.202"
 
 [plugins]
 run = true
@@ -168,7 +168,7 @@ checksum = "sha256:..."
 | `default_organization_dir` | Which top-level folder holds your modules and configs — `training/` in this repo. `cdf build` looks here unless you pass `--organization-dir` |
 | `default_env` | Which `config.<name>.yaml` to use when you omit `--config-yaml`. It points at the *reference* config, not yours. **You will always pass your own `--config-yaml training/config.<YOURNAME>-training.yaml` explicitly**, so this default never silently deploys the reference module over your work |
 | `[modules].version` | The Toolkit modules-schema version. Managed by `cdf modules upgrade` — never hand-edit |
-| `[plugins]` | Optional CLI subcommand families. `run` enables `cdf run function` / workflow execution helpers; `dump` enables `cdf dump` (pull resources from CDF into YAML); `data` enables `cdf data purge` (used in teardown, [Chapter 13](13-cross-cutting-mastery.md)) |
+| `[plugins]` | Optional CLI subcommand families. `run` enables `cdf run function` / workflow execution helpers; `dump` enables `cdf dump` (pull resources from CDF into YAML); `data` enables `cdf data purge` (used in teardown, [Chapter 16](16-cross-cutting-mastery.md)) |
 | `[alpha_flags]` | Feature-gated Toolkit capabilities still in alpha (search-config, data products, signals, streams, profiling). Irrelevant to this course — listed here because they're project-wide, not per-module |
 | `[library.cognite]` | Where `cdf modules add`-style community/reference modules get pulled from. You will not use this in this course |
 
@@ -285,7 +285,7 @@ The core command set you'll use throughout this course:
 | `cdf deploy --cdf-project <p> --dry-run` | Show what *would* change in CDF, changes nothing |
 | `cdf deploy --cdf-project <p>` | Apply the build to CDF |
 | `cdf clean --cdf-project <p>` | Delete the resources listed in the current `build/` |
-| `cdf data purge space <space>` | Manually-confirmed, destructive deletion of a space's instances (teardown only — [Chapter 13](13-cross-cutting-mastery.md)) |
+| `cdf data purge space <space>` | Manually-confirmed, destructive deletion of a space's instances (teardown only — [Chapter 16](16-cross-cutting-mastery.md)) |
 
 ✅ `[VERIFY]` — prove the CLI and the build machinery are wired, without touching your
 own module yet:
@@ -296,6 +296,15 @@ uv run cdf build --help
 
 You should see the `cdf build` options print. That confirms the Toolkit's build command
 is installed and runnable.
+
+⚠️ `[COMMON MISTAKE]` Panicking at *"there are critical errors that must be fixed
+before deployment"* on a build. Read the insight text before you believe it. From
+Toolkit 0.8.2xx onward, a build that cannot reach CDF reports every unresolved
+`cdf_cdm:` reference as a **critical error** rather than a warning — and the fix it
+prints is *"Provide credentials to enable CDF verification."* Those views exist; your
+build simply could not look them up. Once your `.env` is in place (§0.6) they resolve
+and the build goes green. A genuine schema mistake reads very differently: it names
+your file and your property.
 
 ⚠️ `[COMMON MISTAKE]` Trying to smoke-test by building the one config that *is*
 committed, `training/config.REFERENCE-training.yaml`. That builds the **finished
@@ -348,7 +357,7 @@ You will author most of these rows across this course. Bookmark this table.
 **Do not proceed to Chapter 01 until:**
 
 - `git --version` works and you're inside your own clone of this repository
-- `uv run cdf --version` prints `0.8.125`
+- `uv run cdf --version` prints `0.8.202`
 - `uv run cdf auth verify --dry-run` reached `<your-cdf-project>` and listed
   your capabilities (the block *above* the group-update prompt — answering `n` to
   "update the group?" and the `subscribeSignalsAcl` warning are both expected)

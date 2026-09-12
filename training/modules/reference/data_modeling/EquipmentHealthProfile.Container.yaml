@@ -1,0 +1,136 @@
+space: {{ schema_space_sdm }}
+externalId: EquipmentHealthProfile
+name: EquipmentHealthProfile
+description: >-
+  Physical storage for the solution-layer health picture of one rotating
+  equipment item: nameplate specs parsed from its datasheet, plus a rolled-up
+  count of open work orders. Example instance: the health profile of
+  pump 21-PA-2001A.
+usedFor: node
+properties:
+  asset:
+    type:
+      type: direct
+      list: false
+    nullable: true
+    name: Asset
+    description: The functional location this profile describes. Example 21-PA-2001A.
+  equipment:
+    type:
+      type: direct
+      list: false
+    nullable: true
+    name: Equipment
+    description: The physical equipment item installed at that location.
+  datasheetFile:
+    type:
+      type: direct
+      list: false
+    nullable: true
+    name: Datasheet file
+    description: The datasheet PDF these specs were parsed from.
+  ratedFlowM3h:
+    type:
+      type: float64
+      list: false
+      unit:
+        externalId: volume_flow_rate:m3-per-hr
+        space: cdf_units
+    nullable: true
+    name: Rated flow
+    description: Nameplate volumetric flow at duty point [m3/h]. Example 250.0.
+  ratedHeadM:
+    type:
+      type: float64
+      list: false
+      unit:
+        externalId: length:m
+        space: cdf_units
+    nullable: true
+    name: Rated head
+    description: Nameplate differential head at duty point [m]. Example 95.0.
+  ratedPowerKw:
+    type:
+      type: float64
+      list: false
+      unit:
+        externalId: power:kilow
+        space: cdf_units
+    nullable: true
+    name: Rated power
+    description: Nameplate shaft power [kW]. Example 110.0.
+  designPressureBarg:
+    type:
+      type: float64
+      list: false
+      unit:
+        externalId: pressure:barg
+        space: cdf_units
+    nullable: true
+    name: Design pressure
+    description: Maximum design pressure [barg]. Example 19.0.
+  designTemperatureC:
+    type:
+      type: float64
+      list: false
+      unit:
+        externalId: temperature:deg_c
+        space: cdf_units
+    nullable: true
+    name: Design temperature
+    description: Maximum design temperature [degC]. Example 120.0.
+  dryWeightKg:
+    type:
+      type: float64
+      list: false
+      unit:
+        externalId: mass:kilogm
+        space: cdf_units
+    nullable: true
+    name: Dry weight
+    description: Shipping weight without process fluid [kg]. Example 1850.0.
+  casingMaterial:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    name: Casing material
+    description: Pump casing material of construction. Example "Duplex SS".
+  sealType:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+    name: Seal type
+    description: Mechanical seal arrangement. Example "Single cartridge".
+  openWorkOrderCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Open work order count
+    description: Work orders not yet CLOSED against this asset. Example 2.
+  lastParsedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    name: Last parsed time
+    description: When the datasheet was last read into this profile.
+constraints:
+  # This container's view implements CogniteDescribable, so it requires the
+  # CogniteDescribable container. See Chapter 03 §3.7.
+  requiresCogniteDescribable:
+    constraintType: requires
+    require:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+indexes:
+  assetIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - asset

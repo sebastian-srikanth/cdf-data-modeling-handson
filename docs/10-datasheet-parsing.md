@@ -6,7 +6,7 @@ regex, and the agentic Cognite Document Parser API — and understand why
 
 Both techniques converge on the exact same target: upserting node `ehp_21-PA-2001A`
 (literal externalId, isolated by your own space — never `YOURNAME`-scoped, per §1.2)
-into `viw_EquipmentHealthProfile_sdm`. The sequence is always: **model exists → file
+into `EquipmentHealthProfile`. The sequence is always: **model exists → file
 uploaded & matched → parse → verify the instance in the view.** You've already done
 the first two steps (Chapters 03, 04, 07) — this chapter is steps 3 and 4, twice.
 
@@ -96,7 +96,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         raw = m.group(1).strip()
         parsed[key] = float(raw) if key in NUMERIC_KEYS else raw
 
-    v_wo = ViewId(schema_edm, "viw_WorkOrder_edm", model_version)
+    v_wo = ViewId(schema_edm, "WorkOrder", model_version)
     work_orders = client.data_modeling.instances.list(instance_type="node", sources=[v_wo], space=space, limit=-1)
     open_count = 0
     for wo in work_orders:
@@ -106,8 +106,13 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         if "21-PA-2001A" in asset_ids and status != "CLOSED":
             open_count += 1
 
-    v_ehp = ViewId(schema_sdm, "viw_EquipmentHealthProfile_sdm", model_version)
+    v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", model_version)
     ehp_props = {
+        # hasData: this view implements CogniteDescribable, so a node with no
+        # name is invisible through the view even though the specs are stored.
+        # Chapter 03 §3.8b.
+        "name": "Health profile — 21-PA-2001A",
+        "description": "Parsed datasheet specs and open work-order rollup for export pump A.",
         "asset": DirectRelationReference(space, "21-PA-2001A"),
         "equipment": DirectRelationReference(space, "EQ-1002"),
         "datasheetFile": DirectRelationReference(space, file_xid),
@@ -138,7 +143,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 | `download_bytes(instance_id=NodeId(space, file_xid))` | Fetches the PDF bytes | `instance_id=` targets the **DMS node**. Straight into memory — a Function's filesystem is ephemeral, so there is no reason to touch disk |
 | `"\n".join(page.extract_text() or "" ...)` | Flattens every page to one string | The `or ""` matters: `extract_text()` returns `None` on an image-only page, and `None` would crash the join. This is also exactly where an OCR'd PDF fails — no text layer, so every pattern misses at once |
 | `if not m: missing.append(key)` | Records misses instead of failing | A datasheet legitimately may not state every field. Distinguishing "absent" from "broken" is the whole reason `missing_fields` is returned |
-| `v_wo = ViewId(schema_edm, "viw_WorkOrder_edm", model_version)` | Points at **your** view | Note it uses `schema_edm` from env, not a literal — the same code works for every participant |
+| `v_wo = ViewId(schema_edm, "WorkOrder", model_version)` | Points at **your** view | Note it uses `schema_edm` from env, not a literal — the same code works for every participant |
 | the `for wo in work_orders` loop | Counts open work orders on `21-PA-2001A` | **This is the point of the exercise.** No regex can find this in the PDF — it is a *relational* fact that exists only in the graph. Technique 2 cannot read it either |
 | `r.external_id if hasattr(r, "external_id") else r.get("externalId")` | Handles both shapes of a direct relation | The SDK returns a typed object in some paths and a plain dict in others |
 | `status != "CLOSED"` | Counts anything not closed as open | Deliberately permissive — an unexpected status counts as open. For a *health* metric, over-reporting risk is the safer error |
@@ -158,7 +163,7 @@ will be **rejected**. Always call `isoformat(timespec="milliseconds")`.
 ## 10.3 [OPTIMIZE] Description engineering — the real lever for Technique 2
 
 Before you touch the Document Parser API, understand this: `viewConfig` in the
-`start` call (§10.4) points at your `viw_EquipmentHealthProfile_sdm` view — and
+`start` call (§10.4) points at your `EquipmentHealthProfile` view — and
 **the view's property names and descriptions become the literal extraction schema**
 the model fills in. `userPrompt` only *steers* (tone, edge cases); the view *carries*
 the schema. This is the single highest-leverage thing you control in this whole
@@ -174,7 +179,7 @@ Compare what you deployed in Chapter 03 against a description-engineered version
 
 🟢 `[ACTION]` Enrich your container with descriptions before running Technique 2.
 
-📝 `[WRITE]` update `participants/<YOURNAME>/data_modeling/con_TRAINING_sdm.Container.yaml`
+📝 `[WRITE]` update `participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.Container.yaml`
 — add a `description:` to each spec property (`ratedFlowM3h`, `ratedHeadM`,
 `ratedPowerKw`, `designPressureBarg`, `designTemperatureC`, `dryWeightKg`,
 `casingMaterial`, `sealType`), following the pattern above: **state the unit,
@@ -229,7 +234,7 @@ DOCPARSER = f"/api/v1/projects/{client.config.project}/context/documentparser"
 # /jobs/start is single-job: a FLAT body, and it returns {jobId, status}
 # (not {"items": [...]}). The batch endpoint is POST /jobs with an items[] array.
 start_body = {
-    "viewConfig": {"space": schema_sdm, "externalId": "viw_EquipmentHealthProfile_sdm", "version": "v1.0.0"},
+    "viewConfig": {"space": schema_sdm, "externalId": "EquipmentHealthProfile", "version": "v1.0.0"},
     "files": [{"fileInstanceId": {"space": space, "externalId": file_xid}}],
     "node": {"space": space, "externalId": "ehp_21-PA-2001A"},
     "useVision": True,
@@ -272,10 +277,10 @@ for prop, answer in (result.get("rawResponses") or {}).items():
     print(f"  {prop}: value={answer.get('value')!r} page={answer.get('pageNum')} spatialData={answer.get('spatialData')}")
 ```
 
-Then persist the result. **`jobs/write` is INTERNAL and currently returns `500` on the
-training project**, so treat it as *best-effort* and never depend on it — you already
-hold every extracted value in `result["rawResponses"]`, so write them into the node
-yourself with the typed SDK (idempotent; the same `instances.apply` the Function uses):
+Then persist the result. **`jobs/write` is an internal endpoint with an undocumented
+request contract** — treat it as best-effort and never depend on it. You already hold
+every extracted value in `result["rawResponses"]`, so write them into the node yourself
+with the typed SDK (idempotent; the same `instances.apply` the Function uses):
 
 ```python
 from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData
@@ -300,22 +305,72 @@ for f in TEXT_FIELDS:
     if v not in (None, ""):
         props[f] = str(v)
 
-v_ehp = ViewId(schema_sdm, "viw_EquipmentHealthProfile_sdm", "v1.0.0")
+props["name"] = "Health profile — 21-PA-2001A"          # required by hasData (§3.8b)
+props["description"] = "Parsed datasheet specs and open work-order rollup for export pump A."
+
+# The three direct relations are the POINT of this view -- without them the profile
+# is a bag of numbers no query can reach from the asset. Chapter 03 §3.12 declares
+# `source:` on each of them, and Chapter 13 §13.5 walks `asset` backwards. Omit them
+# and that traversal returns 0 rows.
+props["asset"] = DirectRelationReference(space, "21-PA-2001A")
+props["equipment"] = DirectRelationReference(space, "EQ-1002")
+props["datasheetFile"] = DirectRelationReference(space, file_xid)
+
+# Nothing in CDF derives "count of open work orders" for you -- compute it (Ch 03 §3.11).
+v_wo = ViewId(schema_edm, "WorkOrder", "v1.0.0")
+open_count = 0
+for wo in client.data_modeling.instances.list(instance_type="node", sources=[v_wo],
+                                              space=space, limit=-1):
+    wp = wo.properties.get(v_wo, {})
+    ids = [r.external_id if hasattr(r, "external_id") else r.get("externalId")
+           for r in (wp.get("assets") or [])]
+    if "21-PA-2001A" in ids and str(wp.get("status") or "").upper() != "CLOSED":
+        open_count += 1
+props["openWorkOrderCount"] = open_count
+# CDF timestamp props allow 1-3 fractional digits only, never full microseconds.
+props["lastParsedTime"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", "v1.0.0")
 client.data_modeling.instances.apply(nodes=[NodeApply(
     space=space, external_id="ehp_21-PA-2001A",
     sources=[NodeOrEdgeData(source=v_ehp, properties=props)],
-)])
+)], auto_create_direct_relations=False)   # fail loudly rather than invent phantom nodes
 print("wrote:", sorted(props))
+print("open work orders on the pump:", open_count)
 ```
 
-🚧 `[LIMITS]` The `jobs/write` `500` is a **platform-side fault** on this preview
-endpoint (it recurs on fresh `Completed` jobs with a valid body), not a bug in your code
-— it is not enabled for your project. (It likely needs the job at `validation: approved`, for
-which no endpoint is currently exposed.) The fallback above
-reaches the same end state deterministically — which is the correct production posture:
-never hard-fail on a flaky internal endpoint when you already hold the data it would
-write. Instance writes are a property-level *merge* (`replace=False`), so this upsert
-keeps the relational fields Technique 1 wrote in §10.2.
+⚠️ `[COMMON MISTAKE]` Writing only the parsed specs and stopping. The node then exists,
+the view even returns it (because `name` satisfies `hasData`), and everything *looks*
+fine — but `asset`, `equipment` and `datasheetFile` are `None`, so the profile is
+unreachable from the pump. [Chapter 13](13-querying-the-graph.md) §13.5 walks
+`EquipmentHealthProfile.asset` backwards and returns **0 rows**; the `healthProfile`
+reverse direct relation you declared in [Chapter 03](03-data-modeling.md) §3.12 never
+resolves. A health profile that no asset can reach is not a health profile.
+
+✅ `[VERIFY]` Prove the relations landed, rather than trusting the write:
+
+```python
+ehp = client.data_modeling.instances.retrieve(
+    nodes=(space, "ehp_21-PA-2001A"), sources=v_ehp).nodes[0]
+p = ehp.properties[v_ehp]
+for key in ("asset", "equipment", "datasheetFile"):
+    assert p.get(key), f"{key} is empty -- the profile is unreachable from the graph"
+    print(f"  {key:<14} -> {p[key]}")
+print("  openWorkOrderCount:", p.get("openWorkOrderCount"))
+```
+
+🚧 `[LIMITS]` **What `jobs/write` actually does is project-dependent, and it is not a
+platform outage.** Observed on a live project with a fresh `Completed` job:
+
+```
+items[0].data: Missing data for required field | code: 400
+```
+
+The endpoint wants a `data` payload whose shape is not published — it is internal to the
+preview. On other projects the same call has returned `500`. Either way the conclusion is
+the same, and it is the one worth learning: **an undocumented endpoint is not a
+dependency.** The fallback above reaches the identical end state deterministically, using
+only the typed SDK and values you already have in hand.
 
 ⚠️ `[COMMON MISTAKE]` Polling the single `GET /context/documentparser/{jobId}` — it
 is **unreliable / 404s in practice**. Always use `POST /jobs/byids`. Also: forgetting
@@ -324,7 +379,7 @@ is **unreliable / 404s in practice**. Always use `POST /jobs/byids`. Also: forge
 ✅ `[VERIFY]` notebook results in CDF:
 
 ```python
-v_ehp = ViewId(schema_sdm, "viw_EquipmentHealthProfile_sdm", "v1.0.0")
+v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", "v1.0.0")
 node = client.data_modeling.instances.retrieve_nodes(nodes=[(space, "ehp_21-PA-2001A")], sources=[v_ehp])[0]
 print(node.properties.get(v_ehp))
 ```
@@ -360,7 +415,7 @@ remove the need to know your own data model.
 
 `USER_PROMPT` is deliberately thin. It does not list fields or describe formats — it says
 *"per the target view's property descriptions"* and *"do not guess."* The real prompt is
-`viewConfig`, pointing at your `viw_EquipmentHealthProfile_sdm`, whose property descriptions
+`viewConfig`, pointing at your `EquipmentHealthProfile`, whose property descriptions
 you wrote in §10.3.
 
 Change what gets extracted by editing a **description in the data model**, not by editing and
@@ -389,7 +444,7 @@ USER_PROMPT = (
     "descriptions. If a value is not explicitly present in the document, leave it "
     "empty -- do not guess or estimate."
 )
-# Spec fields the parser fills, by destination type (see con_TRAINING_sdm, §3.7).
+# Spec fields the parser fills, by destination type (see EquipmentHealthProfile, §3.7).
 FLOAT_FIELDS = ["ratedFlowM3h", "ratedHeadM", "ratedPowerKw",
                 "designPressureBarg", "designTemperatureC", "dryWeightKg"]
 TEXT_FIELDS = ["casingMaterial", "sealType"]
@@ -430,7 +485,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     # /jobs/start is single-job: a FLAT body, and it returns {jobId, status}
     # (the batch endpoint is POST /jobs with an items[] array).
     start_body = {
-        "viewConfig": {"space": schema_sdm, "externalId": "viw_EquipmentHealthProfile_sdm", "version": model_version},
+        "viewConfig": {"space": schema_sdm, "externalId": "EquipmentHealthProfile", "version": model_version},
         "files": [{"fileInstanceId": {"space": space, "externalId": file_xid}}],
         "node": {"space": space, "externalId": "ehp_21-PA-2001A"},
         "useVision": True,
@@ -463,7 +518,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 
     # Relational/derived fields the extraction model cannot read off the page --
     # compute them yourself, same as Technique 1 did.
-    v_wo = ViewId(schema_edm, "viw_WorkOrder_edm", model_version)
+    v_wo = ViewId(schema_edm, "WorkOrder", model_version)
     work_orders = client.data_modeling.instances.list(instance_type="node", sources=[v_wo], space=space, limit=-1)
     open_count = 0
     for wo in work_orders:
@@ -481,7 +536,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         "openWorkOrderCount": open_count,
         "lastParsedTime": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
     }
-    v_ehp = ViewId(schema_sdm, "viw_EquipmentHealthProfile_sdm", model_version)
+    v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", model_version)
     client.data_modeling.instances.apply(nodes=[NodeApply(
         space=space, external_id="ehp_21-PA-2001A",
         sources=[NodeOrEdgeData(source=v_ehp, properties=node_props)],
@@ -531,7 +586,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 externalId: fnc_<YOURNAME>_Training_ParseDatasheet
 name: fnc_<YOURNAME>_Training_ParseDatasheet
 owner: Training
-description: Parse pump datasheet via the Document Parser API into viw_EquipmentHealthProfile_sdm.
+description: Parse pump datasheet via the Document Parser API into EquipmentHealthProfile.
 functionPath: handler.py
 runtime: py311
 dataSetExternalId: dts_<YOURNAME>_Training_TRN
@@ -554,6 +609,59 @@ Data Models **read + write** and Files **read** (see [Chapter 02](02-auth-and-se
 §2.4) — the same two-identity caveat as every other job-based call in this course. If a
 call returns `403`, run `cdf auth verify` and ask your CDF administrator to grant the
 missing capability.
+
+---
+
+## 10.5b [INFO] Merge or replace — the flag that quietly deletes your data
+
+Both techniques write the **same node** with `instances.apply()`. That is only safe
+because of a default you have not thought about:
+
+| Mode | How | What happens to properties you did *not* send |
+|---|---|---|
+| **Merge** (patch) | `replace=False` — the default | Left alone |
+| **Replace** | `replace=True` | **Set to null** |
+
+Technique 1 writes eight specs. Technique 2 writes six. If either ran with
+`replace=True`, it would wipe whatever the other had just written, and the last one to
+run would win — silently, with no error, on a node that looks perfectly healthy.
+
+⚠️ `[COMMON MISTAKE]` Reaching for `replace=True` to "clean up" a node. It does not mean
+*overwrite the fields I am sending*; it means *this payload is now the entire node*.
+Use it only when you genuinely intend to reset an instance's state in that container,
+and never in a pipeline where more than one writer touches the same node.
+
+💡 `[GOOD TO KNOW]` The same request carries three more flags worth knowing:
+
+- `auto_create_direct_relations=True` (**default on**) — targets of direct relations are
+  created as bare nodes if missing. Convenient, and the reason a typo'd asset reference
+  produces a silent dangling link rather than an error (you meet the consequence in
+  [Chapter 14](14-debugging-broken-links.md) §14.3).
+- `auto_create_start_nodes` / `auto_create_end_nodes` (**default off**) — an edge whose
+  endpoints do not exist fails with `409` instead.
+- `skip_on_version_conflict=False` — see §10.5c.
+
+---
+
+## 10.5c [INFO] Two writers, one node — optimistic concurrency
+
+Every instance carries a version that increments on each write. When two processes
+write the same node, the second silently overwrites the first — unless you say what you
+expected:
+
+```python
+NodeApply(space=space, external_id="ehp_21-PA-2001A", existing_version=3, sources=[...])
+```
+
+If the node has moved on since you read it, CDF rejects the write with **409 Conflict**
+rather than clobbering someone else's change. You then re-read and decide.
+
+`existing_version=0` means *I believe this does not exist yet* — the way to create
+without risking an overwrite.
+
+⚡ `[OPTIMIZE]` In a bulk write where a few conflicts are acceptable, pass
+`skip_on_version_conflict=True`: conflicting instances are skipped and the rest of the
+batch still lands, instead of the whole request failing.
 
 ---
 
@@ -593,7 +701,7 @@ rated-spec fields are populated and `datasheetFile` links back to your PDF.
 - You ran Technique 1 in your notebook and can name at least one field where the two
   techniques agree, and explain what would make them disagree
 - You can state, from memory, why `userPrompt` doesn't carry the schema and what does
-- Your `con_TRAINING_sdm` container has real per-property descriptions, redeployed
+- Your `EquipmentHealthProfile` container has real per-property descriptions, redeployed
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
 → [Chapter 11 — Datapoints](11-datapoints.md)

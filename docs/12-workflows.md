@@ -22,22 +22,41 @@ continue?) as a single deployable, re-runnable resource.
 
 ---
 
-## 12.2 [INFO] The task graph — and one deliberate omission
+## 12.2 [INFO] The task graph — ten tasks, and one risk to bound
 
-```
-load_assets → load_equipment
-                ├─ load_timeseries → generate_datapoints
-                ├─ load_workorders ──────────────┐
-                ├─ match_documents → parse_datasheet
-                └─ load_3d_revision   (onFailure: skipTask)
+```mermaid
+flowchart LR
+  A[load_assets] --> B[load_equipment]
+  B --> C[load_timeseries] --> D[generate_datapoints]
+  B --> E[load_workorders] --> F[load_workorder_operations]
+  B --> G[match_documents] --> H[parse_datasheet]
+  B --> I[detect_diagram_tags]
+  B --> J[load_3d_revision]
+
+  classDef tolerated stroke-dasharray: 5 5
+  class I,J tolerated
 ```
 
-⚠️ `[COMMON MISTAKE]` / 🔀 Notice `detect_diagram_tags` is **not** in this graph.
-That's not an oversight — per [Chapter 08](08-diagram-annotation.md) §8.2, diagram
-detect jobs can get stuck at `Distributed` with no cancel API. Wiring it into a
-workflow that might get re-run means potentially resubmitting into an already-backed
-up queue every single run. Keep it as a function you call manually, once, exactly as
-you already did.
+Dashed tasks carry `onFailure: skipTask` — the workflow finishes without them. Everything
+else is `abortWorkflow`.
+
+Ten tasks: five transformations and five Functions, orchestrated uniformly.
+
+ℹ️ `[INFO]` **Two of them are allowed to fail.** `detect_diagram_tags` and
+`load_3d_revision` both call services that can be slow or temporarily unhealthy —
+diagram-detect jobs have been seen stuck at `Distributed` with no cancel API, and 3D
+conversion is genuinely long-running. Both therefore carry `onFailure: skipTask`
+rather than the default `abortWorkflow`.
+
+That is the pattern worth taking away: **you do not keep a flaky dependency out of your
+pipeline, you bound what its failure can cost.** A task with `skipTask` plus a real
+`timeout` cannot take the rest of the run down with it. Leaving it out entirely means
+somebody has to remember to run it by hand, forever — and they will forget.
+
+⚠️ `[COMMON MISTAKE]` Giving every task `onFailure: abortWorkflow` because it sounds
+safest. It is the right default for a *load* step — half-loaded data downstream is
+worse than no data — but applied to an enrichment step it turns one flaky external
+service into a pipeline that never completes.
 
 Two dependency shapes worth naming:
 
@@ -119,6 +138,19 @@ workflowDefinition:
       dependsOn:
         - externalId: load_equipment
 
+    - externalId: load_workorder_operations
+      type: transformation
+      name: 5. Load work-order operations
+      parameters:
+        transformation:
+          externalId: tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations
+          concurrencyPolicy: fail
+      retries: 1
+      timeout: 1800
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_workorders
+
     - externalId: generate_datapoints
       type: function
       name: 5. Generate datapoints
@@ -133,7 +165,6 @@ workflowDefinition:
       dependsOn:
         - externalId: load_timeseries
 
-    # detect_diagram_tags deliberately omitted -- see Chapter 08 §8.2 and Chapter 12 §12.2.
     # Call it manually, once. Do not wire it into a re-runnable workflow.
 
     - externalId: match_documents
@@ -147,6 +178,20 @@ workflowDefinition:
       retries: 1
       timeout: 1800
       onFailure: abortWorkflow
+      dependsOn:
+        - externalId: load_equipment
+
+    - externalId: detect_diagram_tags
+      type: function
+      name: 8. Detect tags on the P&ID
+      parameters:
+        function:
+          externalId: fnc_<YOURNAME>_Training_DetectDiagramTags
+          data: {}
+        isAsyncComplete: false
+      retries: 1
+      timeout: 1800
+      onFailure: skipTask          # a flaky service must not abort the run
       dependsOn:
         - externalId: load_equipment
 
@@ -211,8 +256,29 @@ uv run cdf deploy --cdf-project <your-cdf-project> --include workflows
 🟢 `[ACTION]` Trigger an execution:
 
 ```python
+import os
 from cognite.client import CogniteClient
-client = CogniteClient()
+from cognite.client.config import ClientConfig
+from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
+
+def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
+    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    read .env -- the SDK dropped implicit construction in v8."""
+    base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
+    scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
+    if os.environ.get("LOGIN_FLOW", "interactive").lower() == "interactive":
+        creds = OAuthInteractive(authority_url=os.environ["IDP_AUTHORITY_URL"],
+                                 client_id=os.environ["IDP_CLIENT_ID"], scopes=scopes)
+    else:
+        creds = OAuthClientCredentials(token_url=os.environ["IDP_TOKEN_URL"],
+                                       client_id=os.environ["IDP_CLIENT_ID"],
+                                       client_secret=os.environ["IDP_CLIENT_SECRET"],
+                                       scopes=scopes)
+    return CogniteClient(ClientConfig(client_name=client_name,
+                                      project=os.environ["CDF_PROJECT"],
+                                      base_url=base, credentials=creds))
+
+client = cdf_client()   # see Chapter 07 §7.3
 
 execution = client.workflows.executions.run(workflow_external_id="wkf_<YOURNAME>_Training_TRN", version="v1")
 print(execution.id, execution.status)
@@ -231,7 +297,8 @@ while True:
     time.sleep(10)
 ```
 
-✅ `[VERIFY]` Every task shows `completed` except `load_3d_revision`, which may show
+✅ `[VERIFY]` All ten tasks show `completed` in about 80 seconds. `load_3d_revision` or
+`detect_diagram_tags` may instead show
 `skipped` if 3D was still converting — that's a **pass**, not a failure, per §12.2.
 
 🚧 `[LIMITS]` Workflow executions and per-task timeouts are project-scoped resources
@@ -242,13 +309,13 @@ you design a workflow with dozens of tasks or very long timeouts.
 
 ## Gate
 
-**Do not proceed to Chapter 13 until:**
+**Do not proceed to Chapter 16 until:**
 
 - Your workflow deploys and a full execution completes with only `load_3d_revision`
   possibly skipped
-- You can explain why `detect_diagram_tags` is deliberately absent from the DAG
+- You can explain why `detect_diagram_tags` and `load_3d_revision` use `skipTask`
 - You can name one serial dependency and one fan-out in your own graph, and why each
   is shaped that way
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
-→ [Chapter 13 — Cross-Cutting Mastery](13-cross-cutting-mastery.md)
+→ [Chapter 13 — Querying the graph](13-querying-the-graph.md)

@@ -31,8 +31,20 @@ def _project(client) -> str:
     return client.config.project
 
 
-def _ensure_dms_cad_model(client, model_name: str, space: str) -> SimpleNamespace:
-    """Create/find the CAD model shell via DMS 3D API (space + type)."""
+def _ensure_cad_model(client, model_name: str, space: str) -> SimpleNamespace:
+    """Create or find the CAD model shell.
+
+    The /3d/models create payload is PROJECT-DEPENDENT and there is no capability
+    flag to ask about it in advance:
+
+      * a DMS-enabled 3D project REQUIRES {"name", "space", "type"}
+      * a classic 3D project REJECTS space outright, with
+        `CogniteAPIError: space is not supported | code: 400`
+
+    So we try the DMS shape first and fall back to classic. `flavour` is carried
+    forward because publishing a revision differs the same way (see
+    _publish_revision).
+    """
     base = f"/api/v1/projects/{_project(client)}/3d/models"
     cursor = None
     while True:
@@ -42,17 +54,30 @@ def _ensure_dms_cad_model(client, model_name: str, space: str) -> SimpleNamespac
         payload = client.get(base, params=params).json()
         for item in payload.get("items") or []:
             if item.get("name") == model_name:
-                return SimpleNamespace(id=item["id"], name=item.get("name"), raw=item)
+                flavour = "dms" if item.get("space") else "classic"
+                return SimpleNamespace(id=item["id"], name=item.get("name"),
+                                       raw=item, flavour=flavour)
         cursor = payload.get("nextCursor")
         if not cursor:
             break
 
-    response = client.post(
-        base,
-        json={"items": [{"name": model_name, "space": space, "type": "CAD"}]},
+    attempts = (
+        ("dms", {"name": model_name, "space": space, "type": "CAD"}),
+        ("classic", {"name": model_name}),
     )
-    model_id = response.json()["items"][0]["id"]
-    return SimpleNamespace(id=model_id, name=model_name, raw=response.json()["items"][0])
+    last_error: Exception | None = None
+    for flavour, item in attempts:
+        try:
+            response = client.post(base, json={"items": [item]})
+        except Exception as exc:              # CogniteAPIError, but keep the handler import-light
+            last_error = exc
+            if "space is not supported" in str(exc):
+                continue                      # classic project: try the next shape
+            raise
+        created = response.json()["items"][0]
+        return SimpleNamespace(id=created["id"], name=model_name,
+                               raw=created, flavour=flavour)
+    raise RuntimeError(f"could not create 3D model {model_name!r}: {last_error}")
 
 
 def _list_revisions(client, model_id: int) -> list[dict]:
@@ -76,24 +101,21 @@ def _get_revision(client, model_id: int, revision_id: int) -> dict:
     return client.get(base).json()
 
 
-def _publish_revision(client, model_id: int, revision_id: int, space: str) -> dict:
-    """Mark revision published so Fusion 3D UI shows it to end users.
+def _publish_revision(client, model_id: int, revision_id: int, space: str,
+                     flavour: str = "dms") -> dict:
+    """Mark the revision published so the Fusion 3D UI shows it.
 
-    On DMS/space-scoped models the update body requires ``instanceId`` of the
-    auto node ``cog_3d_revision_{revisionId}`` (classic ``id``-only update 400s).
+    Same project split as _ensure_cad_model: a DMS model needs the ``instanceId``
+    of the auto-created node ``cog_3d_revision_{revisionId}``; a classic model
+    takes ``id`` alone and 400s if you send instanceId.
     """
-    body = {
-        "items": [
-            {
-                "id": revision_id,
-                "instanceId": {
-                    "space": space,
-                    "externalId": f"cog_3d_revision_{revision_id}",
-                },
-                "update": {"published": {"set": True}},
-            }
-        ]
-    }
+    item: dict = {"id": revision_id, "update": {"published": {"set": True}}}
+    if flavour == "dms":
+        item["instanceId"] = {
+            "space": space,
+            "externalId": f"cog_3d_revision_{revision_id}",
+        }
+    body = {"items": [item]}
     response = client.post(
         f"/api/v1/projects/{_project(client)}/3d/models/{model_id}/revisions/update",
         json=body,
@@ -157,7 +179,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     model_name = f"trd_{participant}_TRN_CAD"
     file_xid = f"file_{participant}_TRN_3D_21_SEP"
 
-    model = _ensure_dms_cad_model(client, model_name, space)
+    model = _ensure_cad_model(client, model_name, space)
 
     revisions = _list_revisions(client, model.id)
     revision = revisions[0] if revisions else None
@@ -193,7 +215,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     # Create-with-published:true is ignored on this project type; publish after Done.
     if not revision.get("published"):
         try:
-            revision = _publish_revision(client, model.id, revision_id, space)
+            revision = _publish_revision(client, model.id, revision_id, space, model.flavour)
         except Exception as exc:  # noqa: BLE001 — still map nodes even if publish fails
             return {
                 "status": status,

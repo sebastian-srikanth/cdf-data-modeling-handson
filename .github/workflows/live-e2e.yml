@@ -1,0 +1,67 @@
+name: live end-to-end
+
+# Deploys the whole course to a scratch CDF project, runs it, verifies every number the
+# chapters claim, then tears it down. Never runs automatically on a PR: it needs secrets
+# and it writes to a real project.
+#
+# Required repository secrets:
+#   CDF_PROJECT  CDF_CLUSTER  IDP_CLIENT_ID  IDP_CLIENT_SECRET  IDP_TENANT_ID
+#
+# Point these at a THROWAWAY project. The teardown step deletes only resources named after
+# the participant below, but a scratch project keeps the blast radius at zero.
+on:
+  workflow_dispatch:
+    inputs:
+      participant:
+        description: Participant name to deploy under (becomes isp_<name>_TRN, etc.)
+        required: true
+        default: CI
+  schedule:
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC
+
+concurrency:
+  group: live-e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    environment: live-verification
+    env:
+      PARTICIPANT: ${{ github.event.inputs.participant || 'CI' }}
+      CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
+      CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
+      IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
+      IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+      IDP_TENANT_ID: ${{ secrets.IDP_TENANT_ID }}
+      LOGIN_FLOW: client_credentials
+      PROVIDER: entra_id
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v4
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - run: uv sync --frozen
+
+      - name: Derive the remaining CDF variables
+        run: |
+          echo "CDF_URL=https://${CDF_CLUSTER}.cognitedata.com" >> "$GITHUB_ENV"
+          echo "IDP_SCOPES=https://${CDF_CLUSTER}.cognitedata.com/.default" >> "$GITHUB_ENV"
+          echo "IDP_TOKEN_URL=https://login.microsoftonline.com/${IDP_TENANT_ID}/oauth2/v2.0/token" >> "$GITHUB_ENV"
+          echo "TRAINING_CDF_CLIENT_ID=${IDP_CLIENT_ID}" >> "$GITHUB_ENV"
+          echo "TRAINING_CDF_CLIENT_SECRET=${IDP_CLIENT_SECRET}" >> "$GITHUB_ENV"
+
+      - name: Offline checks first — never deploy a broken tree
+        run: uv run python tools/check_docs.py
+
+      - name: Deploy, run, verify
+        run: uv run python tools/live_e2e.py "$PARTICIPANT"
+
+      - name: Tear down (always, even if the verification failed)
+        if: always()
+        run: uv run python tools/live_e2e.py "$PARTICIPANT" --teardown-only

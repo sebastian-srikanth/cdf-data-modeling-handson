@@ -1,4 +1,4 @@
-# Chapter 13 — Cross-Cutting Mastery
+# Chapter 16 — Cross-Cutting Mastery
 
 **Goal:** step back from individual resources and see the system: why every handler
 you wrote is safe to re-run, how to debug any of them when something's wrong, what
@@ -7,7 +7,7 @@ and how to leave cleanly.
 
 ---
 
-## 13.1 [INFO] When to use Transformation vs Function vs Workflow vs UI
+## 16.1 [INFO] When to use Transformation vs Function vs Workflow vs UI
 
 | Tool | Use when |
 |---|---|
@@ -18,7 +18,7 @@ and how to leave cleanly.
 
 ---
 
-## 13.2 [INFO] Idempotency & re-runnability — why every handler upserts
+## 16.2 [INFO] Idempotency & re-runnability — why every handler upserts
 
 Look back across every handler you wrote: `client.data_modeling.instances.apply(...)`
 is **always** an upsert, never "create, and error if it already exists." Every
@@ -39,7 +39,7 @@ which is exactly why they dodge this bug entirely — worth knowing for the day 
 
 ---
 
-## 13.3 [INFO] Observability & debugging
+## 16.3 [INFO] Observability & debugging
 
 | Resource | Where to look |
 |---|---|
@@ -58,7 +58,7 @@ your debugger.
 
 ---
 
-## 13.4 [LIMITS] Cost & quota at cohort scale
+## 16.4 [LIMITS] Cost & quota at cohort scale
 
 Per participant, this lab costs roughly:
 
@@ -77,7 +77,7 @@ than having everyone hit `cdf deploy --include functions` in the same 60-second 
 
 ---
 
-## 13.5 [INFO] The end-state graph — one picture, not a paragraph
+## 16.5 [INFO] The end-state graph — one picture, not a paragraph
 
 Everything you built converges on one hub node: `21-PA-2001A`.
 
@@ -115,16 +115,63 @@ through Fusion, not just by trusting this picture.
 
 ---
 
-## 13.6 [PR] Self-verification checklist before you open a PR
+## 16.5b [LIMITS] What you cannot change later
 
-Run this before Chapter 14. Catch problems yourself first — these are exactly the
+Some of what you wrote in [Chapter 03](03-data-modeling.md) is now permanent. Knowing
+which half is which is the difference between a schema change and an outage.
+
+| Resource | Changing it | Recovery |
+|---|---|---|
+| **Container** — external ID, removing a property, changing a property's type or attributes | **Breaking.** Not allowed in place | Delete → recreate → **re-ingest every instance**. The data is in the container; dropping it drops the data |
+| **View** — external ID, removing a property, changing a property's `source` | **Breaking**, but versionable | Publish a new version, verify it, migrate consumers, retire the old one. No data moves — views are lenses |
+| **Data model** — its view list | Versionable | Same pattern. Remember to update every transformation that names the version |
+| Adding a **new** property to a container | Safe | — |
+| Adding an **index** | Safe, and can be done later | — |
+
+⚠️ `[COMMON MISTAKE]` Recreating a container and forgetting to re-map the views that
+reference it. You get **HTTP 500s across the whole project** — not a tidy validation
+error, a broken Fusion — until the mapping is repaired. If you must recreate a
+container, plan the view updates in the same change.
+
+💡 `[GOOD TO KNOW]` This asymmetry is the real argument for the EDM/SDM split in §3.4.
+Containers are physical and rigid; views are cheap and versionable. Put the stability
+you need in containers, and let solution views churn.
+
+📚 `[DOCS]` https://docs.cognite.com/cdf/dm/dm_concepts/dm_containers_views_datamodels#container-changes
+
+---
+
+## 16.6 [PR] Self-verification checklist before you open a PR
+
+Run this before Chapter 17. Catch problems yourself first — these are exactly the
 checks a reviewer applies after merge.
 
 ```python
+import os
 from cognite.client import CogniteClient
+from cognite.client.config import ClientConfig
+from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
+
+def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
+    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    read .env -- the SDK dropped implicit construction in v8."""
+    base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
+    scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
+    if os.environ.get("LOGIN_FLOW", "interactive").lower() == "interactive":
+        creds = OAuthInteractive(authority_url=os.environ["IDP_AUTHORITY_URL"],
+                                 client_id=os.environ["IDP_CLIENT_ID"], scopes=scopes)
+    else:
+        creds = OAuthClientCredentials(token_url=os.environ["IDP_TOKEN_URL"],
+                                       client_id=os.environ["IDP_CLIENT_ID"],
+                                       client_secret=os.environ["IDP_CLIENT_SECRET"],
+                                       scopes=scopes)
+    return CogniteClient(ClientConfig(client_name=client_name,
+                                      project=os.environ["CDF_PROJECT"],
+                                      base_url=base, credentials=creds))
+
 from cognite.client.data_classes.data_modeling import ViewId
 
-client = CogniteClient()
+client = cdf_client()   # see Chapter 07 §7.3
 name = "<YOURNAME>"
 space = f"isp_{name}_TRN"
 
@@ -140,7 +187,7 @@ checks.append(("dataset", ds is not None))
 raw_dbs = {db.name for db in client.raw.databases.list(limit=-1)}
 checks.append((f"raw db rwd_{name}_Training_TRN", f"rwd_{name}_Training_TRN" in raw_dbs))
 
-for suffix in ("Assets", "Equipment", "TimeSeries", "WorkOrders"):
+for suffix in ("Assets", "Equipment", "TimeSeries", "WorkOrders", "WorkOrderOperations"):
     xid = f"tra_{name}_Training_TRN_Load_{suffix}"
     checks.append((f"transformation {xid}", client.transformations.retrieve(external_id=xid) is not None))
 
@@ -157,6 +204,18 @@ for view_id, expected in [
 ]:
     n = len(client.data_modeling.instances.list(instance_type="node", sources=[view_id], space=space, limit=-1))
     checks.append((f"{view_id.external_id} count == {expected}", n == expected))
+
+# CogniteActivity holds BOTH your work orders and your operations, because
+# WorkOrder implements it (Chapter 13 §13.6). Subtract to count operations alone.
+wo_view  = ViewId(f"ssp_{name}_TrainingCore_edm", "WorkOrder", "v1.0.0")
+act_view = ViewId("cdf_cdm", "CogniteActivity", "v1")
+wo_ids = {n_.external_id for n_ in client.data_modeling.instances.list(
+    instance_type="node", sources=[wo_view], space=space, limit=-1)}
+acts = client.data_modeling.instances.list(
+    instance_type="node", sources=[act_view], space=space, limit=-1)
+checks.append(("work orders == 3", len(wo_ids) == 3))
+checks.append(("operations == 6 (from 8 source rows)",
+               len([a for a in acts if a.external_id not in wo_ids]) == 6))
 
 for label, ok in checks:
     print(f"  [{'OK' if ok else 'FAIL'}] {label}")
@@ -176,11 +235,11 @@ check):
 
 ---
 
-## 13.7 [PR] Teardown literacy
+## 16.7 [PR] Teardown literacy
 
 You are not tearing down yet — that happens after your PR is merged and you're done
 with the lab for the day, or if you need to reset and start clean. When you get there,
-**[Chapter 15 — Teardown](15-teardown.md)** and its companion notebook
+**[Chapter 18 — Teardown](18-teardown.md)** and its companion notebook
 (`notebooks/06_teardown.ipynb`) walk the exact sequence: SDK deletes for your global
 resources, then `cdf data purge space` for your spaces (instance space first, then
 schema spaces; data sets archive, never hard-delete).
@@ -196,7 +255,7 @@ destructive, irreversible operation.
 
 ## Gate
 
-**Do not proceed to Chapter 14 until:**
+**Do not proceed to Chapter 17 until:**
 
 - The self-verification script above prints `PASS`
 - Every item in the manual checklist is checked
@@ -206,4 +265,4 @@ destructive, irreversible operation.
   fails, for each of the three
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
-→ [Chapter 14 — PR & Merge](14-pr-and-merge.md)
+→ [Chapter 17 — PR & Merge](17-pr-and-merge.md)

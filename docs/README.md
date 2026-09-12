@@ -10,7 +10,8 @@ one deliberately real industrial data model.**
 > docs and ends with something you can verify with your own eyes in the CDF UI.
 > Commands are given for both macOS and Windows wherever they differ.
 
-> **Last validated:** July 2026 — cognite-toolkit 0.8.125, Python 3.11 Function runtime.
+> **Last validated:** September 2026 — cognite-toolkit 0.8.202, cognite-sdk 8.14, Python 3.11
+> Function runtime.
 > The **Document Parser API** ([Chapter 10](10-datasheet-parsing.md)) is a Cognite
 > **public-preview / Early-Adopter** capability and may change — check the current
 > Cognite documentation before relying on it.
@@ -73,6 +74,19 @@ don't carry a broken foundation into the next one.
 
 ---
 
+Running this for a cohort? See [FACILITATOR.md](FACILITATOR.md).
+
+## Check your own work
+
+Every chapter ends in a **Gate**. The Gate is executable:
+
+```bash
+PARTICIPANT=<YOURNAME> uv run python tools/selfcheck.py 03
+```
+
+It asks CDF what you actually deployed and prints PASS/FAIL per Gate item. Read-only — it
+never writes to your project. Covers chapters 03, 04, 05, 07–13.
+
 ## The shape of every chapter
 
 ```
@@ -98,8 +112,8 @@ Work through the chapters in order — each builds on the last. Go at your own p
 | [01 — Naming, isolation & your module](01-naming-isolation-and-setup.md) | Your `config.<YOURNAME>-training.yaml`, empty `participants/<YOURNAME>/` skeleton |
 | [02 — Auth & security](02-auth-and-security.md) | The two-identity trap, memorized |
 | [03 — Data modeling](03-data-modeling.md) | Your spaces, containers, views, two data models deployed |
-| [04 — Data sets, RAW & files](04-data-sets-raw-and-files.md) | Data set, RAW DB + 4 tables, 3 files deployed |
-| [05 — Transformations](05-transformations.md) | 8 assets / 5 equipment / 6 time series / 3 work orders loaded |
+| [04 — Data sets, RAW & files](04-data-sets-raw-and-files.md) | Data set, RAW DB + 5 tables, 3 files deployed |
+| [05 — Transformations](05-transformations.md) | 8 assets / 5 equipment / 6 time series / 3 work orders / 6 operations loaded |
 | [06 — Location filters](06-location-filters.md) | Your own scoped view of the graph |
 | [07 — Entity matching](07-entity-matching.md) | 3 contextualization techniques compared; `MatchDocuments` deployed |
 | [08 — Diagram annotation](08-diagram-annotation.md) | `DetectDiagramTags` deployed and run once |
@@ -107,9 +121,12 @@ Work through the chapters in order — each builds on the last. Go at your own p
 | [10 — Datasheet parsing](10-datasheet-parsing.md) | Both techniques upserting the same EHP node; `ParseDatasheet` deployed |
 | [11 — Datapoints](11-datapoints.md) | 4,320 datapoints written; the degradation story is now visible |
 | [12 — Workflows](12-workflows.md) | The whole pipeline running as one DAG |
-| [13 — Cross-cutting mastery](13-cross-cutting-mastery.md) | Idempotency, observability, cost, the end-state graph, teardown |
-| [14 — PR & merge](14-pr-and-merge.md) | PR opened |
-| [15 — Teardown](15-teardown.md) | Your resources removed cleanly (SDK notebook + `cdf` spaces/location filter) |
+| [13 — Querying the graph](13-querying-the-graph.md) | `/query`, `/search`, `/aggregate`, `/sync`; traversal from the pump to its work orders |
+| [14 — Debugging broken links](14-debugging-broken-links.md) | Dangling, orphaned and absent records found, traced and fixed at source |
+| [15 — Atlas AI agent](15-atlas-ai-agent.md) | An agent answering in English, and why the model is what makes it work |
+| [16 — Cross-cutting mastery](16-cross-cutting-mastery.md) | Idempotency, observability, cost, the end-state graph, teardown |
+| [17 — PR & merge](17-pr-and-merge.md) | PR opened |
+| [18 — Teardown](18-teardown.md) | Your resources removed cleanly (SDK notebook + `cdf` spaces/location filter) |
 
 ---
 
@@ -118,7 +135,7 @@ Work through the chapters in order — each builds on the last. Go at your own p
 ```
 docs/                                      # this course (you read, don't edit)
 ├── README.md                              #   you are here
-├── 00-…md … 15-…md                        #   chapters, in order (15 = teardown)
+├── 00-…md … 18-…md                        #   chapters, in order (18 = teardown)
 ├── notebooks/                             #   Jupyter templates you run locally
 ├── assets/                                #   PID PDF, datasheet PDF, 3D OBJ to copy
 └── templates/                             #   NOTES.md / FEEDBACK.md to seed (Ch 01)
@@ -154,7 +171,7 @@ training/config.<YOURNAME>-training.yaml
 training/modules/participants/<YOURNAME>/**
 ```
 
-Nothing else. See [Chapter 14](14-pr-and-merge.md) for the full PR checklist.
+Nothing else. See [Chapter 17](17-pr-and-merge.md) for the full PR checklist.
 
 ---
 

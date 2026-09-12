@@ -1,0 +1,19 @@
+externalId: tra_{{ participant }}_Training_TRN_Load_WorkOrderOperations
+name: tra_{{ participant }}_Training_TRN_Load_WorkOrderOperations
+dataSetExternalId: {{ dataset }}
+ignoreNullFields: true
+conflictMode: upsert
+isPublic: true
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteActivity
+    version: v1
+  instanceSpace: {{ instance_space }}
+authentication:
+  clientId: ${TRAINING_CDF_CLIENT_ID}
+  clientSecret: ${TRAINING_CDF_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}

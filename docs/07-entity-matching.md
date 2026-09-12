@@ -61,6 +61,50 @@ wrong one) with no confidence score to flag it.
 
 ---
 
+
+⚠️ `[COMMON MISTAKE]` Verifying the cleanup with `try: retrieve(...) except:`.
+`entity_matching.retrieve()` returns **`None`** for a model that is gone — it does not
+raise — so the `except` branch never runs and a *successful* delete reports failure.
+Compare against `None` instead:
+
+```python
+client.entity_matching.delete(id=model.id)
+still = client.entity_matching.retrieve(external_id=model_xid)
+print("confirmed deleted" if still is None else f"STILL THERE (id={still.id})")
+```
+
+💡 `[GOOD TO KNOW]` Across cognite-sdk 8.x, `retrieve()` returns `None` when nothing
+matches and `list()` returns an empty list. Exceptions are for *errors*, not for
+absence. Any `try/except` you write around a lookup is probably testing the wrong thing.
+
+---
+
+⚠️ `[COMMON MISTAKE]` **`get_result()` is a method. There is no `.result` property.**
+
+This one is worth dwelling on, because of *how* it fails. Write the defensive-looking
+
+```python
+result_items = getattr(predict, "result", None) or getattr(predict, "matches", None) or []
+```
+
+and on cognite-sdk 8.x every one of those lookups misses. `result_items` becomes `[]`,
+the function returns `{"matches": [], "below_threshold": []}`, the call is reported
+**Completed**, and nothing anywhere raises. You get a green tick and an empty graph.
+
+The correct form is the boring one:
+
+```python
+predict.wait_for_completion(timeout=600)
+result_items = (predict.get_result() or {}).get("items") or []
+```
+
+💡 `[GOOD TO KNOW]` The general lesson outlives this API. `getattr(x, "name", None) or ...`
+chains are a way of saying *"I am not sure what this object is"*, and they convert a
+loud `AttributeError` into a silent wrong answer. Look the attribute up once, then call
+it directly.
+
+---
+
 ## 7.4 [INFO] Technique 3 — CDF Entity Matching API
 
 For genuinely fuzzy cases (titles that don't contain a clean tag, OCR'd text,
@@ -152,11 +196,13 @@ hardcoded in Chapter 04 — the automated match should agree with your ground tr
 Then confirm the model is **gone**:
 
 ```python
-try:
-    client.entity_matching.retrieve(external_id="emp_<YOURNAME>_Datasheet_TRN")
-    print("STILL THERE — delete it")
-except Exception:
-    print("confirmed deleted")
+still = client.entity_matching.retrieve(external_id="emp_<YOURNAME>_Datasheet_TRN")
+print("confirmed deleted" if still is None else f"STILL THERE (id={still.id}) — delete it")
+
+# models are global, so also check nothing else of yours is lingering
+mine = [m for m in client.entity_matching.list(limit=-1)
+        if "<YOURNAME>" in str(m.external_id)]
+print("models still carrying your name:", [m.external_id for m in mine])
 ```
 
 ---
@@ -188,7 +234,7 @@ spend compute only on the genuine leftovers.
 > the CDF project — unlike your spaces, they are **not** namespaced by participant, so a
 > model left behind is visible to and collides with everyone else in the cohort. This is the
 > one resource in the whole lab that does not isolate itself. See
-> [Chapter 13](13-cross-cutting-mastery.md) §13.7.
+> [Chapter 16](16-cross-cutting-mastery.md) §16.7.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_MatchDocuments/handler.py`
 
@@ -339,11 +385,8 @@ def _entity_match(client, space, v_file, v_asset, files, assets, model_xid):
     predict = client.entity_matching.predict(
         id=model.id, num_matches=1, sources=sources, targets=targets,
     )
-    # Fresh deadline; poll via update_status() — do not use retrieve_predict_job.
-    deadline = time.time() + 300
-    while predict.status not in ("Completed", "Failed") and time.time() < deadline:
-        time.sleep(5)
-        predict.update_status()
+    # Both fit and predict return job objects with their own bounded wait.
+    predict.wait_for_completion(timeout=600)
 
     if predict.status != "Completed":
         try:
@@ -352,14 +395,7 @@ def _entity_match(client, space, v_file, v_asset, files, assets, model_xid):
             pass
         return [], [], [], {"error": f"entity matching predict status={predict.status!r}"}
 
-    result = predict.get_result() if hasattr(predict, "get_result") else None
-    result_items = result if isinstance(result, list) else (
-        (result or {}).get("items") if isinstance(result, dict) else None
-    )
-    if result_items is None:
-        result_items = getattr(predict, "result", None) or getattr(predict, "matches", None) or []
-        if isinstance(result_items, dict):
-            result_items = result_items.get("items") or []
+    result_items = (predict.get_result() or {}).get("items") or []
 
     matches, below, applies = [], [], []
     for item in result_items:
@@ -406,7 +442,7 @@ def _entity_match(client, space, v_file, v_asset, files, assets, model_xid):
 | `_apply_asset(...)` → `DirectRelationReference(space, tgt_id)` | Writes the answer into `CogniteFile.assets` | **This is the actual contextualization.** Everything before it is just deciding; this line is what makes the link appear in Fusion |
 | `client.entity_matching.fit(...)` | Trains a model on name→name similarity | `feature_type="bigram"` compares two-character sequences, so it tolerates punctuation and spacing differences that exact matching would fail on |
 | `deadline = time.time() + 300` | Hard 300-second poll ceiling | A Function has a wall-clock limit. An unbounded `while` would burn the whole budget and be killed with no result and no cleanup |
-| `predict.update_status()` | Polls the predict job | Deliberately **not** `retrieve_predict_job` — see the inline note. The job object refreshes itself |
+| `predict.wait_for_completion(timeout=600)` | Blocks until the job finishes, with a bound | The SDK's own wait. A hand-rolled polling loop is what produced the bug in the ⚠️ below |
 | `result_items = ...` (the 5 defensive lines) | Normalises the response shape | The predict result has arrived as a list, as `{"items": [...]}`, and as an attribute across SDK versions. Written defensively so a minor version bump does not silently return zero matches |
 | `if score < 0.5: below.append(row); continue` | The confidence gate | Low-confidence matches are **reported but never written**. Auto-applying a bad match is worse than applying nothing — a wrong link is silently believed by every downstream consumer |
 | `client.entity_matching.delete(...)` in `try/except` × 3 | Deletes the model on **every** exit path | Success, fit failure, predict failure. `except: pass` on the pre-emptive delete because "it was not there" is the expected case, not an error |
@@ -454,7 +490,7 @@ hardcoded space string (it reads `INSTANCE_SPACE` from `envVars`), a hard 300-se
 poll deadline on the EM path instead of "just wait and see," and it returns a
 JSON-serializable dict instead of printing — that dict (`matches`, `below_threshold`,
 `em_ran`, `unresolved_count`) is what shows up in the Function's call-result log
-([Chapter 13](13-cross-cutting-mastery.md)).
+([Chapter 16](16-cross-cutting-mastery.md)).
 
 ---
 

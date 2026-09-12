@@ -17,3 +17,12 @@ repos:
     rev: v8.24.3
     hooks:
       - id: gitleaks
+  # The course's own checks, so drift is caught before it reaches CI.
+  - repo: local
+    hooks:
+      - id: check-docs
+        name: course documentation and notebook checks
+        entry: uv run python tools/check_docs.py
+        language: system
+        pass_filenames: false
+        files: ^(docs/|training/modules/reference/|README\.md|PREREQUISITES\.md)

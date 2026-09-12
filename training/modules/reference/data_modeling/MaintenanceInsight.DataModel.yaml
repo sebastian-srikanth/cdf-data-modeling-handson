@@ -1,0 +1,51 @@
+space: {{ schema_space_sdm }}
+externalId: MaintenanceInsight
+version: {{ model_version }}
+name: {{ participant }} Maintenance Insight SDM
+description: >-
+  Solution data model — one pump tag with live sensors, P&ID annotations, 3D
+  geometry, datasheet specs and open work orders. This is the model an
+  application or an Atlas AI agent queries. Maintained by the participant.
+views:
+  # Solution views first, for the reader - DMS does not preserve this order.
+  - space: {{ schema_space_sdm }}
+    externalId: Asset
+    version: {{ model_version }}
+    type: view
+  - space: {{ schema_space_sdm }}
+    externalId: EquipmentHealthProfile
+    version: {{ model_version }}
+    type: view
+  - space: {{ schema_space_edm }}
+    externalId: WorkOrder
+    version: {{ model_version }}
+    type: view
+  # Then the CDM views they rely on.
+  - space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteEquipment
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: CogniteDiagramAnnotation
+    version: v1
+    type: view
+  - space: cdf_cdm
+    externalId: Cognite3DObject
+    version: v1
+    type: view

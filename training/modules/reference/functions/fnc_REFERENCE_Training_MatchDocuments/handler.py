@@ -61,13 +61,11 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         external_id=model_xid,
         name=model_xid,
     )
-    # wait for fit
-    deadline = time.time() + 300
-    while getattr(model, "status", "Completed") not in ("Completed", "Failed") and time.time() < deadline:
-        time.sleep(5)
-        model = client.entity_matching.retrieve(id=model.id)
-
-    if getattr(model, "status", None) == "Failed":
+    # Both fit and predict return job objects with a blocking wait. Use it.
+    # A hand-rolled polling loop is what produced the "completed with zero
+    # matches, no error" bug this handler used to have.
+    model.wait_for_completion(timeout=600)
+    if model.status == "Failed":
         try:
             client.entity_matching.delete(id=model.id)
         except Exception:
@@ -80,15 +78,14 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         sources=sources,
         targets=targets,
     )
-    while getattr(predict, "status", "Completed") not in ("Completed", "Failed") and time.time() < deadline:
-        time.sleep(5)
-        predict = client.entity_matching.retrieve_predict_job(id=predict.job_id) if hasattr(client.entity_matching, "retrieve_predict_job") else predict
+    predict.wait_for_completion(timeout=600)
 
     matches: list[dict] = []
     below: list[dict] = []
-    result_items = getattr(predict, "result", None) or getattr(predict, "matches", None) or []
-    if isinstance(result_items, dict):
-        result_items = result_items.get("items") or []
+    # cognite-sdk 8.x: get_result() is a METHOD on the prediction job. There is
+    # no `.result` property -- getattr(predict, "result", None) returns None and
+    # you get zero matches with no error at all.
+    result_items = (predict.get_result() or {}).get("items") or []
 
     applies: list[NodeApply] = []
     for item in result_items:

@@ -1,4 +1,4 @@
-# Chapter 15 — Teardown (the CLI half)
+# Chapter 18 — Teardown (the CLI half)
 
 **Goal:** remove the two resource classes the Python SDK can't — your **spaces** and your
 **location filter** — using `cdf` commands driven by your own
@@ -16,7 +16,33 @@ Teardown happens in **two halves**, and you need both:
 
 ---
 
-## 15.1 [ACTION] Purge your three spaces
+## 18.0 [INFO] Before you delete anything — two rules
+
+**You have 72 hours.** Deleting an instance does not destroy it. CDF soft-deletes: the
+instance is stamped with a `deletedTime`, vanishes from every normal query, and is
+permanently collected roughly three days later. Inside that window it is still visible
+through `/sync`, and re-running the transformation that created it restores it — the
+source row never moved. [Chapter 14](14-debugging-broken-links.md) §14.8 walks through
+exactly that recovery.
+
+Two caveats worth carrying:
+
+- Soft-deleted instances **still count** against your project's instance limits until
+  they are collected. Deleting is not the same as freeing.
+- A space cannot be deleted while it still holds anything. That is why the order below
+  is instances first, spaces last.
+
+**Delete edges before nodes.** Deleting a node cascades to every edge attached to it,
+and restoring the node does **not** restore the edges. You would get your instance back
+with all of its connections gone — usually worse than the original mistake. It also
+avoids a long cascade on a well-connected node.
+
+That matters directly here: the `CogniteDiagramAnnotation` edges you created in
+[Chapter 08](08-diagram-annotation.md) are edges. They go first.
+
+---
+
+## 18.1 [ACTION] Purge your three spaces
 
 🟢 `[ACTION]` Run these in a **real interactive terminal** — not a notebook `!` cell, not
 piped. `cdf data purge space` **requires** you to type the project name to confirm, and
@@ -55,7 +81,7 @@ interactively; if it persists, delete the space from the CDF UI rather than loop
 
 ---
 
-## 15.2 [ACTION] Remove your location filter
+## 18.2 [ACTION] Remove your location filter
 
 The location filter `loc_<YOURNAME>_TRN` lives under the CDF **apps** API, and the public
 Cognite SDK exposes **no delete** for it — which is exactly why the notebook leaves it to
@@ -70,7 +96,34 @@ uv run cdf clean --cdf-project <your-cdf-project> --include locations
 
 ---
 
-## 15.3 [VERIFY] Nothing of yours is left
+## 18.2b [ACTION] The leftovers nothing warns you about
+
+Two things survive a tidy teardown and will not show up unless you go looking.
+
+**Function zips.** Deploying a Cognite Function uploads its code as a **classic file**.
+Deleting the function does **not** delete that file — you are left with one orphaned
+zip per function, named after the function's external ID.
+
+🟢 `[ACTION]`
+
+```python
+leftovers = [f.external_id for f in client.files.list(limit=1000)
+             if (f.external_id or "").startswith(f"fnc_{YOURNAME}_")
+             or (f.external_id or "").startswith(f"file_{YOURNAME}_")]
+print(leftovers)
+client.files.delete(external_id=leftovers)
+```
+
+✅ `[VERIFY]` Re-run the list — it comes back empty. Five function zips plus the classic
+OBJ from [Chapter 09](09-3d.md).
+
+**Your data set.** Data sets **cannot be deleted in CDF, ever.** Archiving is the clean
+end state, which the teardown notebook already does for you — but know that it is a
+platform limit, not a step you forgot.
+
+---
+
+## 18.3 [VERIFY] Nothing of yours is left
 
 - **Fusion → Data management → Spaces**: `isp_<YOURNAME>_TRN`,
   `ssp_<YOURNAME>_TrainingCore_edm`, `ssp_<YOURNAME>_MaintenanceInsight_sdm` are **gone**.
@@ -81,4 +134,4 @@ uv run cdf clean --cdf-project <your-cdf-project> --include locations
 
 That's a clean exit. 🎉
 
-← [Chapter 14 — PR & Merge](14-pr-and-merge.md)
+← [Chapter 17 — PR & Merge](17-pr-and-merge.md)

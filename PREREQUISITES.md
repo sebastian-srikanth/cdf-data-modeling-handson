@@ -11,7 +11,7 @@ enough on its own.
 | Requirement | Notes |
 |---|---|
 | **Python 3.12 or 3.13** | The Toolkit CLI runs on this. Not the same as the Function runtime — see Chapter 00 §0.3 |
-| **git** | You need real history and a real remote for Chapter 14 |
+| **git** | You need real history and a real remote for Chapter 17 |
 | **A terminal** | macOS: Terminal. Windows: **Git Bash** (ships with git) — not PowerShell/cmd |
 | **A browser** | Every `[VERIFY]` step is confirmed visually in CDF Fusion |
 
@@ -34,7 +34,7 @@ CDF_URL       https://<cluster>.cognitedata.com
 
 **Use a development or sandbox project.** The course creates spaces, data models,
 RAW databases, files, transformations, Cognite Functions, 3D revisions, and time
-series. Chapter 15 tears them all down again, but you should not be doing any of
+series. Chapter 18 tears them all down again, but you should not be doing any of
 this in production.
 
 ---
@@ -123,7 +123,7 @@ cd cdf-data-modeling-handson
 cp .env.example .env
 # ...fill in every <angle-bracket> value...
 uv sync
-uv run cdf --version        # expect 0.8.125
+uv run cdf --version        # expect 0.8.202
 uv run cdf auth verify --dry-run
 ```
 

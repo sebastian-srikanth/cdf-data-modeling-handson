@@ -4,7 +4,7 @@ default_env = "REFERENCE-training"
 
 [modules]
 # Managed by 'cdf modules upgrade' — do not hand-edit.
-version = "0.8.125"
+version = "0.8.202"
 
 [plugins]
 run = true

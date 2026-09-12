@@ -4,7 +4,6 @@ dataSetExternalId: {{ dataset }}
 ignoreNullFields: true
 conflictMode: upsert
 isPublic: true
-queryFile: tra_Training_TRN_Load_Equipment.sql
 destination:
   type: nodes
   view:

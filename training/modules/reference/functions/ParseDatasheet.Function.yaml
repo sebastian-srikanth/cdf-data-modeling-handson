@@ -1,7 +1,7 @@
 externalId: fnc_{{ participant }}_Training_ParseDatasheet
 name: fnc_{{ participant }}_Training_ParseDatasheet
 owner: Training
-description: Parse pump datasheet PDF into viw_EquipmentHealthProfile_sdm.
+description: Parse pump datasheet PDF into EquipmentHealthProfile.
 functionPath: handler.py
 runtime: {{ function_runtime }}
 dataSetExternalId: {{ dataset }}

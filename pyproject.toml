@@ -5,7 +5,7 @@ description = "A from-zero, hands-on course through Cognite Data Fusion, the Cog
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "cognite-toolkit==0.8.125",
+    "cognite-toolkit==0.8.202",
     "setuptools<81.0",
     "pyjwt[crypto]==2.13.0",
 ]
@@ -14,18 +14,20 @@ dependencies = [
 dev = [
     "pre-commit>=4.0",
 ]
-# Jupyter notebooks used in chapters 07-11 and 15
+# Building the published site (CI only -- a learner never needs this)
+docs = [
+    "mkdocs-material>=9.5",
+]
+# Jupyter notebooks used in chapters 07-15
 notebooks = [
     "jupyterlab>=4.0",
     "ipykernel>=6.29",
     "pandas>=2.2",
-]
-# Only needed to regenerate the sample PID / datasheet / 3D assets (_generators/)
-assets = [
-    "reportlab>=4.0",
-    "pypdf>=5.0",
-    "trimesh>=4.0",
+    "pypdf>=5.0",        # notebook 04 reads the datasheet PDF directly
 ]
 
 [tool.uv]
 package = false
+# `uv sync` must give a learner everything the course needs, including the
+# Jupyter stack used from Chapter 07 onward.
+default-groups = ["notebooks"]
