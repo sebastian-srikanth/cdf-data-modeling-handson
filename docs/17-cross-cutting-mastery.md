@@ -125,8 +125,23 @@ which half is which is the difference between a schema change and an outage.
 | **Container** — external ID, removing a property, changing a property's type or attributes | **Breaking.** Not allowed in place | Delete → recreate → **re-ingest every instance**. The data is in the container; dropping it drops the data |
 | **View** — external ID, removing a property, changing a property's `source` | **Breaking**, but versionable | Publish a new version, verify it, migrate consumers, retire the old one. No data moves — views are lenses |
 | **Data model** — its view list | Versionable | Same pattern. Remember to update every transformation that names the version |
-| Adding a **new** property to a container | Safe | — |
+| Adding a **new** *nullable* property to a container, and to a view | Safe, in place | — |
+| Adding a **new** *required* (`nullable: false`) property to an existing **view version** | **Blocked**, even with a `defaultValue` | Bump the view version |
 | Adding an **index** | Safe, and can be done later | — |
+
+⚠️ `[COMMON MISTAKE]` Assuming a `defaultValue` makes a required property safe to add.
+It does not. Verified live — adding `nullable: false` to a live view returns:
+
+```
+Cannot add property 'criticality' to view 'WorkOrder/v1.0.0' as it is required.
+Bump the view version to make this change.
+```
+
+The reasoning is sound once you see it: every existing consumer of `v1.0.0` was written
+against a contract without that field, and a default does not change the fact that the
+shape changed. **If you need the field now and cannot bump the version, make it
+nullable.** That is a real design decision, not a workaround — a required field is a
+promise to every reader of the view, and you cannot add a promise retroactively.
 
 ⚠️ `[COMMON MISTAKE]` Recreating a container and forgetting to re-map the views that
 reference it. You get **HTTP 500s across the whole project** — not a tidy validation

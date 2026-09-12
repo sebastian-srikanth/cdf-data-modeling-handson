@@ -15,7 +15,7 @@ These are the waits that wreck a schedule if you don't plan around them.
 
 | What | Measured | Plan for |
 |---|---|---|
-| **Cognite Functions first deploy (5 functions)** | **6–12 min** | Do this *before the break*, not after. Nothing downstream works until they are `Ready` |
+| **Cognite Functions first deploy (5 functions)** | **6–25 min**, highly variable | Do this *before the break*, not after. Nothing downstream works until they are `Ready`, they do **not** finish together, and two runs of the same five functions differed by a factor of two. Budget the upper end |
 | Diagram detect job | ~30–60 s | fine inline |
 | 3D revision processing | ~2–4 min | start it, then teach something else |
 | Entity-matching fit + predict | ~60 s | fine inline |

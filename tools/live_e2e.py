@@ -201,6 +201,15 @@ def teardown(client, name: str) -> None:
 
     delete_location_filter(client, name)
 
+    # Chapter 15's agent is global too, and Chapter 15 section 15.7 has the learner
+    # delete it by hand. An unattended run must not rely on that.
+    try:
+        attempt(f"agent agt_{name}_maintenance",
+                lambda: client.agents.delete(f"agt_{name}_maintenance",
+                                             ignore_unknown_ids=True))
+    except Exception as exc:  # noqa: BLE001 - Atlas AI is alpha and may be disabled
+        print(f"    skip agent: {str(exc)[:90]}")
+
     # Chapter 16's groups are global resources. Purging spaces does not remove them, and
     # a group bound to a placeholder sourceId matches nobody but still clutters the
     # project's access list.

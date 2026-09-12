@@ -41,14 +41,23 @@ PART_A_WEIGHTS = {
     "03": 14, "04": 6, "05": 8, "06": 2, "07": 4,
     "08": 4, "09": 4, "10": 8, "11": 3, "12": 4, "13": 3,
 }
+# Chapter 15 is deliberately NOT assessed, even though it has a self-check. Section 15.7
+# tells you to delete the agent, so scoring its existence would penalise anyone who
+# followed the chapter to the end. Chapter 19 is excluded for the same kind of reason:
+# it passes only once everything is torn down.
+assert sum(PART_A_WEIGHTS.values()) == 60, (
+    f"Part A must total 60, not {sum(PART_A_WEIGHTS.values())}")
 
 TASKS_HELP = """
 PART B — four tasks. None of these appear in any chapter.
 
   B1  Add a `criticality` property to your WorkOrder container and expose it on the
-      WorkOrder view. It must be TEXT, NOT nullable, with a default value of "MEDIUM",
-      and it must carry a description. Deploy it.
-      (Tests: container vs view, property attributes, redeploying a live container.)
+      WorkOrder view. TEXT, nullable, default value "MEDIUM", and it must carry a
+      description. Deploy it by editing your YAML and re-running build + deploy.
+      (Tests: container vs view, property attributes, changing a live model.)
+      Note it must be NULLABLE. Try `nullable: false` if you like -- CDF will refuse
+      to add a required property to a live view version and tell you to bump the
+      version. That refusal is the lesson; Chapter 17 section 17.5b explains it.
 
   B2  Give CogniteEquipment a reverse route to its health profile. Create a view
       `Equipment` in your SDM space that implements cdf_cdm:CogniteEquipment and adds a
@@ -98,7 +107,7 @@ def part_b(client, name: str, r: Report) -> None:
     if prop is not None:
         type_name = type(prop.type).__name__.lower()
         r.check("B1   it is a text property", "text" in type_name, True)
-        r.check("B1   it is not nullable", prop.nullable is False, True)
+        r.check("B1   it is nullable", prop.nullable is True, True)
         r.check("B1   its default is MEDIUM", prop.default_value, "MEDIUM")
         r.check("B1   it has a description", bool(prop.description), True)
     try:
@@ -121,9 +130,11 @@ def part_b(client, name: str, r: Report) -> None:
         hp = equipment_view.properties.get("healthProfile")
         r.check("B2   healthProfile is a single reverse direct relation",
                 type(hp).__name__, "SingleReverseDirectRelation")
-        if hp is not None and hasattr(hp, "through"):
-            r.check("B2   it traverses EquipmentHealthProfile.equipment",
-                    getattr(hp.through, "identifier", None), "equipment")
+        if hp is not None and getattr(hp, "through", None) is not None:
+            # The attribute is `.property`; the JSON key it serialises to is
+            # "identifier". Read the attribute, fall back to the dump.
+            through = getattr(hp.through, "property", None) or hp.through.dump().get("identifier")
+            r.check("B2   it traverses EquipmentHealthProfile.equipment", through, "equipment")
         models = client.data_modeling.data_models.retrieve((sdm, "MaintenanceInsight", MODEL_VERSION))
         listed = [v.external_id if hasattr(v, "external_id") else v[1]
                   for v in (models[0].views if models else [])]
