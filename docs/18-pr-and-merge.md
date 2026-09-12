@@ -1,4 +1,4 @@
-# Chapter 17 — PR & Merge
+# Chapter 18 — PR & Merge
 
 **Goal:** open a pull request that could be merged alongside a dozen other people's
 PRs the same afternoon, with **zero collisions** and no review surprises. This is where
@@ -7,12 +7,12 @@ all the naming discipline from Chapter 01 pays off — or doesn't.
 ℹ️ `[INFO]` **Working through this alone?** Open the PR against your own fork or a
 branch of your own clone and merge it yourself. Do the chapter anyway — the isolation
 model it verifies is exactly what lets this course be run for a whole team later, and
-the pre-flight checks in §17.5 catch real mistakes in your module regardless of who
+the pre-flight checks in §18.5 catch real mistakes in your module regardless of who
 reviews them.
 
 ---
 
-## 17.1 [INFO] The isolation architecture — why this merges cleanly
+## 18.1 [INFO] The isolation architecture — why this merges cleanly
 
 Everything about how you've named and placed files exists to make this moment safe.
 The design isolates every participant on **two independent axes at once**:
@@ -42,7 +42,7 @@ already did the isolating. (Full derivation: [Chapter 01](01-naming-isolation-an
 
 ---
 
-## 17.2 [PR] Exactly what you may touch — and what you must never touch
+## 18.2 [PR] Exactly what you may touch — and what you must never touch
 
 ✅ **You may add/edit only these two paths:**
 
@@ -84,7 +84,7 @@ appears in your `git status`.
 
 ---
 
-## 17.3 [PR] Naming contract recap — the identity rule, proven
+## 18.3 [PR] Naming contract recap — the identity rule, proven
 
 | Rule | Correct | Wrong |
 |---|---|---|
@@ -100,7 +100,7 @@ space, zero collision. Never `YOURNAME`-scope an externalId, and never use the w
 
 ---
 
-## 17.4 [PR] Conflict-avoidance & git hygiene
+## 18.4 [PR] Conflict-avoidance & git hygiene
 
 - **Your `YOURNAME` must be unique among everyone using the same CDF project.** Two
   people picking `ALEX` collide on both folder *and* space. Settle your name before you
@@ -112,7 +112,7 @@ space, zero collision. Never `YOURNAME`-scope an externalId, and never use the w
   ```
   If `main` moves while you work, `git pull --rebase origin main` onto your branch.
   Because you only touch your own two paths, a rebase should apply with **no
-  conflicts** — if it doesn't, you've edited a shared file (see §17.2).
+  conflicts** — if it doesn't, you've edited a shared file (see §18.2).
 - **Never edit a shared/global file to "make the build work."** If a build error tempts
   you to change `cdf.toml`, `default.config.yaml`, or the curriculum, the real fix is
   almost always in *your* folder. Anything shared is shared for a reason.
@@ -124,7 +124,7 @@ space, zero collision. Never `YOURNAME`-scope an externalId, and never use the w
 
 ---
 
-## 17.4b [WRITE] Finish your two write-ups
+## 18.4b [WRITE] Finish your two write-ups
 
 Before the pre-flight gate, close out the two files you created in
 [Chapter 01](01-naming-isolation-and-setup.md) §1.4. Both are part of the deliverable, and
@@ -153,7 +153,7 @@ is exactly the thing nobody else can reconstruct later.
 
 ---
 
-## 17.5 [ACTION] Pre-flight gate — run this locally before you push
+## 18.5 [ACTION] Pre-flight gate — run this locally before you push
 
 🟢 `[ACTION]` The same checks a reviewer (and CI) will run — catch problems on your
 laptop, not in the PR:
@@ -173,13 +173,13 @@ git check-ignore .env   # must print: .env
 ```
 
 Also complete the **self-verification checklist** in
-[Chapter 16](16-cross-cutting-mastery.md) §16.6 and confirm it prints `PASS` — that's
+[Chapter 17](17-cross-cutting-mastery.md) §17.6 and confirm it prints `PASS` — that's
 what proves your *deployed* resources actually exist in CDF, which a code diff can't
 show.
 
 ✅ `[VERIFY]` What a reviewer checks (mirror it before you push):
 
-- [ ] Diff touches only the two paths in §17.2 — nothing shared, no other participant
+- [ ] Diff touches only the two paths in §18.2 — nothing shared, no other participant
 - [ ] `config.<YOURNAME>-training.yaml` `selected:` has exactly one entry, your folder
 - [ ] No `{{ }}` template syntax anywhere in your files (you write literals — §1.5)
 - [ ] No other participant's name appears anywhere in your files
@@ -189,15 +189,15 @@ show.
   point; it lets a reviewer diff yours against the reference in seconds
 - [ ] `pre-commit run --all-files` passes
 - [ ] No `.env`, no `*.ipynb`, no editor cruft in the diff
-- [ ] `NOTES.md` is complete — every chapter heading filled in or explicitly `n/a` (§17.4b)
-- [ ] `FEEDBACK.md` is complete and its **YAML block still parses** (§17.4b)
+- [ ] `NOTES.md` is complete — every chapter heading filled in or explicitly `n/a` (§18.4b)
+- [ ] `FEEDBACK.md` is complete and its **YAML block still parses** (§18.4b)
 
 ---
 
-## 17.6 [WRITE] Your PR description — copy-paste template
+## 18.6 [WRITE] Your PR description — copy-paste template
 
 📋 `[PR]` Paste this into the **GitHub PR description** (do **not** commit it as a file —
-a repo-level template would be a shared file you're not allowed to touch, §17.2).
+a repo-level template would be a shared file you're not allowed to touch, §18.2).
 Personalize the `[CHANGE]` bits:
 
 ```markdown
@@ -207,7 +207,7 @@ Personalize the `[CHANGE]` bits:
 **Space:** isp_<YOURNAME>_TRN
 **Config:** training/config.<YOURNAME>-training.yaml
 
-### Self-verification (Ch 16 §16.6)
+### Self-verification (Ch 17 §17.6)
 - [ ] Ran the self-verification checklist — it printed `PASS`
 - [ ] `pre-commit run --all-files` passes
 - [ ] `cdf build --config-yaml training/config.<YOURNAME>-training.yaml` clean
@@ -230,7 +230,7 @@ Personalize the `[CHANGE]` bits:
 > unverified claim silently.
 
 ### Teardown
-- [ ] I understand my entity-matching model is GLOBAL and must be deleted (Ch 16 §16.7)
+- [ ] I understand my entity-matching model is GLOBAL and must be deleted (Ch 17 §17.7)
 ```
 
 ⚠️ `[COMMON MISTAKE]` Leaving the "NOT fully verified" section blank when something
@@ -240,30 +240,30 @@ that turns out to be broken is not.
 
 ---
 
-## 17.7 [ACTION] Open the PR
+## 18.7 [ACTION] Open the PR
 
 🟢 `[ACTION]`
 
 ```bash
 git add training/config.<YOURNAME>-training.yaml
 git add training/modules/participants/<YOURNAME>/
-git status   # double-check the staged set matches §17.2 EXACTLY
+git status   # double-check the staged set matches §18.2 EXACTLY
 git commit -m "Add <YOURNAME> training module"
 git push -u origin training/<YOURNAME>
 ```
 
-Then open the PR against `main` and paste the §17.6 template as the description.
+Then open the PR against `main` and paste the §18.6 template as the description.
 
 - **If CI flags something**, fix it in your folder and push again to the same branch —
   the PR updates automatically. Don't open a second PR.
 - **If `main` moved**, `git pull --rebase origin main` and push. Your scoped diff should
-  rebase without conflicts (§17.4).
+  rebase without conflicts (§18.4).
 - **Don't force-push over a reviewer mid-review** unless you're only amending your own
   latest commit — coordinate if in doubt.
 
 ---
 
-## 17.8 [INFO] What merging your PR does — and doesn't
+## 18.8 [INFO] What merging your PR does — and doesn't
 
 Your PR does **not**, by itself, deploy your module anywhere beyond the training project
 you already deployed to during the lab (`<your-cdf-project>`). These training
@@ -289,4 +289,4 @@ That's the craft. Well done.
 ---
 
 When you're finished with the lab and want to remove your CDF resources, see
-→ [Chapter 18 — Teardown](18-teardown.md).
+→ [Chapter 19 — Teardown](19-teardown.md).

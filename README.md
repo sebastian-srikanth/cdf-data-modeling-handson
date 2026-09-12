@@ -49,9 +49,10 @@ uv run cdf auth verify --dry-run
 | [13 — Querying the graph](docs/13-querying-the-graph.md) | Ask the graph real questions — traversal, filters, aggregates, sync |
 | [14 — Debugging broken links](docs/14-debugging-broken-links.md) | Find what is quietly wrong, trace it to source, and undo a bad delete |
 | [15 — Atlas AI agent](docs/15-atlas-ai-agent.md) | Point an agent at your model and see every Chapter 03 decision pay off |
-| [16 — Cross-cutting mastery](docs/16-cross-cutting-mastery.md) | Idempotency, observability, cost |
-| [17 — PR & merge](docs/17-pr-and-merge.md) | A PR scoped so tightly a dozen could merge at once |
-| [18 — Teardown](docs/18-teardown.md) | Your resources removed cleanly |
+| [16 — Access management](docs/16-access-management.md) | Groups, scopes, least privilege — and proving the scope actually bites |
+| [17 — Cross-cutting mastery](docs/17-cross-cutting-mastery.md) | Idempotency, observability, cost |
+| [18 — PR & merge](docs/18-pr-and-merge.md) | A PR scoped so tightly a dozen could merge at once |
+| [19 — Teardown](docs/19-teardown.md) | Your resources removed cleanly |
 
 Chapters that introduce a Cognite Function always meet the capability in a **Jupyter
 notebook** first — raw SDK calls, cell by cell — before it is packaged into a
@@ -69,6 +70,16 @@ Every chapter's Gate is executable. `selfcheck.py` asks CDF what you actually de
 prints PASS/FAIL per item, so you never have to guess whether you are ready to move on.
 See [tools/README.md](tools/README.md).
 
+## Assessment
+
+```bash
+uv run python tools/assess.py --tasks     # see the tasks
+PARTICIPANT=<YOURNAME> uv run python tools/assess.py
+```
+
+Scored out of 100 from **what you built**, not what you can recall: 60 points for the
+course artifacts, 40 for four tasks that appear in no chapter. Graded straight from CDF.
+
 ## Running this alone vs. running it for a team
 
 The course was built for a cohort — every participant works in
@@ -76,13 +87,13 @@ The course was built for a cohort — every participant works in
 (Chapter 01) lets a dozen people build the *same* model in the *same* CDF project
 without a single collision.
 
-**Alone**, that still works — you are simply a cohort of one. Chapter 17 has you open
+**Alone**, that still works — you are simply a cohort of one. Chapter 18 has you open
 the PR against your own fork or branch and merge it yourself.
 
 **For a team**, the isolation model is the point: one CDF project, one repo, N
 participants, zero collisions. Everyone clones this repo, picks a unique `YOURNAME`,
 and works through the same chapters — Chapter 01 explains why that does not collide,
-and Chapter 17 explains why the pull requests don't either.
+and Chapter 18 explains why the pull requests don't either.
 
 ---
 
@@ -97,7 +108,7 @@ pyproject.toml       Pins cognite-toolkit 0.8.202
 
 docs/                THE COURSE
 ├── README.md          Start here
-├── 00-…md … 18-…md    19 chapters, in order
+├── 00-…md … 19-…md    20 chapters, in order
 ├── notebooks/         9 Jupyter notebooks (chapters 07–11, 13–15, 18)
 ├── assets/            The P&ID, datasheet and 3D model you load
 └── templates/         NOTES.md / FEEDBACK.md, seeded in Chapter 01
@@ -118,7 +129,7 @@ training/            The Cognite Toolkit organization directory
 ## Teardown
 
 Every resource this course creates can be removed — see
-[Chapter 18](docs/18-teardown.md), which walks through it with an SDK notebook and
+[Chapter 19](docs/19-teardown.md), which walks through it with an SDK notebook and
 `cdf` commands. Entity-matching models are global to a project: if you create one, you
 must delete it.
 

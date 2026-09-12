@@ -40,10 +40,12 @@ SUBSTITUTIONS = [
     ("{{ model_version }}", "v1.0.0"),
     ("{{ function_runtime }}", "py311"),
     ("{{ site_code }}", "TRN"),
+    ("{{ idp_group_reader }}", "<your-idp-group-object-id>"),
+    ("{{ idp_group_developer }}", "<your-idp-group-object-id>"),
 ]
 
 # Chapters that are pure process (tooling, naming, git) and deploy nothing to CDF.
-NO_GATE_EXPECTED = {"13", "14", "17", "18"}
+NO_GATE_EXPECTED = {"13", "14", "18", "19"}
 
 failures: list[str] = []
 notes: list[str] = []
@@ -247,8 +249,58 @@ def check_chapter_shape() -> int:
         text = md.read_text()
         if not re.search(r"^## Gate", text, re.M):
             fail(f"no gate    {md.name} has no '## Gate' section")
-        if number != "18" and not re.search(r"^→ \[Chapter", text, re.M):
+        if number != "19" and not re.search(r"^→ \[Chapter", text, re.M):
             fail(f"no next    {md.name} has no '→ [Chapter NN]' link")
+    return checked
+
+
+# ------------------------------------------------ 8b. chapter table integrity ----
+CHAPTER_ROW = re.compile(r"\[(\d\d) — [^\]]+\]\((?:docs/)?(\d\d)-[^)]+\.md\)")
+
+
+def check_chapter_tables() -> int:
+    """A chapter row must link to the chapter its label names.
+
+    Renumbering rewrites link targets but not the bare "16 — " label in a table cell,
+    so the two silently drift apart. This has happened on every renumber so far.
+    """
+    checked = 0
+    for md in (ROOT / "README.md", DOCS / "README.md"):
+        if not md.exists():
+            continue
+        for m in CHAPTER_ROW.finditer(md.read_text()):
+            checked += 1
+            if m.group(1) != m.group(2):
+                fail(f"row        {md.relative_to(ROOT)}: label says {m.group(1)} "
+                     f"but links to {m.group(2)}-…")
+    return checked
+
+
+# ------------------------------------------------------- 9. the tools import ----
+def check_tools_import() -> int:
+    """Every tool must at least import.
+
+    `check_docs.py` used to pass while `selfcheck.py` was broken -- its CHECKS dict
+    named three functions that did not exist. Nothing imported the tools, so CI was
+    green and the tool was unusable. Parsing is not enough; import is the real test,
+    because it resolves names.
+    """
+    import importlib.util
+
+    checked = 0
+    for path in sorted(pathlib.Path(__file__).resolve().parent.glob("*.py")):
+        if path.name == pathlib.Path(__file__).name:
+            continue
+        checked += 1
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules.setdefault(path.stem, module)
+        try:
+            spec.loader.exec_module(module)
+        except SystemExit:
+            pass  # a tool whose import path calls sys.exit is still importable
+        except Exception as exc:  # noqa: BLE001
+            fail(f"tool       {path.name} does not import: {type(exc).__name__}: {exc}")
     return checked
 
 
@@ -260,6 +312,8 @@ def main() -> int:
     writes = check_write_blocks()
     names = check_undefined_names()
     shapes = check_chapter_shape()
+    tables = check_chapter_tables()
+    tools = check_tools_import()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -269,6 +323,8 @@ def main() -> int:
     print(f"  [WRITE] blocks   {writes:>4} compared against the reference module")
     print(f"  notebook scopes  {names:>4} cells scanned for undefined names")
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
+    print(f"  chapter tables   {tables:>4} rows: label matches link target")
+    print(f"  tools import     {tools:>4} tools imported")
     for note in notes:
         print(f"  note: {note}")
 

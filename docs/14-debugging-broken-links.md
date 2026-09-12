@@ -392,7 +392,7 @@ So, when you delete deliberately:
 3. Delete the node.
 
 That ordering also avoids a long-running cascade on a well-connected node. It matters
-directly in [Chapter 18](18-teardown.md), where you remove the diagram annotations you
+directly in [Chapter 19](19-teardown.md), where you remove the diagram annotations you
 created in [Chapter 08](08-diagram-annotation.md) — those are edges, and they go first.
 
 ---

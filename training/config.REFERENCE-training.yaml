@@ -24,3 +24,7 @@ variables:
       raw_db: rwd_REFERENCE_Training_TRN
       model_version: v1.0.0
       function_runtime: py311
+      # Chapter 16 — real Entra ID group object IDs. A placeholder deploys
+      # fine and simply matches nobody.
+      idp_group_reader: "<your-idp-group-object-id>"
+      idp_group_developer: "<your-idp-group-object-id>"

@@ -49,7 +49,7 @@ space*). This lab uses three, and the split is deliberate:
 rarely and needs careful versioning; instances (actual data) change constantly and
 need none. Mixing them in one space means every data write and every schema change
 compete for the same namespace's access rules and lifecycle. Separating them means you
-can, for example, purge all your instance data (teardown, [Chapter 16](16-cross-cutting-mastery.md))
+can, for example, purge all your instance data (teardown, [Chapter 17](17-cross-cutting-mastery.md))
 without touching your schema at all.
 
 **Why three spaces and not one?** Because *isolation* in this course is achieved

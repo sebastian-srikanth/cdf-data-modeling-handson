@@ -51,7 +51,7 @@ this clone.
 
 ⚠️ `[COMMON MISTAKE]` Downloading a ZIP of the repo from GitHub's web UI instead of
 `git clone`. You need real git history and a real remote to open a PR later
-([Chapter 17](17-pr-and-merge.md)) — a ZIP download gives you neither.
+([Chapter 18](18-pr-and-merge.md)) — a ZIP download gives you neither.
 
 ---
 
@@ -168,7 +168,7 @@ checksum = "sha256:..."
 | `default_organization_dir` | Which top-level folder holds your modules and configs — `training/` in this repo. `cdf build` looks here unless you pass `--organization-dir` |
 | `default_env` | Which `config.<name>.yaml` to use when you omit `--config-yaml`. It points at the *reference* config, not yours. **You will always pass your own `--config-yaml training/config.<YOURNAME>-training.yaml` explicitly**, so this default never silently deploys the reference module over your work |
 | `[modules].version` | The Toolkit modules-schema version. Managed by `cdf modules upgrade` — never hand-edit |
-| `[plugins]` | Optional CLI subcommand families. `run` enables `cdf run function` / workflow execution helpers; `dump` enables `cdf dump` (pull resources from CDF into YAML); `data` enables `cdf data purge` (used in teardown, [Chapter 16](16-cross-cutting-mastery.md)) |
+| `[plugins]` | Optional CLI subcommand families. `run` enables `cdf run function` / workflow execution helpers; `dump` enables `cdf dump` (pull resources from CDF into YAML); `data` enables `cdf data purge` (used in teardown, [Chapter 17](17-cross-cutting-mastery.md)) |
 | `[alpha_flags]` | Feature-gated Toolkit capabilities still in alpha (search-config, data products, signals, streams, profiling). Irrelevant to this course — listed here because they're project-wide, not per-module |
 | `[library.cognite]` | Where `cdf modules add`-style community/reference modules get pulled from. You will not use this in this course |
 
@@ -285,7 +285,7 @@ The core command set you'll use throughout this course:
 | `cdf deploy --cdf-project <p> --dry-run` | Show what *would* change in CDF, changes nothing |
 | `cdf deploy --cdf-project <p>` | Apply the build to CDF |
 | `cdf clean --cdf-project <p>` | Delete the resources listed in the current `build/` |
-| `cdf data purge space <space>` | Manually-confirmed, destructive deletion of a space's instances (teardown only — [Chapter 16](16-cross-cutting-mastery.md)) |
+| `cdf data purge space <space>` | Manually-confirmed, destructive deletion of a space's instances (teardown only — [Chapter 17](17-cross-cutting-mastery.md)) |
 
 ✅ `[VERIFY]` — prove the CLI and the build machinery are wired, without touching your
 own module yet:

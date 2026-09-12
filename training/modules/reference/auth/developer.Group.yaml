@@ -1,0 +1,29 @@
+name: gp_{{ participant }}_training_developer
+sourceId: {{ idp_group_developer }}
+metadata:
+  module_version: '1'
+capabilities:
+  # A developer may change the schema - inside their own spaces only.
+  - dataModelsAcl:
+      actions: [READ, WRITE]
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schema_space_edm }}
+            - {{ schema_space_sdm }}
+  - dataModelInstancesAcl:
+      actions: [READ, WRITE]
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ instance_space }}
+  # transformationsAcl and rawAcl have NO space scope. This is a compromise, and
+  # Chapter 16 §16.3 says so out loud rather than hiding it.
+  - transformationsAcl:
+      actions: [READ, WRITE]
+      scope:
+        all: {}
+  - rawAcl:
+      actions: [READ, WRITE]
+      scope:
+        all: {}

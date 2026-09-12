@@ -50,18 +50,19 @@ plus measured machine waits and a friction allowance where noted.
 | 13 | Querying the graph | **75 m** | 19 `[ACTION]` — the most interactive chapter in the course |
 | 14 | Debugging broken links | 55 m | 13 `[ACTION]` |
 | 15 | Atlas AI agent | 45 m | |
-| 16 | Cross-cutting mastery | 15 m | Discussion, not typing |
-| 17 | PR and merge | 40 m | +10 friction: git goes wrong for somebody |
-| 18 | Teardown | 20 m | |
+| 16 | Access management | 45 m | Groups, scopes, least privilege. 2 `[WRITE]` |
+| 17 | Cross-cutting mastery | 15 m | Discussion, not typing |
+| 18 | PR and merge | 40 m | +10 friction: git goes wrong for somebody |
+| 19 | Teardown | 20 m | |
 
-**Total ≈ 14.8 hours of contact time.**
+**Total ≈ 15.5 hours of contact time.**
 
 ⚠️ That does **not** fit two days. A realistic day is 6–6.5 working hours once you remove
 breaks, lunch and restarts. Pick one:
 
 - **Three half-days** (~5 h each) — the comfortable shape, and the one to quote by default.
-- **Two full days** — workable only if you cut. Cut in this order: 16 (discussion),
-  09 (3D), 11 (datapoints). Never cut 03 or 13.
+- **Two full days** — workable only if you cut. Cut in this order: 17 (discussion),
+  09 (3D), 11 (datapoints). Never cut 03, 13 or 16.
 - **Two days plus pre-work** — have participants complete 00–02 *before* day one against a
   checklist. That removes 2 hours and, more importantly, moves the auth pain out of the room.
 
@@ -72,7 +73,7 @@ breaks, lunch and restarts. Pick one:
 | 1 | 00–03 | 3 h 40 m |
 | 2 | 04–08 | 4 h 30 m |
 | 3 | 09–12 | 2 h 50 m |
-| 4 | 13–18 | 4 h 10 m |
+| 4 | 13–19 | 4 h 55 m |
 
 Sessions 2 and 4 are the long ones. **Start the Function deploy at the top of session 2**
 and it builds while you teach Chapter 07's theory.
@@ -88,6 +89,60 @@ and it builds while you teach Chapter 07's theory.
    is lost.
 5. `PARTICIPANT=<you> uv run python tools/selfcheck.py all` — should be green before
    anyone else arrives.
+
+## Running a room — the cohort tools
+
+Put every participant's name in a roster file, one per line:
+
+```text
+# roster.txt
+ALICE
+BRUNO
+CHIOMA
+```
+
+**Before the day** — will this project even take them?
+
+```bash
+uv run python tools/cohort.py preflight roster.txt
+```
+
+It adds up what the cohort will consume and warns you *before* you hit the Functions cap.
+Five Functions per participant against a typical 100 limit means **about 20 people max**,
+and the cap is silent until you cross it.
+
+**On the day** — where is everybody?
+
+```bash
+uv run python tools/cohort.py board roster.txt
+```
+
+A grid of participants against chapters: `ok`, a partial score, or `.`. You will see that
+four people are stuck on Chapter 05 before any of them puts a hand up. Read-only.
+
+**Afterwards** — did everyone actually clean up?
+
+```bash
+uv run python tools/cohort.py sweep roster.txt
+```
+
+## Assessment
+
+```bash
+PARTICIPANT=ALICE uv run python tools/assess.py --json alice.json
+```
+
+**Part A (60 pts)** re-uses the chapter self-checks — did the thing the course asked for
+actually land in CDF. **Part B (40 pts)** is four tasks that appear in no chapter, so they
+cannot be copied: add a correctly-attributed container property, build a *second* reverse
+direct relation unaided, repair the phantom asset, and write constrained datapoints.
+
+Show participants the tasks up front — `uv run python tools/assess.py --tasks`. It is not
+a memory test.
+
+Everything is graded from CDF state, so there is nothing to mark by hand and nothing to
+argue about. 75 is a pass, 90 a distinction. The JSON result carries a checksum: it is
+tamper-*evident*, not tamper-proof.
 
 ## During — the checks that save you
 
@@ -115,7 +170,7 @@ reading over shoulders — it scales to a room, and it tells them *what* is miss
 
 ## Teardown
 
-Chapter 18, and it matters — a project full of abandoned participant resources makes the
+Chapter 19, and it matters — a project full of abandoned participant resources makes the
 next cohort worse. Two things survive on purpose:
 
 - **Data sets** cannot be deleted in CDF, ever. Archived is the clean end state.

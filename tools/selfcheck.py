@@ -290,16 +290,112 @@ def check_13(client, name, r: Report) -> None:
     r.check("work orders on the pump", sorted(n.external_id for n in orders), ["WO-1001"])
 
 
+# --------------------------------------------------------------------- ch 06 ----
+def check_06(client, name, r: Report) -> None:
+    """Location filters live under the apps API; the SDK has no typed accessor."""
+    import json
+    import urllib.request
+
+    isp, _, sdm = spaces_for(name)
+    header, value = client.config.credentials.authorization_header()
+    request = urllib.request.Request(
+        f"{client.config.base_url.rstrip('/')}/apps/v1/projects/"
+        f"{client.config.project}/storage/config/locationfilters/list",
+        data=json.dumps({"flat": True}).encode(),
+        headers={header: value, "Content-Type": "application/json",
+                 "cdf-version": "alpha", "accept": "application/json"},
+        method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            items = json.loads(response.read()).get("items", [])
+    except Exception as exc:  # noqa: BLE001
+        r.check("location filter API reachable", str(exc)[:90], ok=False)
+        return
+
+    mine = [i for i in items if i.get("externalId") == f"loc_{name}_TRN"]
+    r.check("location filter deployed", len(mine), 1)
+    if not mine:
+        return
+    lf = mine[0]
+    r.check("scoped to your instance space", lf.get("instanceSpaces"), [isp])
+    models = [(m.get("space"), m.get("externalId")) for m in (lf.get("dataModels") or [])]
+    r.check("scoped to MaintenanceInsight", models, [(sdm, "MaintenanceInsight")])
+
+
+# --------------------------------------------------------------------- ch 15 ----
+def check_15(client, name, r: Report) -> None:
+    """The agent is global and optional -- absent is a legitimate end state."""
+    xid = f"agt_{name}_maintenance"
+    try:
+        agent = client.agents.retrieve(xid, ignore_unknown_ids=True)
+    except Exception as exc:  # noqa: BLE001 - Atlas AI is alpha; report, do not crash
+        r.check(f"agents API available ({type(exc).__name__})", str(exc)[:90], ok=False)
+        r.note("hint", "Atlas AI is alpha -- confirm it is enabled on this project")
+        return
+
+    if agent is None:
+        r.note("agent", f"{xid} not found")
+        r.note("hint", "expected if you ran the 15.7 cleanup -- that is the end state")
+        return
+
+    r.check("agent exists", agent.external_id, xid)
+    r.check("agent has instructions", bool(agent.instructions), True)
+    tools = list(agent.tools or [])
+    r.check("agent has exactly one tool", len(tools), 1)
+    if not tools:
+        return
+
+    config = getattr(tools[0], "configuration", None)
+    models = [(m.space, m.external_id) for m in (getattr(config, "data_models", None) or [])]
+    _, _, sdm = spaces_for(name)
+    r.check("tool scoped to MaintenanceInsight", models, [(sdm, "MaintenanceInsight")])
+    spaces = getattr(getattr(config, "instance_spaces", None), "spaces", None)
+    r.check("tool scoped to your instance space", spaces, [f"isp_{name}_TRN"])
+
+
+# --------------------------------------------------------------------- ch 19 ----
+def check_19(client, name, r: Report) -> None:
+    """Teardown is the one chapter where PASS means *nothing of yours remains*."""
+    isp, edm, sdm = spaces_for(name)
+
+    spaces = {s.space for s in client.data_modeling.spaces.list(limit=-1)}
+    r.check("all three spaces gone", sorted({isp, edm, sdm} & spaces), [])
+    r.check("transformations gone",
+            [x.external_id for x in client.transformations.list(limit=-1)
+             if name in (x.external_id or "")], [])
+    r.check("functions gone",
+            [f.external_id for f in client.functions.list(limit=-1)
+             if name in (f.external_id or "")], [])
+    r.check("function source zips gone",
+            [f.external_id for f in client.files.list(limit=1000)
+             if (f.external_id or "").startswith(f"fnc_{name}_")], [])
+    r.check("workflows gone",
+            [w.external_id for w in client.workflows.list(limit=-1)
+             if name in (w.external_id or "")], [])
+    r.check("RAW databases gone",
+            [d.name for d in client.raw.databases.list(limit=-1) if name in (d.name or "")], [])
+    r.check("3D models gone",
+            [m.name for m in client.three_d.models.list(limit=-1) if name in (m.name or "")], [])
+
+    # A data set can never be hard-deleted; archived IS the clean end state.
+    data_set = client.data_sets.retrieve(external_id=f"dts_{name}_Training_TRN")
+    if data_set is None:
+        r.note("data set", "absent")
+    else:
+        r.check("data set archived (it can never be deleted)",
+                (data_set.metadata or {}).get("archived") == "true", True)
+
+
 CHECKS = {
     "03": check_03, "04": check_04, "05": check_05, "06": check_06,
     "07": check_07, "08": check_08, "09": check_09, "10": check_10,
     "11": check_11, "12": check_12, "13": check_13, "15": check_15,
-    "18": check_18,
+    "19": check_19,
 }
 
 # Chapter 18 asserts the OPPOSITE of every other chapter: it passes when your resources are
 # gone. Running it inside `all` would fail for anyone mid-course, so ask for it by name.
-EXCLUDE_FROM_ALL = {"18"}
+EXCLUDE_FROM_ALL = {"19"}
 
 
 def main() -> int:

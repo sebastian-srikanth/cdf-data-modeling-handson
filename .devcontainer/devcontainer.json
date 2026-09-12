@@ -1,0 +1,37 @@
+{
+  "name": "CDF Data Modeling — Hands On",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "redhat.vscode-yaml",
+        "bierner.markdown-mermaid"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+        "yaml.schemas": {},
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  },
+
+  // Chapter 02's interactive login redirects to localhost:53000. Without this forward the
+  // browser cannot hand the token back and the login hangs with no error.
+  "forwardPorts": [53000],
+  "portsAttributes": {
+    "53000": { "label": "CDF interactive login callback", "onAutoForward": "silent" }
+  },
+
+  "remoteEnv": {
+    "PYTHONUNBUFFERED": "1"
+  }
+}

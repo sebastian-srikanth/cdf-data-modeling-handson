@@ -1,0 +1,33 @@
+name: gp_{{ participant }}_training_reader
+sourceId: {{ idp_group_reader }}
+metadata:
+  module_version: '1'
+capabilities:
+  # Read the model itself - the schema.
+  - dataModelsAcl:
+      actions: [READ]
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schema_space_edm }}
+            - {{ schema_space_sdm }}
+  # Read the data in it.
+  - dataModelInstancesAcl:
+      actions: [READ]
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ instance_space }}
+  # Classic resources are data-set scoped, NOT space scoped. See Chapter 16 §16.2.
+  - filesAcl:
+      actions: [READ]
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - timeSeriesAcl:
+      actions: [READ]
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}

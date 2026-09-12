@@ -38,6 +38,10 @@ TEMPLATE = {
     "raw_db": "rwd_{name}_Training_TRN",
     "model_version": "v1.0.0",
     "function_runtime": "py311",
+    # Chapter 16 groups. CI has no IdP group to bind to; a placeholder deploys fine and
+    # simply matches nobody, which is the correct behaviour to exercise.
+    "idp_group_reader": "00000000-0000-0000-0000-000000000000",
+    "idp_group_developer": "00000000-0000-0000-0000-000000000000",
 }
 TRANSFORMATIONS = ["Load_Assets", "Load_Equipment", "Load_TimeSeries",
                    "Load_WorkOrders", "Load_WorkOrderOperations"]

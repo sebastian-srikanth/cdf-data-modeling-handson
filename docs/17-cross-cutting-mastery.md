@@ -1,4 +1,4 @@
-# Chapter 16 — Cross-Cutting Mastery
+# Chapter 17 — Cross-Cutting Mastery
 
 **Goal:** step back from individual resources and see the system: why every handler
 you wrote is safe to re-run, how to debug any of them when something's wrong, what
@@ -7,7 +7,7 @@ and how to leave cleanly.
 
 ---
 
-## 16.1 [INFO] When to use Transformation vs Function vs Workflow vs UI
+## 17.1 [INFO] When to use Transformation vs Function vs Workflow vs UI
 
 | Tool | Use when |
 |---|---|
@@ -18,7 +18,7 @@ and how to leave cleanly.
 
 ---
 
-## 16.2 [INFO] Idempotency & re-runnability — why every handler upserts
+## 17.2 [INFO] Idempotency & re-runnability — why every handler upserts
 
 Look back across every handler you wrote: `client.data_modeling.instances.apply(...)`
 is **always** an upsert, never "create, and error if it already exists." Every
@@ -39,7 +39,7 @@ which is exactly why they dodge this bug entirely — worth knowing for the day 
 
 ---
 
-## 16.3 [INFO] Observability & debugging
+## 17.3 [INFO] Observability & debugging
 
 | Resource | Where to look |
 |---|---|
@@ -58,7 +58,7 @@ your debugger.
 
 ---
 
-## 16.4 [LIMITS] Cost & quota at cohort scale
+## 17.4 [LIMITS] Cost & quota at cohort scale
 
 Per participant, this lab costs roughly:
 
@@ -77,7 +77,7 @@ than having everyone hit `cdf deploy --include functions` in the same 60-second 
 
 ---
 
-## 16.5 [INFO] The end-state graph — one picture, not a paragraph
+## 17.5 [INFO] The end-state graph — one picture, not a paragraph
 
 Everything you built converges on one hub node: `21-PA-2001A`.
 
@@ -115,7 +115,7 @@ through Fusion, not just by trusting this picture.
 
 ---
 
-## 16.5b [LIMITS] What you cannot change later
+## 17.5b [LIMITS] What you cannot change later
 
 Some of what you wrote in [Chapter 03](03-data-modeling.md) is now permanent. Knowing
 which half is which is the difference between a schema change and an outage.
@@ -141,9 +141,9 @@ you need in containers, and let solution views churn.
 
 ---
 
-## 16.6 [PR] Self-verification checklist before you open a PR
+## 17.6 [PR] Self-verification checklist before you open a PR
 
-Run this before Chapter 17. Catch problems yourself first — these are exactly the
+Run this before Chapter 18. Catch problems yourself first — these are exactly the
 checks a reviewer applies after merge.
 
 ```python
@@ -235,11 +235,11 @@ check):
 
 ---
 
-## 16.7 [PR] Teardown literacy
+## 17.7 [PR] Teardown literacy
 
 You are not tearing down yet — that happens after your PR is merged and you're done
 with the lab for the day, or if you need to reset and start clean. When you get there,
-**[Chapter 18 — Teardown](18-teardown.md)** and its companion notebook
+**[Chapter 19 — Teardown](19-teardown.md)** and its companion notebook
 (`notebooks/06_teardown.ipynb`) walk the exact sequence: SDK deletes for your global
 resources, then `cdf data purge space` for your spaces (instance space first, then
 schema spaces; data sets archive, never hard-delete).
@@ -255,7 +255,7 @@ destructive, irreversible operation.
 
 ## Gate
 
-**Do not proceed to Chapter 17 until:**
+**Do not proceed to Chapter 18 until:**
 
 - The self-verification script above prints `PASS`
 - Every item in the manual checklist is checked
@@ -265,4 +265,4 @@ destructive, irreversible operation.
   fails, for each of the three
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
-→ [Chapter 17 — PR & Merge](17-pr-and-merge.md)
+→ [Chapter 18 — PR & Merge](18-pr-and-merge.md)

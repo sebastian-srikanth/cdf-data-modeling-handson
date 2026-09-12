@@ -234,7 +234,7 @@ spend compute only on the genuine leftovers.
 > the CDF project — unlike your spaces, they are **not** namespaced by participant, so a
 > model left behind is visible to and collides with everyone else in the cohort. This is the
 > one resource in the whole lab that does not isolate itself. See
-> [Chapter 16](16-cross-cutting-mastery.md) §16.7.
+> [Chapter 17](17-cross-cutting-mastery.md) §17.7.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_MatchDocuments/handler.py`
 
@@ -490,7 +490,7 @@ hardcoded space string (it reads `INSTANCE_SPACE` from `envVars`), a hard 300-se
 poll deadline on the EM path instead of "just wait and see," and it returns a
 JSON-serializable dict instead of printing — that dict (`matches`, `below_threshold`,
 `em_ran`, `unresolved_count`) is what shows up in the Function's call-result log
-([Chapter 16](16-cross-cutting-mastery.md)).
+([Chapter 17](17-cross-cutting-mastery.md)).
 
 ---
 

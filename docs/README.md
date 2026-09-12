@@ -85,7 +85,7 @@ PARTICIPANT=<YOURNAME> uv run python tools/selfcheck.py 03
 ```
 
 It asks CDF what you actually deployed and prints PASS/FAIL per Gate item. Read-only — it
-never writes to your project. Covers chapters 03–13, 15 and 18.
+never writes to your project. Covers chapters 03–13, 15 and 19.
 
 ## The shape of every chapter
 
@@ -124,9 +124,10 @@ Work through the chapters in order — each builds on the last. Go at your own p
 | [13 — Querying the graph](13-querying-the-graph.md) | `/query`, `/search`, `/aggregate`, `/sync`; traversal from the pump to its work orders |
 | [14 — Debugging broken links](14-debugging-broken-links.md) | Dangling, orphaned and absent records found, traced and fixed at source |
 | [15 — Atlas AI agent](15-atlas-ai-agent.md) | An agent answering in English, and why the model is what makes it work |
-| [16 — Cross-cutting mastery](16-cross-cutting-mastery.md) | Idempotency, observability, cost, the end-state graph, teardown |
-| [17 — PR & merge](17-pr-and-merge.md) | PR opened |
-| [18 — Teardown](18-teardown.md) | Your resources removed cleanly (SDK notebook + `cdf` spaces/location filter) |
+| [16 — Access management](16-access-management.md) | Who can see and change what, and how to prove it |
+| [17 — Cross-cutting mastery](17-cross-cutting-mastery.md) | Idempotency, observability, cost, the end-state graph, teardown |
+| [18 — PR & merge](18-pr-and-merge.md) | PR opened |
+| [19 — Teardown](19-teardown.md) | Your resources removed cleanly (SDK notebook + `cdf` spaces/location filter) |
 
 ---
 
@@ -135,7 +136,7 @@ Work through the chapters in order — each builds on the last. Go at your own p
 ```
 docs/                                      # this course (you read, don't edit)
 ├── README.md                              #   you are here
-├── 00-…md … 18-…md                        #   chapters, in order (18 = teardown)
+├── 00-…md … 19-…md                        #   chapters, in order (19 = teardown)
 ├── notebooks/                             #   Jupyter templates you run locally
 ├── assets/                                #   PID PDF, datasheet PDF, 3D OBJ to copy
 └── templates/                             #   NOTES.md / FEEDBACK.md to seed (Ch 01)
@@ -171,7 +172,7 @@ training/config.<YOURNAME>-training.yaml
 training/modules/participants/<YOURNAME>/**
 ```
 
-Nothing else. See [Chapter 17](17-pr-and-merge.md) for the full PR checklist.
+Nothing else. See [Chapter 18](18-pr-and-merge.md) for the full PR checklist.
 
 ---
 

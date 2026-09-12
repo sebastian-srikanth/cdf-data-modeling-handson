@@ -11,7 +11,7 @@ A CDF project can host many data models and many participants' data side by side
 Without a location filter, opening Search/Explore shows *everything* the model
 allows — every participant's `TRN-FPSO`, all at once, indistinguishable from each
 other except by inspecting the space of every node. A **location filter** gives end
-users (and you, in [Chapter 16](16-cross-cutting-mastery.md)'s aha-moment walkthrough)
+users (and you, in [Chapter 17](17-cross-cutting-mastery.md)'s aha-moment walkthrough)
 a named, scoped entry point: "show me only this instance space, through this data
 model."
 

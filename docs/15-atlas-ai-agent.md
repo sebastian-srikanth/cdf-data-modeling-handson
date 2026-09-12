@@ -269,14 +269,14 @@ print([a.external_id for a in client.agents.list()
        if YOURNAME in (a.external_id or "")])     # expect []
 ```
 
-✅ `[VERIFY]` The list is empty. [Chapter 18](18-teardown.md) does not know about your
+✅ `[VERIFY]` The list is empty. [Chapter 19](19-teardown.md) does not know about your
 agent — delete it here.
 
 ---
 
 ## Gate
 
-**Do not proceed to Chapter 16 until:**
+**Do not proceed to Chapter 17 until:**
 
 - Your agent exists, is scoped to `MaintenanceInsight` and your instance space, and answers
   the WO-1001 question with the same values you computed by hand in §13.5
@@ -287,4 +287,4 @@ agent — delete it here.
 - 📓 You have added your two or three lines for this chapter to
   `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
-→ [Chapter 16 — Cross-cutting mastery](16-cross-cutting-mastery.md)
+→ [Chapter 16 — Access management](16-access-management.md)

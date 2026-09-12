@@ -309,7 +309,7 @@ you design a workflow with dozens of tasks or very long timeouts.
 
 ## Gate
 
-**Do not proceed to Chapter 16 until:**
+**Do not proceed to Chapter 17 until:**
 
 - Your workflow deploys and a full execution completes with only `load_3d_revision`
   possibly skipped

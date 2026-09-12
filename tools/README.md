@@ -29,19 +29,41 @@ A failure tells you what CDF actually contains versus what the chapter expects:
   Not ready for the next chapter — fix the FAILs above.
 ```
 
-Chapters covered: **03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 15, 18.**
+Chapters covered: **03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 15, 19.**
 
 Two behave differently and are worth knowing about:
 
-- **18 (teardown)** asserts the *opposite* of every other chapter — it passes when nothing
+- **19 (teardown)** asserts the *opposite* of every other chapter — it passes when nothing
   of yours is left. `selfcheck.py all` therefore skips it; ask for it by name once you have
-  torn down: `uv run python tools/selfcheck.py 18`.
+  torn down: `uv run python tools/selfcheck.py 19`.
 - **15 (Atlas AI)** treats a missing agent as a **note, not a failure** — deleting it is the
   documented end state of §15.7, and the API is alpha.
 
-Chapters 00, 01, 02, 14, 16 and 17 have no self-check: they are toolchain setup, auth,
+Chapters 00, 01, 02, 14, 17 and 18 have no self-check: they are toolchain setup, auth,
 querying you verify by reading output, discussion, and git process. There is nothing
 durable in CDF to assert.
+
+## If you are being assessed
+
+```bash
+uv run python tools/assess.py --tasks              # the Part B tasks, up front
+PARTICIPANT=<YOURNAME> uv run python tools/assess.py
+```
+
+Part A (60 pts) is the chapter self-checks. Part B (40 pts) is four tasks that are in no
+chapter — you have to understand the model well enough to extend it. Both are graded from
+CDF state. 75 passes, 90 is a distinction.
+
+## If you are running a cohort
+
+```bash
+uv run python tools/cohort.py preflight roster.txt   # will the project take them?
+uv run python tools/cohort.py board     roster.txt   # who is where, right now
+uv run python tools/cohort.py provision roster.txt   # write every participant module
+uv run python tools/cohort.py sweep     roster.txt   # what is left behind afterwards
+```
+
+`board` is the one to keep open. See also [docs/FACILITATOR.md](../docs/FACILITATOR.md).
 
 ## If you are maintaining the course
 

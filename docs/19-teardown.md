@@ -1,4 +1,4 @@
-# Chapter 18 — Teardown (the CLI half)
+# Chapter 19 — Teardown (the CLI half)
 
 **Goal:** remove the two resource classes the Python SDK can't — your **spaces** and your
 **location filter** — using `cdf` commands driven by your own
@@ -16,7 +16,7 @@ Teardown happens in **two halves**, and you need both:
 
 ---
 
-## 18.0 [INFO] Before you delete anything — two rules
+## 19.0 [INFO] Before you delete anything — two rules
 
 **You have 72 hours.** Deleting an instance does not destroy it. CDF soft-deletes: the
 instance is stamped with a `deletedTime`, vanishes from every normal query, and is
@@ -42,7 +42,7 @@ That matters directly here: the `CogniteDiagramAnnotation` edges you created in
 
 ---
 
-## 18.1 [ACTION] Purge your three spaces
+## 19.1 [ACTION] Purge your three spaces
 
 🟢 `[ACTION]` Run these in a **real interactive terminal** — not a notebook `!` cell, not
 piped. `cdf data purge space` **requires** you to type the project name to confirm, and
@@ -81,7 +81,7 @@ interactively; if it persists, delete the space from the CDF UI rather than loop
 
 ---
 
-## 18.2 [ACTION] Remove your location filter
+## 19.2 [ACTION] Remove your location filter
 
 The location filter `loc_<YOURNAME>_TRN` lives under the CDF **apps** API, and the public
 Cognite SDK exposes **no delete** for it — which is exactly why the notebook leaves it to
@@ -96,7 +96,7 @@ uv run cdf clean --cdf-project <your-cdf-project> --include locations
 
 ---
 
-## 18.2b [ACTION] The leftovers nothing warns you about
+## 19.2b [ACTION] The leftovers nothing warns you about
 
 Two things survive a tidy teardown and will not show up unless you go looking.
 
@@ -123,7 +123,7 @@ platform limit, not a step you forgot.
 
 ---
 
-## 18.3 [VERIFY] Nothing of yours is left
+## 19.3 [VERIFY] Nothing of yours is left
 
 - **Fusion → Data management → Spaces**: `isp_<YOURNAME>_TRN`,
   `ssp_<YOURNAME>_TrainingCore_edm`, `ssp_<YOURNAME>_MaintenanceInsight_sdm` are **gone**.
@@ -134,4 +134,4 @@ platform limit, not a step you forgot.
 
 That's a clean exit. 🎉
 
-← [Chapter 17 — PR & Merge](17-pr-and-merge.md)
+← [Chapter 18 — PR & Merge](18-pr-and-merge.md)

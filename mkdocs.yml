@@ -74,7 +74,8 @@ nav:
       - 13 — Querying the graph: 13-querying-the-graph.md
       - 14 — Debugging broken links: 14-debugging-broken-links.md
       - 15 — Atlas AI agent: 15-atlas-ai-agent.md
-  - Finish:
-      - 16 — Cross-cutting mastery: 16-cross-cutting-mastery.md
-      - 17 — PR and merge: 17-pr-and-merge.md
-      - 18 — Teardown: 18-teardown.md
+  - Govern and finish:
+      - 16 — Access management: 16-access-management.md
+      - 16 — Cross-cutting mastery: 17-cross-cutting-mastery.md
+      - 17 — PR and merge: 18-pr-and-merge.md
+      - 18 — Teardown: 19-teardown.md

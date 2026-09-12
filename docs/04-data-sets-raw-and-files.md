@@ -17,7 +17,7 @@ expected, not an omission:** RAW tables live inside your RAW *database*, and DMS
 
 ⚠️ `[COMMON MISTAKE]` Assuming you can delete a data set in teardown. **You can't —
 CDF has no hard delete for data sets.** The best you can do is *archive* it (if your
-ACL allows), which is why [teardown](18-teardown.md) treats "data set still present but
+ACL allows), which is why [teardown](19-teardown.md) treats "data set still present but
 archived" as an acceptable end state, not a failure.
 
 ---

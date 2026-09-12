@@ -126,7 +126,7 @@ training/modules/participants/<YOURNAME>/**
 ```
 
 Never edit `docs/`, `modules/reference/`, or another participant's folder. If it is
-not one of your own two paths, it is not yours to touch. Full PR checklist in [Chapter 17](17-pr-and-merge.md).
+not one of your own two paths, it is not yours to touch. Full PR checklist in [Chapter 18](18-pr-and-merge.md).
 
 ---
 
@@ -172,7 +172,7 @@ friction you hit at 11am, the thing actually worth capturing, will be gone.
 Write `n/a` under any heading you genuinely have nothing to say about. Leave nothing blank,
 so "nothing to add" is distinguishable from "ran out of time".
 
-📋 `FEEDBACK.md` you complete **once, at the end**, in Chapter 17. Leave it alone until then.
+📋 `FEEDBACK.md` you complete **once, at the end**, in Chapter 18. Leave it alone until then.
 
 ---
 

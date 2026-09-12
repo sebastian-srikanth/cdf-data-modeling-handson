@@ -7,3 +7,7 @@ dataset: dts_REFERENCE_Training_TRN
 raw_db: rwd_REFERENCE_Training_TRN
 model_version: v1.0.0
 function_runtime: py311
+# Chapter 16 - bind each group to a real Entra ID group object ID. A group deployed with
+# a placeholder sourceId is valid, deploys fine, and matches nobody.
+idp_group_reader: "<your-idp-group-object-id>"
+idp_group_developer: "<your-idp-group-object-id>"
