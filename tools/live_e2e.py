@@ -75,7 +75,7 @@ def materialise(name: str) -> None:
             rendered = pattern.sub(lambda m: values.get(m.group(1), m.group(0)), text)
             if rendered != text:
                 path.write_text(rendered)
-    # a participant module carries no variable defaults (Chapter 01 §1.5)
+    # a participant module carries no variable defaults (Chapter 01 section 1.5)
     (dst / "default.config.yaml").unlink(missing_ok=True)
     for folder in dst.glob("functions/fnc_REFERENCE_*"):
         folder.rename(folder.with_name(folder.name.replace("REFERENCE", name)))
@@ -154,7 +154,7 @@ def teardown(client, name: str) -> None:
     for fn_name in FUNCTIONS:
         xid = f"fnc_{name}_Training_{fn_name}"
         attempt(f"function {xid}", lambda x=xid: client.functions.delete(external_id=x))
-        # deleting a function leaves its uploaded source zip behind (Chapter 17 §17.2b)
+        # deleting a function leaves its uploaded source zip behind (Chapter 17 section 17.2b)
         attempt(f"function zip {xid}", lambda x=xid: client.files.delete(external_id=x))
     attempt("transformations", lambda: client.transformations.delete(
         external_id=[f"tra_{name}_Training_TRN_{t}" for t in TRANSFORMATIONS],

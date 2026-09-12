@@ -11,7 +11,7 @@ and how to leave cleanly.
 
 | Tool | Use when |
 |---|---|
-| **Transformation** | Clean, deterministic RAW → model key mapping (§5.1) |
+| **Transformation** | Clean, deterministic RAW → model key mapping (section 5.1) |
 | **Function** | Fuzzy/ML/job-based/multi-step logic; anything calling an async CDF job API |
 | **Workflow** | You need to encode order, parallelism, retries, and failure policy across multiple Transformations/Functions as one deployable resource |
 | **UI (Fusion)** | Verifying every step above, and one-off manual inspection — never your primary deployment mechanism |
@@ -68,7 +68,7 @@ Per participant, this lab costs roughly:
 | Data sets | 1 (archive-only at teardown — never hard-deleted) |
 | Spaces | 3 (`isp_*`, two `ssp_*`) |
 | 3D revisions | 1 conversion job |
-| Entity-matching models | 1 per `MatchDocuments` call (always deleted after — §7.4) |
+| Entity-matching models | 1 per `MatchDocuments` call (always deleted after — section 7.4) |
 
 🚧 `[LIMITS]` **Multiply by cohort size.** 15 participants × 5 function builds is 75
 concurrent-ish image builds if everyone starts Chapter 07 at the same moment — enough
@@ -133,7 +133,7 @@ reference it. You get **HTTP 500s across the whole project** — not a tidy vali
 error, a broken Fusion — until the mapping is repaired. If you must recreate a
 container, plan the view updates in the same change.
 
-💡 `[GOOD TO KNOW]` This asymmetry is the real argument for the EDM/SDM split in §3.4.
+💡 `[GOOD TO KNOW]` This asymmetry is the real argument for the EDM/SDM split in section 3.4.
 Containers are physical and rigid; views are cheap and versionable. Put the stability
 you need in containers, and let solution views churn.
 
@@ -153,7 +153,7 @@ from cognite.client.config import ClientConfig
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 
 def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
-    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    """Same helper as Chapter 07 section 7.3. CogniteClient() with no arguments does NOT
     read .env -- the SDK dropped implicit construction in v8."""
     base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
     scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
@@ -171,7 +171,7 @@ def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
 
 from cognite.client.data_classes.data_modeling import ViewId
 
-client = cdf_client()   # see Chapter 07 §7.3
+client = cdf_client()   # see Chapter 07 section 7.3
 name = "<YOURNAME>"
 space = f"isp_{name}_TRN"
 
@@ -206,7 +206,7 @@ for view_id, expected in [
     checks.append((f"{view_id.external_id} count == {expected}", n == expected))
 
 # CogniteActivity holds BOTH your work orders and your operations, because
-# WorkOrder implements it (Chapter 13 §13.6). Subtract to count operations alone.
+# WorkOrder implements it (Chapter 13 section 13.6). Subtract to count operations alone.
 wo_view  = ViewId(f"ssp_{name}_TrainingCore_edm", "WorkOrder", "v1.0.0")
 act_view = ViewId("cdf_cdm", "CogniteActivity", "v1")
 wo_ids = {n_.external_id for n_ in client.data_modeling.instances.list(

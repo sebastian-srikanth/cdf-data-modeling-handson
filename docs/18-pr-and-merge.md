@@ -7,7 +7,7 @@ all the naming discipline from Chapter 01 pays off — or doesn't.
 ℹ️ `[INFO]` **Working through this alone?** Open the PR against your own fork or a
 branch of your own clone and merge it yourself. Do the chapter anyway — the isolation
 model it verifies is exactly what lets this course be run for a whole team later, and
-the pre-flight checks in §18.5 catch real mistakes in your module regardless of who
+the pre-flight checks in section 18.5 catch real mistakes in your module regardless of who
 reviews them.
 
 ---
@@ -38,7 +38,7 @@ The literal externalIds (`WorkOrder`, `WorkOrder`, `21-PA-2001A`,
 what lets a reviewer diff your work against the reference in seconds, and it's safe
 precisely because your space namespaces it. If you'd scoped externalIds with your name
 (`ehp_ALICE_...`), you'd have broken that benefit for zero isolation gain — the space
-already did the isolating. (Full derivation: [Chapter 01](01-naming-isolation-and-setup.md) §1.2.)
+already did the isolating. (Full derivation: [Chapter 01](01-naming-isolation-and-setup.md) section 1.2.)
 
 ---
 
@@ -51,7 +51,7 @@ training/config.<YOURNAME>-training.yaml
 training/modules/participants/<YOURNAME>/**
 ```
 
-That second path includes your `NOTES.md` and `FEEDBACK.md` (§1.4) — they live inside your
+That second path includes your `NOTES.md` and `FEEDBACK.md` (section 1.4) — they live inside your
 own folder, so they are already covered by the rule and need no exception.
 
 🚫 **You must never touch anything else**, including:
@@ -77,7 +77,7 @@ git diff --stat
 Every changed/new path must match one of the two allowed patterns. No exceptions.
 
 ⚠️ `[COMMON MISTAKE]` **Committing your `.env` or notebook outputs.** `.env` holds the
-one secret in this lab (Chapter 02 §2.6) and must stay git-ignored. Notebooks under
+one secret in this lab (Chapter 02 section 2.6) and must stay git-ignored. Notebooks under
 `docs/notebooks/` are *curriculum* — you run them locally for learning; you
 do **not** PR them. Confirm: `git check-ignore .env` prints `.env`, and no `*.ipynb`
 appears in your `git status`.
@@ -96,7 +96,7 @@ appears in your `git status`.
 **The proof, one line:** `(isp_SEBASTIAN_TRN, ehp_21-PA-2001A)` and
 `(isp_ALICE_TRN, ehp_21-PA-2001A)` are *two distinct nodes* — same externalId, different
 space, zero collision. Never `YOURNAME`-scope an externalId, and never use the word
-`TOKEN` anywhere. Full derivation: [Chapter 01](01-naming-isolation-and-setup.md) §1.2.
+`TOKEN` anywhere. Full derivation: [Chapter 01](01-naming-isolation-and-setup.md) section 1.2.
 
 ---
 
@@ -112,13 +112,13 @@ space, zero collision. Never `YOURNAME`-scope an externalId, and never use the w
   ```
   If `main` moves while you work, `git pull --rebase origin main` onto your branch.
   Because you only touch your own two paths, a rebase should apply with **no
-  conflicts** — if it doesn't, you've edited a shared file (see §18.2).
+  conflicts** — if it doesn't, you've edited a shared file (see section 18.2).
 - **Never edit a shared/global file to "make the build work."** If a build error tempts
   you to change `cdf.toml`, `default.config.yaml`, or the curriculum, the real fix is
   almost always in *your* folder. Anything shared is shared for a reason.
 - **Don't rename or restructure the approved folder layout.** The subfolders under
   `participants/<YOURNAME>/` are fixed ([Chapter 01](01-naming-isolation-and-setup.md)
-  §1.3). If a resource type isn't used, leave the folder empty — don't reorganize.
+  Section 1.3). If a resource type isn't used, leave the folder empty — don't reorganize.
 - **Two participants' diffs must never touch the same line of the same file.** If they
   could, something is mis-scoped — re-read Chapter 01 before pushing.
 
@@ -127,7 +127,7 @@ space, zero collision. Never `YOURNAME`-scope an externalId, and never use the w
 ## 18.4b [WRITE] Finish your two write-ups
 
 Before the pre-flight gate, close out the two files you created in
-[Chapter 01](01-naming-isolation-and-setup.md) §1.4. Both are part of the deliverable, and
+[Chapter 01](01-naming-isolation-and-setup.md) section 1.4. Both are part of the deliverable, and
 CI checks for them.
 
 📓 **`participants/<YOURNAME>/NOTES.md`** — you have been adding to this at every chapter
@@ -140,7 +140,7 @@ day is fresh.
 - Keep the **YAML block at the top valid** — it is read across the whole cohort to find
   which chapters cost people the most time. A broken block drops you out of that analysis.
   Fill in every `difficulty`, `minutes` and `got_stuck`; rough numbers are fine, `0` is not.
-- Then the free text. **Be blunt.** "§7.4 confused me and here is the sentence that did it"
+- Then the free text. **Be blunt.** "section 7.4 confused me and here is the sentence that did it"
   is worth more than "great course". If something was wrong or out of date, say which
   chapter and line.
 
@@ -173,15 +173,15 @@ git check-ignore .env   # must print: .env
 ```
 
 Also complete the **self-verification checklist** in
-[Chapter 17](17-cross-cutting-mastery.md) §17.6 and confirm it prints `PASS` — that's
+[Chapter 17](17-cross-cutting-mastery.md) section 17.6 and confirm it prints `PASS` — that's
 what proves your *deployed* resources actually exist in CDF, which a code diff can't
 show.
 
 ✅ `[VERIFY]` What a reviewer checks (mirror it before you push):
 
-- [ ] Diff touches only the two paths in §18.2 — nothing shared, no other participant
+- [ ] Diff touches only the two paths in section 18.2 — nothing shared, no other participant
 - [ ] `config.<YOURNAME>-training.yaml` `selected:` has exactly one entry, your folder
-- [ ] No `{{ }}` template syntax anywhere in your files (you write literals — §1.5)
+- [ ] No `{{ }}` template syntax anywhere in your files (you write literals — section 1.5)
 - [ ] No other participant's name appears anywhere in your files
 - [ ] Container/view/data-model/instance externalIds are byte-identical to the worked
   examples in [Chapter 03](03-data-modeling.md) — no scoped tags, no `TOKEN`
@@ -189,15 +189,15 @@ show.
   point; it lets a reviewer diff yours against the reference in seconds
 - [ ] `pre-commit run --all-files` passes
 - [ ] No `.env`, no `*.ipynb`, no editor cruft in the diff
-- [ ] `NOTES.md` is complete — every chapter heading filled in or explicitly `n/a` (§18.4b)
-- [ ] `FEEDBACK.md` is complete and its **YAML block still parses** (§18.4b)
+- [ ] `NOTES.md` is complete — every chapter heading filled in or explicitly `n/a` (section 18.4b)
+- [ ] `FEEDBACK.md` is complete and its **YAML block still parses** (section 18.4b)
 
 ---
 
 ## 18.6 [WRITE] Your PR description — copy-paste template
 
-📋 `[PR]` Paste this into the **GitHub PR description** (do **not** commit it as a file —
-a repo-level template would be a shared file you're not allowed to touch, §18.2).
+🔀 `[PR]` Paste this into the **GitHub PR description** (do **not** commit it as a file —
+a repo-level template would be a shared file you're not allowed to touch, section 18.2).
 Personalize the `[CHANGE]` bits:
 
 ```markdown
@@ -207,7 +207,7 @@ Personalize the `[CHANGE]` bits:
 **Space:** isp_<YOURNAME>_TRN
 **Config:** training/config.<YOURNAME>-training.yaml
 
-### Self-verification (Ch 17 §17.6)
+### Self-verification (Ch 17 section 17.6)
 - [ ] Ran the self-verification checklist — it printed `PASS`
 - [ ] `pre-commit run --all-files` passes
 - [ ] `cdf build --config-yaml training/config.<YOURNAME>-training.yaml` clean
@@ -230,7 +230,7 @@ Personalize the `[CHANGE]` bits:
 > unverified claim silently.
 
 ### Teardown
-- [ ] I understand my entity-matching model is GLOBAL and must be deleted (Ch 17 §17.7)
+- [ ] I understand my entity-matching model is GLOBAL and must be deleted (Ch 17 section 17.7)
 ```
 
 ⚠️ `[COMMON MISTAKE]` Leaving the "NOT fully verified" section blank when something
@@ -247,17 +247,17 @@ that turns out to be broken is not.
 ```bash
 git add training/config.<YOURNAME>-training.yaml
 git add training/modules/participants/<YOURNAME>/
-git status   # double-check the staged set matches §18.2 EXACTLY
+git status   # double-check the staged set matches section 18.2 EXACTLY
 git commit -m "Add <YOURNAME> training module"
 git push -u origin training/<YOURNAME>
 ```
 
-Then open the PR against `main` and paste the §18.6 template as the description.
+Then open the PR against `main` and paste the section 18.6 template as the description.
 
 - **If CI flags something**, fix it in your folder and push again to the same branch —
   the PR updates automatically. Don't open a second PR.
 - **If `main` moved**, `git pull --rebase origin main` and push. Your scoped diff should
-  rebase without conflicts (§18.4).
+  rebase without conflicts (section 18.4).
 - **Don't force-push over a reviewer mid-review** unless you're only amending your own
   latest commit — coordinate if in doubt.
 

@@ -131,7 +131,7 @@ ranked matches. `feature_type` controls the similarity algorithm (`simple`,
 not scoped to your space. The training project already has other unsupervised
 bigram-combo models sitting in it from other work — proof this isn't hypothetical.
 **You must delete your model when you're done with it** (the notebook and the
-Function both do this — see §7.6 and §7.8). Leaving models behind pollutes a shared,
+Function both do this — see section 7.6 and section 7.8). Leaving models behind pollutes a shared,
 project-wide namespace that has nothing to do with your instance space isolation.
 
 📚 `[DOCS]` https://docs.cognite.com/cdf/integration/concepts/contextualization/overview ·
@@ -156,11 +156,11 @@ https://docs.cognite.com/cdf/integration/guides/contextualization/match_entities
 couldn't resolve; treat matches below a score threshold (e.g. `< 0.5`) the same as "no
 match" and route them to manual review rather than silently accepting a low-confidence
 guess; and let a caller pass explicit overrides for known exceptions. The
-`MatchDocuments` Function you write in §7.7 implements this **full cascade**: optional
+`MatchDocuments` Function you write in section 7.7 implements this **full cascade**: optional
 manual overrides → regex → EM-on-miss → threshold gate. Because the regex resolves both
 of this lab's PDFs, a normal call **never reaches EM** (`em_ran: false`, no model
 created) — which is exactly right: EM is the expensive fallback, not the default. You
-watch `fit`/`predict` run for real in the **notebook** (§7.6), where you can see and
+watch `fit`/`predict` run for real in the **notebook** (section 7.6), where you can see and
 interpret the scores — including the P&ID's weak, below-threshold hit that is *why* you
 don't call EM first.
 
@@ -217,7 +217,7 @@ direct relation, so that opening `21-PA-2001A` in Fusion shows its datasheet att
 
 ### Why it is built as a cascade
 
-The three techniques from §7.2–7.4 are not alternatives here — they run **in order, cheapest
+The three techniques from section 7.2–7.4 are not alternatives here — they run **in order, cheapest
 first**, and each one only sees what the previous could not resolve:
 
 ```
@@ -234,7 +234,7 @@ spend compute only on the genuine leftovers.
 > the CDF project — unlike your spaces, they are **not** namespaced by participant, so a
 > model left behind is visible to and collides with everyone else in the cohort. This is the
 > one resource in the whole lab that does not isolate itself. See
-> [Chapter 17](17-cross-cutting-mastery.md) §17.7.
+> [Chapter 17](17-cross-cutting-mastery.md) section 17.7.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_MatchDocuments/handler.py`
 
@@ -479,7 +479,7 @@ envVars:
 ```
 
 🔧 `[CHANGE]` `handler.py` is **byte-identical** for every participant — same
-argument as containers/views in §1.2. Only `Function.yaml`'s `externalId`, `name`,
+argument as containers/views in section 1.2. Only `Function.yaml`'s `externalId`, `name`,
 and `envVars` values carry `YOURNAME`.
 
 💡 `[GOOD TO KNOW]` — **notebook vs. Function, concretely.** The notebook runs the three
@@ -516,7 +516,7 @@ show: `matches` = two entries each with `"method": "regex"`, `below_threshold` e
 `unresolved_count: 0`, and **`em_ran: false`** — no entity-matching model is created or
 deleted on this call. Then open both files in Fusion and confirm the `assets` relation
 (`TRN-21-SEP`, `21-PA-2001A`). *Files linked correctly* is the success criterion —
-**not** "EM scored them." You saw `fit`/`predict` run for real in the notebook (§7.6);
+**not** "EM scored them." You saw `fit`/`predict` run for real in the notebook (section 7.6);
 the Function reaches EM only for a file the regex can't resolve.
 
 💡 `[GOOD TO KNOW]` To watch the EM branch fire in the *deployed* Function (not only the

@@ -135,7 +135,7 @@ resolves to empty and your transformation authenticates against `""`. Set it exp
 
 💡 `[GOOD TO KNOW]` **Notice both identities share the same** `IDP_SCOPES`
 **(**`.../.default`**) and token endpoint.** They differ only in *client id* and *whether a
-secret is present*. That's exactly why the trap in §2.1 is so easy to fall into — the
+secret is present*. That's exactly why the trap in section 2.1 is so easy to fall into — the
 two blocks look almost identical. The client id is the tell.
 
 📚 `[DOCS]`
@@ -167,10 +167,10 @@ because of the prompt described below.
 - confirms it reached `<your-cdf-project>`,
 - prints the **groups and capabilities** your login actually has.
 
-Read that capability list. It is *your* identity's — **not** the SP's from §2.4. If a
+Read that capability list. It is *your* identity's — **not** the SP's from section 2.4. If a
 capability the lab needs is missing here, you will hit a `403` later on a job call
 (entity matching, diagram detect, doc parser) even though the transformation — which
-runs as the SP — works fine. Catch it now (§2.5), and don't lose an hour to it in
+runs as the SP — works fine. Catch it now (section 2.5), and don't lose an hour to it in
 Chapter 07.
 
 ### ⚠️ The "update group?" prompt and the two warnings — expected, not a failure
@@ -193,7 +193,7 @@ each line is benign for you:
 **yourself** (interactive), isolated by your own participant group + your own space
 ([Chapter 01](01-naming-isolation-and-setup.md)). You are not, and should not be, a
 member of the named Toolkit **service-principal** group. Membership in it is not what
-authorizes your lab work — your group's capabilities are (§2.4).
+authorizes your lab work — your group's capabilities are (section 2.4).
 - *"missing* `subscribeSignalsAcl`*"* — this lab never uses signal subscriptions. The
 capability is irrelevant to every step you'll do. Ignore it.
 - *"Do you want to update the group?"* — this offers to **mutate a shared admin group**.
@@ -292,8 +292,8 @@ hunt for.
 
 ## 2.5 [COMMON MISTAKE] "It works in the transformation but 403s in my notebook"
 
-Your interactive login (§2.3) is a *different identity* from the confidential SP in
-§2.4. The SP runs your transformations; **you** run every SDK call in the notebooks
+Your interactive login (section 2.3) is a *different identity* from the confidential SP in
+Section 2.4. The SP runs your transformations; **you** run every SDK call in the notebooks
 ([Ch 07](07-entity-matching.md) onward) and every "call this function once" click in
 the UI. So a job-based call can `403` in your notebook even though the equivalent runs
 fine inside a transformation:
@@ -305,7 +305,7 @@ That is **not** a bug — it's two identities with two capability sets. The tran
 ran as the **SP** (which holds the capability); the notebook ran as **you** (whose login
 may not). If you hit it, your login is missing a capability the call needs — commonly
 `entitymatchingAcl`, `diagramParsingAcl` + `annotationsAcl`, `functionsAcl`, `filesAcl`,
-or `dataModelInstancesAcl`. Run `cdf auth verify` (§2.3) to see what your login holds,
+or `dataModelInstancesAcl`. Run `cdf auth verify` (section 2.3) to see what your login holds,
 then ask your CDF administrator to grant the missing capability.
 
 ---

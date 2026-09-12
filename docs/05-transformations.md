@@ -58,9 +58,9 @@ authentication:
 stem, inlines its content, and stages it beside the built YAML; at deploy the Toolkit
 re-finds it the same way. The scoped identity lives **inside** the file
 (`externalId: tra_<YOURNAME>_…`), never in the filename — same rule as the RAW tables in
-§4.3.
+Section 4.3.
 
-🛑 `[COMMON MISTAKE]` — **Do NOT add a `queryFile:` key** (some older guides still show
+⚠️ `[COMMON MISTAKE]` — **Do NOT add a `queryFile:` key** (some older guides still show
 one). On Toolkit
 0.8.202 deploy resolves `queryFile` *literally* relative to `build/transformations/` —
 but build stages the SQL under the built YAML's prefixed stem, so
@@ -95,7 +95,7 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_Assets`
 - The `case ... when null or empty ... else node_reference(...)` guard — **this is the
   null-parent trap, and it's the single most important SQL pattern in this course.**
   `TRN-FPSO` (the hierarchy root) has an empty `parentExternalId` in RAW, by design
-  (§4.2). Without the guard, `node_reference('...', '')` would try to build a relation
+  (section 4.2). Without the guard, `node_reference('...', '')` would try to build a relation
   to a node with an **empty string** externalId — not "no parent," but a reference to
   a garbage node that doesn't exist. The guard is what correctly expresses "this asset
   has no parent" as SQL `null`, not as a broken reference.
@@ -118,7 +118,7 @@ wide, stringly-typed scans joined late.
 ## 5.3 [WRITE] Transform 2 — Load Equipment
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_Equipment.Transformation.yaml`
-— identical shape to §5.2 (unscoped filename, no `queryFile`), with:
+— identical shape to section 5.2 (unscoped filename, no `queryFile`), with:
 
 ```yaml
 externalId: tra_<YOURNAME>_Training_TRN_Load_Equipment
@@ -160,8 +160,8 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_Equipment`
 ```
 
 `asset` is a **required** direct relation here — every row in the Equipment RAW table
-has a `tagExternalId` (§4.2 shows no blanks), so no null-guard is needed. Compare to
-§5.2: guard optional relations, don't guard required ones you've verified are always
+has a `tagExternalId` (section 4.2 shows no blanks), so no null-guard is needed. Compare to
+Section 5.2: guard optional relations, don't guard required ones you've verified are always
 populated — an unnecessary `case when` just hides a real data problem if one ever
 appears.
 
@@ -244,13 +244,13 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_WorkOrders`
 ```
 
 This is your first transform writing into a **custom** view instead of a bare CDM
-view — every property you defined on `WorkOrder` (§3.11) plus the CDM-inherited
+view — every property you defined on `WorkOrder` (section 3.11) plus the CDM-inherited
 `name`, `description`, `assets`, `scheduledStartTime`, `scheduledEndTime` from
-`CogniteActivity` (§3.5), all in one `select`.
+`CogniteActivity` (section 3.5), all in one `select`.
 
 - `externalId` is set to `workOrderNumber` itself — the business key doubles as the
   node identity here, which is why `WorkOrder` also enforces a uniqueness
-  constraint on `workOrderNumber` (§3.7): two mechanisms protecting the same
+  constraint on `workOrderNumber` (section 3.7): two mechanisms protecting the same
   invariant.
 - `upper(trim(...))` on `status` — defensive normalization against source-system
   case/whitespace inconsistency, so it reliably matches the container's `enum` values
@@ -281,7 +281,7 @@ quietly gives you the wrong number of rows.
 
 This transformation loads **work-order operations** — the individual jobs that make up
 one work order — from `rwt_Training_TRN_WorkOrderOperations`, joined to the work orders
-you loaded in §5.5. Eight source rows go in. Six nodes come out. That is correct, and
+you loaded in section 5.5. Eight source rows go in. Six nodes come out. That is correct, and
 by the end of this section you will be able to say exactly why.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.yaml`
@@ -368,7 +368,7 @@ malformed ID that nothing will ever match.
 
 💡 `[GOOD TO KNOW]` Filtering the row out is the *right* behaviour — but log it. A
 silently discarded record and a correctly excluded record look identical from the
-outside. [Chapter 14](14-debugging-broken-links.md) §14.5 shows you how to find them.
+outside. [Chapter 14](14-debugging-broken-links.md) section 14.5 shows you how to find them.
 
 ### 5.6.4 The reference that points at nothing
 
@@ -392,7 +392,7 @@ perfectly real in the registry. Your asset count stays at 8; your node count goe
 ⚠️ `[COMMON MISTAKE]` Assuming a typo'd reference will fail loudly, or at least leave a
 detectably broken link. It does neither. This is the single most silent failure in the
 whole course, and hunting it is the first thing you do in
-[Chapter 14](14-debugging-broken-links.md) §14.3.
+[Chapter 14](14-debugging-broken-links.md) section 14.3.
 
 You cannot fix this one in SQL: nothing about the row is malformed. The data is simply
 wrong, and it has to be fixed at the source.
@@ -499,7 +499,7 @@ If you get 8 nodes, your NULL guard or your dedup is missing. If you get 5, you 
   Transformation → model directly. If a transform ever fails, you still have the
   RAW rows to re-run against; you haven't lost provenance.
 - Avoid wide scans: the first four transforms read exactly one RAW table each. The
-  fifth (§5.6) joins two — and when you join, filter each side down **before** the
+  fifth (section 5.6) joins two — and when you join, filter each side down **before** the
   join, not after, or you pay for rows you are about to discard.
 
 📚 `[DOCS]` https://docs.cognite.com/cdf/integration/guides/transformation/write_sql_queries ·
@@ -530,7 +530,7 @@ from cognite.client.config import ClientConfig
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 
 def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
-    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    """Same helper as Chapter 07 section 7.3. CogniteClient() with no arguments does NOT
     read .env -- the SDK dropped implicit construction in v8."""
     base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
     scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
@@ -548,7 +548,7 @@ def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
 
 from cognite.client.data_classes.data_modeling import ViewId
 
-client = cdf_client()   # see Chapter 07 §7.3
+client = cdf_client()   # see Chapter 07 section 7.3
 space = "isp_<YOURNAME>_TRN"
 
 for view_id, expected in [

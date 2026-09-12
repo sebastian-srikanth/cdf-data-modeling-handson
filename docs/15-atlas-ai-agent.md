@@ -23,13 +23,13 @@ Which means the work you have already done *is* the agent:
 
 | What you did | What it buys the agent |
 |---|---|
-| PascalCase views, camelCase properties (§3.5) | It can guess property names correctly on the first try |
-| `name` and `description` on **every** property (§3.7) | This is the agent's documentation. It reads these to decide what to query |
-| `source:` on every direct relation (§3.12) | It can *navigate* `EquipmentHealthProfile → asset` instead of seeing an opaque ID |
-| The `healthProfile` reverse direct relation (§3.9) | It can go from a pump to its profile — a direction that does not exist without the declaration |
-| The `diagramAnnotations` edge connection (§3.9) | It can reach the P&ID that mentions a tag |
-| `MaintenanceInsight` as a curated view list (§3.4) | It searches ten relevant views instead of sixty irrelevant ones |
-| Units on the spec properties (§3.7) | It answers "250 kW", not "250" |
+| PascalCase views, camelCase properties (section 3.5) | It can guess property names correctly on the first try |
+| `name` and `description` on **every** property (section 3.7) | This is the agent's documentation. It reads these to decide what to query |
+| `source:` on every direct relation (section 3.12) | It can *navigate* `EquipmentHealthProfile → asset` instead of seeing an opaque ID |
+| The `healthProfile` reverse direct relation (section 3.9) | It can go from a pump to its profile — a direction that does not exist without the declaration |
+| The `diagramAnnotations` edge connection (section 3.9) | It can reach the P&ID that mentions a tag |
+| `MaintenanceInsight` as a curated view list (section 3.4) | It searches ten relevant views instead of sixty irrelevant ones |
+| Units on the spec properties (section 3.7) | It answers "250 kW", not "250" |
 
 ⚠️ `[COMMON MISTAKE]` Treating agent quality as a prompt-engineering problem. If the agent
 says *"I found a property called `sealType` but I don't know what it means"*, the fix is a
@@ -123,7 +123,7 @@ is in it, in the vocabulary a user would use.
 ## 15.4 [ACTION] Ask it the questions this course has been building toward
 
 🟢 `[ACTION]` Start with a question you already know the answer to — you computed it by
-hand in [Chapter 13](13-querying-the-graph.md) §13.5:
+hand in [Chapter 13](13-querying-the-graph.md) section 13.5:
 
 ```python
 def ask(question: str) -> str:
@@ -138,7 +138,7 @@ ask("Which work orders are open against pump 21-PA-2001A, and what do they cost?
 ```
 
 ✅ `[VERIFY]` The answer names **WO-1001**, `IN_PROGRESS`, **18500 EUR**. You verified those
-exact values by hand in §13.5. If the agent disagrees with your own query, trust your query
+exact values by hand in section 13.5. If the agent disagrees with your own query, trust your query
 and go find out why the agent saw something different.
 
 🟢 `[ACTION]` Now the question that only works because of your schema decisions:
@@ -171,10 +171,10 @@ data was missing, not because the question was badly worded.**
 Stop and notice what had to be true for that to work:
 
 1. The agent started at an **Asset** and needed its health profile. That is the
-   `healthProfile` **reverse direct relation** you declared in §3.12 — without it, there is
+   `healthProfile` **reverse direct relation** you declared in section 3.12 — without it, there is
    no path from pump to profile.
 2. The specs live on `EquipmentHealthProfile`, and it knew what `ratedPowerKw` meant
-   because of the `description` you wrote in §3.11.
+   because of the `description` you wrote in section 3.11.
 3. It named the source document by following `datasheetFile`, which resolves only because
    that direct relation carries `source:` ([Chapter 10](10-datasheet-parsing.md)).
 
@@ -217,11 +217,11 @@ ask("Which assets appear on the P&ID drawing?")
 ⚠️ `[COMMON MISTAKE]` If this answer is weak, the reflex is to rephrase the question. Don't.
 Check the model first, in this order:
 
-1. Is `diagramAnnotations` declared on your `Asset` view? (§3.12) Without it the edges
+1. Is `diagramAnnotations` declared on your `Asset` view? (section 3.12) Without it the edges
    exist but nothing advertises them.
 2. Does the `CogniteFile` node have a meaningful `name`? The agent surfaces what it can
    read.
-3. Is `CogniteFile` inside the view list you scoped the tool to in §15.3?
+3. Is `CogniteFile` inside the view list you scoped the tool to in section 15.3?
 
 ⚡ `[OPTIMIZE]` The general loop: **bad answer → find the missing declaration, description
 or link → fix the model → re-ask.** Only when the model is right does prompt wording start
@@ -279,7 +279,7 @@ agent — delete it here.
 **Do not proceed to Chapter 17 until:**
 
 - Your agent exists, is scoped to `MaintenanceInsight` and your instance space, and answers
-  the WO-1001 question with the same values you computed by hand in §13.5
+  the WO-1001 question with the same values you computed by hand in section 13.5
 - You have asked a question the graph cannot answer and seen it decline rather than invent
 - You can name the **three** schema decisions that make the rated-power question
   answerable, and what would break if each were missing

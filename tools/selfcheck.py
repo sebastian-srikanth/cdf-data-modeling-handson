@@ -63,7 +63,7 @@ def check_03(client, name, r: Report) -> None:
     }
     r.check("data models deployed", sorted(models), ["MaintenanceInsight", "TrainingCore"])
 
-    # the two connection properties are the point of Asset (§3.9, §3.12)
+    # the two connection properties are the point of Asset (section 3.9, section 3.12)
     try:
         asset = client.data_modeling.views.retrieve((sdm, "Asset", MODEL_VERSION))[0]
         props = asset.properties
@@ -80,7 +80,7 @@ def check_03(client, name, r: Report) -> None:
     except IndexError:
         r.check("Asset view retrievable", False, True)
 
-    # constraints and indexes a learner is told to add (§3.7)
+    # constraints and indexes a learner is told to add (section 3.7)
     wo = client.data_modeling.containers.retrieve((edm, "WorkOrder"))
     if wo:
         r.check("WorkOrder has a uniqueness constraint",
@@ -218,7 +218,7 @@ def check_10(client, name, r: Report) -> None:
     nodes = client.data_modeling.instances.list(sources=ehp_view, space=isp, limit=-1)
     r.check("health profile visible through the view", len(nodes), 1)
     if not nodes:
-        r.note("hint", "0 usually means name/description were not written — see §3.8b")
+        r.note("hint", "0 usually means name/description were not written — see section 3.8b")
         return
     props = nodes[0].properties[ehp_view]
     for key in ("asset", "equipment", "datasheetFile"):
@@ -259,7 +259,7 @@ def check_12(client, name, r: Report) -> None:
         r.note("most recent execution", runs[0].status)
         r.check("most recent execution completed", str(runs[0].status), "completed")
     else:
-        r.note("hint", "deploy is not enough -- trigger the workflow (Chapter 12 §12.4)")
+        r.note("hint", "deploy is not enough -- trigger the workflow (Chapter 12 section 12.4)")
 
 
 # --------------------------------------------------------------------- ch 13 ----

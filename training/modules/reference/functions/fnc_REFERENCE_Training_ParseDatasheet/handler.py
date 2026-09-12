@@ -93,7 +93,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         # EquipmentHealthProfile implements CogniteDescribable, so the view
         # references TWO containers. The implicit hasData filter requires data in
         # BOTH: without name/description here the node exists in the registry but
-        # the view returns nothing. See Chapter 03 §3.8b.
+        # the view returns nothing. See Chapter 03 section 3.8b.
         "name": "Health profile — 21-PA-2001A",
         "description": "Parsed datasheet specs and open work-order rollup for export pump A.",
         "asset": DirectRelationReference(space, "21-PA-2001A"),

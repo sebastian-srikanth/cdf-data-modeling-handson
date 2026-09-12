@@ -22,7 +22,7 @@ This has one direct consequence worth internalizing now: because your config sel
 only your own folder, and no other config or module selects it, **nothing you do here
 can collide with anyone else's work** — not through generation, not through shared
 state, not through file overwrites. Isolation comes entirely from the folder
-boundary (§1.3) plus the space boundary (§1.2) below.
+boundary (section 1.3) plus the space boundary (section 1.2) below.
 
 ⚠️ `[COMMON MISTAKE]` Editing anything outside your own `participants/<YOURNAME>/`
 folder and your own config file — including anything else you might notice elsewhere
@@ -97,7 +97,7 @@ bucket where Asset/Equipment/WorkOrder/EHP nodes live.
 ```
 docs/                                      # this course — read-only for you
 training/
-├── config.<YOURNAME>-training.yaml        # you create this (§1.5)
+├── config.<YOURNAME>-training.yaml        # you create this (section 1.5)
 └── modules/
     ├── reference/                         # the finished answer key — don't peek yet
     └── participants/<YOURNAME>/           # ← the ONLY path you create/edit
@@ -109,13 +109,13 @@ training/
         ├── functions/
         ├── workflows/
         ├── locations/
-        ├── NOTES.md                       # your running notes — fill in as you go (§1.4)
-        └── FEEDBACK.md                    # your course feedback — fill in at the end (§1.4)
+        ├── NOTES.md                       # your running notes — fill in as you go (section 1.4)
+        └── FEEDBACK.md                    # your course feedback — fill in at the end (section 1.4)
 ```
 
 ℹ️ `[INFO]` **One path rule for the whole course:** every command you run and every
 `[WRITE]` path you see is relative to the **repo root** — the folder you landed in after
-`git clone` in [Chapter 00](00-bootstrap.md) §0.2. The course never asks you to `cd`
+`git clone` in [Chapter 00](00-bootstrap.md) section 0.2. The course never asks you to `cd`
 anywhere else. If a command fails with "no such file or directory," check that first.
 
 🔀 `[PR]` Your pull request will touch exactly:

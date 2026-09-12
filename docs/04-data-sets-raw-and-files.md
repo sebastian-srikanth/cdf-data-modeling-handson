@@ -13,7 +13,7 @@ transformations ([Chapter 05](05-transformations.md)) and the classic `FileMetad
 for the 3D OBJ — reference `dts_<YOURNAME>_Training_TRN` through a `dataSetExternalId:`
 field. **Two things are governed differently and carry no `dataSetExternalId` — that's
 expected, not an omission:** RAW tables live inside your RAW *database*, and DMS-native
-`CogniteFile` instances (the two PDFs) are scoped by your **space** (§4.4).
+`CogniteFile` instances (the two PDFs) are scoped by your **space** (section 4.4).
 
 ⚠️ `[COMMON MISTAKE]` Assuming you can delete a data set in teardown. **You can't —
 CDF has no hard delete for data sets.** The best you can do is *archive* it (if your
@@ -56,7 +56,7 @@ TRN-21-SEP,TRN-21-SEP,Separation System,First-stage crude separation and export 
 ```
 
 Note row 1: `parentExternalId` is **empty** for the root `TRN-FPSO`. This is
-deliberate, real-world-shaped messiness, not a bug — see §4.5 and
+deliberate, real-world-shaped messiness, not a bug — see section 4.5 and
 [Chapter 05](05-transformations.md).
 
 **Equipment** (5 physical items, each installed on a tag):
@@ -95,10 +95,10 @@ WO-1002,WO-1002,Calibrate pressure transmitter 21-PT-2001,Annual calibration of 
 WO-1003,WO-1003,Internal inspection of separator 21-VG-2001,Scheduled internal inspection during the planned shutdown window.,CLOSED,PM01,2,21-VG-2001,2026-06-10T06:00:00,2026-06-12T18:00:00,42000,EUR
 ```
 
-Note `WO-1002`'s `actualCost` is **empty** — also deliberate, see §4.5.
+Note `WO-1002`'s `actualCost` is **empty** — also deliberate, see section 4.5.
 
 ℹ️ `[INFO]` A **fifth** table, `rwt_Training_TRN_WorkOrderOperations`, arrives in
-[Chapter 05](05-transformations.md) §5.6. It is held back deliberately: it is the one
+[Chapter 05](05-transformations.md) section 5.6. It is held back deliberately: it is the one
 table whose rows are damaged on purpose, and it only makes sense once you have a clean
 pipeline to contrast it against.
 
@@ -122,11 +122,11 @@ tableName: rwt_Training_TRN_Assets
 
 📝 `[WRITE]` the sibling CSV **with the byte-identical basename**,
 `participants/<YOURNAME>/raw/rwt_Training_TRN_Assets.Table.csv` — content from the
-**Assets** block in §4.2.
+**Assets** block in section 4.2.
 
 📝 `[WRITE]` repeat the same `.Table.yaml` / `.Table.csv` pair for
 `rwt_Training_TRN_Equipment`, `rwt_Training_TRN_TimeSeries`, and
-`rwt_Training_TRN_WorkOrders`, using the CSV blocks in §4.2. Each `.Table.yaml` has
+`rwt_Training_TRN_WorkOrders`, using the CSV blocks in section 4.2. Each `.Table.yaml` has
 the same shape:
 
 ```yaml
@@ -134,23 +134,23 @@ dbName: rwd_<YOURNAME>_Training_TRN
 tableName: rwt_Training_TRN_<Suffix>
 ```
 
-🛑 `[COMMON MISTAKE]` — **the `.Table.yaml` and its `.Table.csv` MUST share the exact
+⚠️ `[COMMON MISTAKE]` — **the `.Table.yaml` and its `.Table.csv` MUST share the exact
 same basename**, differing only in extension (`rwt_Training_TRN_Assets.Table.yaml` ↔
 `rwt_Training_TRN_Assets.Table.csv`). That pairing is how `cdf build` attaches the rows
 to the table declaration. A `YOURNAME`-scoped YAML next to an unscoped CSV does **not**
-pair: the Toolkit stages **only the YAML**, the table deploys **empty**, and your §4.6
+pair: the Toolkit stages **only the YAML**, the table deploys **empty**, and your section 4.6
 row counts come back `0`. Keep **both** raw-table filenames unscoped (as the reference
 does) and identical to each other — the table is namespaced by your scoped *database*,
 not by its filename.
 
-🔧 `[CHANGE]` Only `dbName:` (your RAW database — scoped, per §1.2). `tableName:`, both
+🔧 `[CHANGE]` Only `dbName:` (your RAW database — scoped, per section 1.2). `tableName:`, both
 raw-table **filenames**, and every CSV row stay literal and identical across
 participants.
 
 ⚠️ `[COMMON MISTAKE]` Scoping `tableName` — or the table *filename* — with `<YOURNAME>`
 (`rwt_<YOURNAME>_Training_TRN_Assets`). The table is already isolated by living inside
 *your own* database (`rwd_<YOURNAME>_Training_TRN`) — same (container, key) logic as
-§1.2, one level up. Scoping it again is the same anti-pattern as scoping an instance
+Section 1.2, one level up. Scoping it again is the same anti-pattern as scoping an instance
 externalId, **and** it desyncs the YAML/CSV basenames so the rows never upload.
 
 ---
@@ -232,7 +232,7 @@ directory: /<YOURNAME>/TRN/training
 ```
 
 🔧 `[CHANGE]` `space:`, `externalId:`, and `directory:` — all scoped to `YOURNAME`
-per the Files exception in §1.2. `assets:` targets are literal node references
+per the Files exception in section 1.2. `assets:` targets are literal node references
 (`TRN-21-SEP`, `21-PA-2001A`) inside **your own** instance space.
 
 💡 `[GOOD TO KNOW]` — **how the Toolkit finds each binary (and why there is no
@@ -245,7 +245,7 @@ is exactly the binary filename (`TRN-21-SEP-PID.pdf`), so nothing else is needed
 classic `FileMetadata` OBJ works identically: `name: TRN-21-SEP-3D.obj` is how its bytes
 are located and uploaded at deploy — no special key.
 
-🛑 `[COMMON MISTAKE]` — **Do NOT add a `$FILEPATH:` key** (some older guides still show
+⚠️ `[COMMON MISTAKE]` — **Do NOT add a `$FILEPATH:` key** (some older guides still show
 one). On Toolkit
 0.8.202 `$FILEPATH` takes precedence and is resolved *literally, relative to the YAML's
 own directory* — but build renamed the staged binary, so at deploy
@@ -303,7 +303,7 @@ clear after Ch05.
 - Both PDFs open in Fusion and the OBJ's classic file shows uploaded
 - Your data set exists; the transformations and the classic OBJ file reference it (RAW
   tables and the two `CogniteFile` PDFs are governed by your RAW database and your
-  space respectively — §4.1, not a mistake)
+  space respectively — section 4.1, not a mistake)
 - You can explain why the OBJ needed a classic `FileMetadata` file, not `CogniteFile`
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 

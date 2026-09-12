@@ -12,7 +12,7 @@ Bash** terminal that ships with git for every command in every chapter, not
 PowerShell/cmd. Git Bash gives you the same shell language as macOS Terminal, so
 almost every command in this course is identical on both operating systems — the
 handful of genuine exceptions (installers, mainly) are called out explicitly, like
-the one PowerShell line in §0.4.
+the one PowerShell line in section 0.4.
 
 ---
 
@@ -242,7 +242,7 @@ the training project and listed your capabilities; the prompt is an optional
 group-reconcile offer, not a gate. (Do **not** use `--no-prompt` to silence it — that
 flag makes the command *hard-fail* on any missing capability. Use `--dry-run` and
 answer `n`.) Why your login is a different identity from that group:
-[Chapter 02](02-auth-and-security.md) §2.3 and §2.5.
+[Chapter 02](02-auth-and-security.md) section 2.3 and section 2.5.
 
 📚 `[DOCS]` https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/auth
 
@@ -302,7 +302,7 @@ before deployment"* on a build. Read the insight text before you believe it. Fro
 Toolkit 0.8.2xx onward, a build that cannot reach CDF reports every unresolved
 `cdf_cdm:` reference as a **critical error** rather than a warning — and the fix it
 prints is *"Provide credentials to enable CDF verification."* Those views exist; your
-build simply could not look them up. Once your `.env` is in place (§0.6) they resolve
+build simply could not look them up. Once your `.env` is in place (section 0.6) they resolve
 and the build goes green. A genuine schema mistake reads very differently: it names
 your file and your property.
 
@@ -310,9 +310,9 @@ your file and your property.
 committed, `training/config.REFERENCE-training.yaml`. That builds the **finished
 reference implementation** — the answer key — not your work. Participant configs are
 deliberately not committed (you author your own in
-[Chapter 01](01-naming-isolation-and-setup.md) §1.5), so there is nothing here to "build
+[Chapter 01](01-naming-isolation-and-setup.md) section 1.5), so there is nothing here to "build
 as a smoke test" yet — **your first real `cdf build` is
-[Chapter 01](01-naming-isolation-and-setup.md) §1.6**, against the
+[Chapter 01](01-naming-isolation-and-setup.md) section 1.6**, against the
 `config.<YOURNAME>-training.yaml` you write. Don't block Chapter 00 waiting for a build
 to pass, and don't peek at the reference before you've written your own.
 
@@ -362,7 +362,7 @@ You will author most of these rows across this course. Bookmark this table.
   your capabilities (the block *above* the group-update prompt — answering `n` to
   "update the group?" and the `subscribeSignalsAcl` warning are both expected)
 - `uv run cdf build --help` runs — you understand there is **no committed root config to
-  build here yet**, and your first real build is [Chapter 01](01-naming-isolation-and-setup.md) §1.6
+  build here yet**, and your first real build is [Chapter 01](01-naming-isolation-and-setup.md) section 1.6
 - You can explain, in one sentence, the difference between the Toolkit and the SDK
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 

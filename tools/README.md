@@ -37,7 +37,7 @@ Two behave differently and are worth knowing about:
   of yours is left. `selfcheck.py all` therefore skips it; ask for it by name once you have
   torn down: `uv run python tools/selfcheck.py 19`.
 - **15 (Atlas AI)** treats a missing agent as a **note, not a failure** — deleting it is the
-  documented end state of §15.7, and the API is alpha.
+  documented end state of section 15.7, and the API is alpha.
 
 Chapters 00, 01, 02, 14, 17 and 18 have no self-check: they are toolchain setup, auth,
 querying you verify by reading output, discussion, and git process. There is nothing
@@ -78,7 +78,7 @@ uv run python tools/live_e2e.py CI       # full deploy → run → verify → te
 | check | catches |
 |---|---|
 | relative links, in markdown **and notebook cells** | a chapter renamed without updating what points at it |
-| `§N.M` cross-references | a section renumbered, or one that never existed |
+| `section N.M` cross-references | a section renumbered, or one that never existed |
 | YAML and Python fenced blocks parse | a broken snippet a learner would paste |
 | notebook cells parse | the same, in the notebooks |
 | `[WRITE]` blocks vs `training/modules/reference/` | **the chapter teaching different YAML than the reference ships** |

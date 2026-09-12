@@ -160,12 +160,12 @@ reading over shoulders — it scales to a room, and it tells them *what* is miss
 1. **`.env` and the redirect URI.** `localhost:53000` must be registered on the app
    registration or interactive login fails with no useful message. Chapter 02.
 2. **Someone deploys into someone else's space.** The `<YOURNAME>` substitution is the
-   whole isolation model. Chapter 01 §1.2.
+   whole isolation model. Chapter 01 section 1.2.
 3. **The empty view.** A node exists but the view returns nothing, because only one of two
-   containers was populated. Chapter 03 §3.8b. Budget time for this — everybody hits it.
+   containers was populated. Chapter 03 section 3.8b. Budget time for this — everybody hits it.
 4. **`ConsistencyError` panic at Chapter 03.** Without `.env` a build reports 13 errors and
    "Do not proceed to deploy." They are all `cdf_cdm` references a build cannot verify
-   offline. Chapter 03 §3.14 explains it; say it out loud anyway.
+   offline. Chapter 03 section 3.14 explains it; say it out loud anyway.
 5. **Functions still `Deploying`.** See above. It is never broken, it is just slow.
 
 ## Teardown

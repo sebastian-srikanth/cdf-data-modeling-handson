@@ -48,7 +48,7 @@ from cognite.client.config import ClientConfig
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 
 def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
-    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    """Same helper as Chapter 07 section 7.3. CogniteClient() with no arguments does NOT
     read .env -- the SDK dropped implicit construction in v8."""
     base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
     scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
@@ -68,7 +68,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv(Path.cwd().parents[1] / ".env")   # repo-root .env
-client = cdf_client()   # see Chapter 07 §7.3
+client = cdf_client()   # see Chapter 07 section 7.3
 
 YOURNAME       = os.environ["PARTICIPANT"]          # e.g. "ALICE"
 INSTANCE_SPACE = f"isp_{YOURNAME}_TRN"
@@ -263,7 +263,7 @@ fails with *"Invalid value for list property"*. `Equals` compares the whole valu
 `WorkOrder.assets` is a **list**, so it is a dead end inwards. But
 `EquipmentHealthProfile.asset` is a **single** direct relation, and that one reverses.
 This is the fourth row of the table above, and the reason
-[Chapter 03](03-data-modeling.md) §3.12 had you declare `healthProfile` on your `Asset`
+[Chapter 03](03-data-modeling.md) section 3.12 had you declare `healthProfile` on your `Asset`
 view.
 
 🟢 `[ACTION]` Same query shape that just failed — one property, not a list:
@@ -315,7 +315,7 @@ schema change on something that stores nothing.
 
 ## 13.6 [ACTION] The operations on that pump — and a surprise
 
-[Chapter 05](05-transformations.md) §5.6 loaded work-order **operations** as
+[Chapter 05](05-transformations.md) section 5.6 loaded work-order **operations** as
 `CogniteActivity` nodes. Same shape of question, same filter:
 
 ```python
@@ -588,10 +588,10 @@ believe it.
 Do not proceed until all of these are true:
 
 - [ ] `aggregate` returns 8 assets in your instance space
-- [ ] §13.5's inward traversal fails, and you can say why a *list* cannot be walked backwards
+- [ ] section 13.5's inward traversal fails, and you can say why a *list* cannot be walked backwards
 - [ ] The `ContainsAny` filter returns **exactly** `WO-1001`
-- [ ] §13.6 gives 9 activities / 3 work orders / 6 operations, and you can explain the 9
-- [ ] `inspect()` in §13.7 tells you which containers your EHP node has data in
+- [ ] section 13.6 gives 9 activities / 3 work orders / 6 operations, and you can explain the 9
+- [ ] `inspect()` in section 13.7 tells you which containers your EHP node has data in
 - [ ] `group_by="status"` fails because it is an enum; `orderType` gives two buckets
 - [ ] The second `sync` call returns 0 changes
 - [ ] You can say, in one sentence each, when you would use `list`, `query` and `aggregate`

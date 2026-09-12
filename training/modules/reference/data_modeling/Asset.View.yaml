@@ -18,7 +18,7 @@ properties:
   # EquipmentHealthProfile.asset points AT this asset. A reverse direct relation
   # lets you walk that pointer backwards, which a plain direct relation cannot do.
   # `single_` because one asset has at most one health profile; the value still
-  # comes back as a list (see Chapter 03 §3.9).
+  # comes back as a list (see Chapter 03 section 3.9).
   healthProfile:
     connectionType: single_reverse_direct_relation
     name: Health profile

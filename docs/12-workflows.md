@@ -235,7 +235,7 @@ workflowDefinition:
 | `retries` | How many times to retry *this task* on failure before the workflow's own `onFailure` policy kicks in |
 | `timeout` | Seconds before the task itself is killed — note `load_3d_revision` gets 3600s (an hour) vs. 1800s (30 min) for everything else, because 3D conversion is genuinely slower |
 | `onFailure: abortWorkflow` | Default here — a genuinely broken load shouldn't let downstream tasks run against half-loaded data |
-| `onFailure: skipTask` (only on `load_3d_revision`) | The one deliberate exception — per Chapter 09 §9.2, 3D conversion queueing is not a pipeline failure; the rest of the DAG should complete regardless |
+| `onFailure: skipTask` (only on `load_3d_revision`) | The one deliberate exception — per Chapter 09 section 9.2, 3D conversion queueing is not a pipeline failure; the rest of the DAG should complete regardless |
 | `dependsOn` | The DAG edges — an empty list means "no prerequisite, can start immediately" |
 
 ⚠️ `[COMMON MISTAKE]` Setting `retries` high "to be safe" on a task with
@@ -262,7 +262,7 @@ from cognite.client.config import ClientConfig
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 
 def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
-    """Same helper as Chapter 07 §7.3. CogniteClient() with no arguments does NOT
+    """Same helper as Chapter 07 section 7.3. CogniteClient() with no arguments does NOT
     read .env -- the SDK dropped implicit construction in v8."""
     base   = os.environ.get("CDF_URL") or f"https://{os.environ['CDF_CLUSTER']}.cognitedata.com"
     scopes = [s for s in os.environ.get("IDP_SCOPES", f"{base}/.default").split(",") if s]
@@ -278,7 +278,7 @@ def cdf_client(client_name: str = "dm-handson") -> CogniteClient:
                                       project=os.environ["CDF_PROJECT"],
                                       base_url=base, credentials=creds))
 
-client = cdf_client()   # see Chapter 07 §7.3
+client = cdf_client()   # see Chapter 07 section 7.3
 
 execution = client.workflows.executions.run(workflow_external_id="wkf_<YOURNAME>_Training_TRN", version="v1")
 print(execution.id, execution.status)
@@ -299,7 +299,7 @@ while True:
 
 ✅ `[VERIFY]` All ten tasks show `completed` in about 80 seconds. `load_3d_revision` or
 `detect_diagram_tags` may instead show
-`skipped` if 3D was still converting — that's a **pass**, not a failure, per §12.2.
+`skipped` if 3D was still converting — that's a **pass**, not a failure, per section 12.2.
 
 🚧 `[LIMITS]` Workflow executions and per-task timeouts are project-scoped resources
 with their own quotas — see the limits page linked at the top of this chapter before

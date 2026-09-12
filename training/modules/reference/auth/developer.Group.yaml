@@ -18,7 +18,7 @@ capabilities:
           spaceIds:
             - {{ instance_space }}
   # transformationsAcl and rawAcl have NO space scope. This is a compromise, and
-  # Chapter 16 §16.3 says so out loud rather than hiding it.
+  # Chapter 16 section 16.3 says so out loud rather than hiding it.
   - transformationsAcl:
       actions: [READ, WRITE]
       scope:

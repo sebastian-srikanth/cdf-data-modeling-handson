@@ -70,7 +70,7 @@ properties:
       System of record this order was extracted from. Immutable — a record's
       origin never changes. Example "SAP-PM".
 constraints:
-  # Chapter 03 §3.7 — a view that implements another view should always have a
+  # Chapter 03 section 3.7 — a view that implements another view should always have a
   # requires constraint from its own container to the implemented container.
   # It guarantees the data is co-located, so a query needs one fewer JOIN.
   requiresCogniteActivity:

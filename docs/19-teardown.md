@@ -22,7 +22,7 @@ Teardown happens in **two halves**, and you need both:
 instance is stamped with a `deletedTime`, vanishes from every normal query, and is
 permanently collected roughly three days later. Inside that window it is still visible
 through `/sync`, and re-running the transformation that created it restores it — the
-source row never moved. [Chapter 14](14-debugging-broken-links.md) §14.8 walks through
+source row never moved. [Chapter 14](14-debugging-broken-links.md) section 14.8 walks through
 exactly that recovery.
 
 Two caveats worth carrying:

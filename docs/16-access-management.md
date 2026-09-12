@@ -55,7 +55,7 @@ not. Your two PDFs are `CogniteFile` **instances** (space-scoped) but the OBJ fr
 to your spaces can read one and not the other — and the error will say `403`, not "you
 used the wrong scope type". That split is the single most confusing thing about CDF
 permissions, and it is a direct consequence of the two-worlds story in
-[Chapter 04](04-data-sets-raw-and-files.md) §4.1.
+[Chapter 04](04-data-sets-raw-and-files.md) section 4.1.
 
 💡 `[GOOD TO KNOW]` Scoping is not only about security. A `READ` scoped to three spaces is
 **faster** than one scoped to everything, because the authorization filter is applied
@@ -91,7 +91,7 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - isp_<YOURNAME>_TRN
-  # Classic resources are data-set scoped, NOT space scoped. See Chapter 16 §16.2.
+  # Classic resources are data-set scoped, NOT space scoped. See Chapter 16 section 16.2.
   - filesAcl:
       actions: [READ]
       scope:
@@ -133,7 +133,7 @@ capabilities:
           spaceIds:
             - isp_<YOURNAME>_TRN
   # transformationsAcl and rawAcl have NO space scope. This is a compromise, and
-  # Chapter 16 §16.3 says so out loud rather than hiding it.
+  # Chapter 16 section 16.3 says so out loud rather than hiding it.
   - transformationsAcl:
       actions: [READ, WRITE]
       scope:
@@ -205,7 +205,7 @@ someone else's assets.
 ⚠️ `[COMMON MISTAKE]` Testing a permission with the identity that *wrote* it. Your Toolkit
 service principal is heavily privileged — of course everything works. A scope is only
 proven when exercised by an identity that holds nothing else, which is why
-[Chapter 02](02-auth-and-security.md) §2.3 insists you keep the two identities distinct.
+[Chapter 02](02-auth-and-security.md) section 2.3 insists you keep the two identities distinct.
 
 ---
 

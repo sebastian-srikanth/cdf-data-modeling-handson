@@ -100,6 +100,41 @@ the capability in a **Jupyter notebook** first — running the raw SDK calls cel
 cell — before you ever see it packaged into a `handler.py`. See
 [Chapter 07](07-entity-matching.md) for the first example of this pattern.
 
+### What the markers mean
+
+Every paragraph in this course is tagged. You can read a whole chapter by its markers
+alone and know what it will cost you.
+
+**You have to do something:**
+
+| Marker | Meaning |
+|---|---|
+| 📝 `[WRITE]` | Create this file, with exactly this content |
+| 🟢 `[ACTION]` | Run this — a command, or a notebook cell |
+| 🔧 `[CHANGE]` | Edit the block above; usually just your own name |
+| ✅ `[VERIFY]` | Check the result. If it does not match, stop and fix it before moving on |
+
+**You should know something:**
+
+| Marker | Meaning |
+|---|---|
+| ℹ️ `[INFO]` | How this works, and why it is built this way |
+| 💡 `[GOOD TO KNOW]` | Useful, not essential — the thing an experienced person would mention |
+| ⚠️ `[COMMON MISTAKE]` | Someone has already lost an afternoon here. Read it before you hit it |
+| 🚧 `[LIMITS]` | A real platform limit, measured. Not a suggestion |
+| ⚡ `[OPTIMIZE]` | This works either way, but one way is much faster or cheaper |
+| 🔒 `[SECURITY]` | Do not skip. The cost of getting it wrong is not yours alone |
+| 📚 `[DOCS]` | The official Cognite page, if you want the full reference |
+| 🔀 `[PR]` | Matters when you open your pull request in [Chapter 18](18-pr-and-merge.md) |
+| 📓 | Write two or three lines in your `NOTES.md` — now, not tonight |
+
+**Gate** ends every hands-on chapter. It is a list of things that must be true before you
+continue, and it is not decorative — most of them are checkable:
+
+```bash
+PARTICIPANT=<YOURNAME> uv run python tools/selfcheck.py 03
+```
+
 ---
 
 ## Agenda

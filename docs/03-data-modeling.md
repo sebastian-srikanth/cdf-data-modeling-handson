@@ -53,7 +53,7 @@ can, for example, purge all your instance data (teardown, [Chapter 17](17-cross-
 without touching your schema at all.
 
 **Why three spaces and not one?** Because *isolation* in this course is achieved
-**by space**, not by scoping every external ID (§1.2). If everyone shared one
+**by space**, not by scoping every external ID (section 1.2). If everyone shared one
 instance space, `21-PA-2001A` would collide across all participants immediately. Each
 person's own `isp_YOURNAME_TRN` is what makes 15 identical builds coexist.
 
@@ -88,7 +88,7 @@ release blocker for every other.
 | Choice made                                                                                                                                                           | Alternative considered                              | Why rejected                                                                                                                                                                                                                                                                         |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Extend `cdf_cdm` (Cognite's Core Data Model); author exactly **one** enterprise view (`WorkOrder`) + **one** solution view (`EquipmentHealthProfile`) | Fully custom, green-field data model (no CDM reuse) | Too slow to build in a 4-hour lab, and it throws away CDM's built-in contextualization machinery (diagram annotations, 3D linking, entity matching all assume `CogniteAsset`/`CogniteEquipment`/`CogniteFile` shapes). You'd be re-inventing plumbing this course wants you to *use* |
-| Two data models: broad **enterprise** (`TrainingCore`) vs narrow **solution** (`MaintenanceInsight`) that reuses enterprise views by reference        | One data model for everything                       | A single model can't demonstrate the enterprise/solution contrast that's the actual teaching point — see §3.4                                                                                                                                                                        |
+| Two data models: broad **enterprise** (`TrainingCore`) vs narrow **solution** (`MaintenanceInsight`) that reuses enterprise views by reference        | One data model for everything                       | A single model can't demonstrate the enterprise/solution contrast that's the actual teaching point — see section 3.4                                                                                                                                                                        |
 | Location filter points at the **solution** model, not the enterprise model                                                                                            | Point the location filter at the enterprise model   | Would expose the *entire* broad surface to end users instead of the one curated use case — see [Chapter 06](06-location-filters.md)                                                                                                                                                  |
 
 
@@ -230,7 +230,7 @@ equipment/asset it's performed on), and CDM's scheduling fields
 (`scheduledStartTime`, etc.) all come from `CogniteActivity` without you redefining
 them. You only add the properties CDM has no equivalent for: `workOrderNumber`,
 `status`, `orderType`, `priority`, `actualCost`, `currency`, `sourceSystem`. This is
-the concrete mechanism behind "extend, don't fork" from §3.3.
+the concrete mechanism behind "extend, don't fork" from section 3.3.
 
 ---
 
@@ -247,7 +247,7 @@ to neither node alone.
 - **Files** are a hybrid: `CogniteFile` is a DMS node (has a space+externalId
 identity, participates in views like any other node) *and* has binary content
 attached via the classic Files API underneath. That dual nature is why file
-external IDs get `YOURNAME`-scoped (§1.2) even though other node external IDs don't.
+external IDs get `YOURNAME`-scoped (section 1.2) even though other node external IDs don't.
 
 **Why relations/edges matter for this lesson specifically:** the entire "hero tag"
 story (`21-PA-2001A` as the hub everything converges on) *is* a set of direct
@@ -372,11 +372,11 @@ steers an agent's output. Model your properties assuming both audiences read the
 
 | Anti-pattern                                   | Why it's tempting                | What this lab does instead                                                                                                       |
 | ---------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Scope every instance externalId by participant | "Feels safer"                    | Scope the **space**, keep externalIds literal (§1.2) — simpler, and it's what makes identical files possible across participants |
-| One data model for everything                  | Fewer files to write             | Split enterprise/solution — the contrast between them is the actual lesson (§3.4)                                                |
-| Fork CDM instead of extending it               | Full control over every field    | Throws away built-in contextualization tooling for no benefit here (§3.3)                                                        |
-| Index every property                           | "Just in case we query it later" | Index only what you know you'll filter/sort on (§3.7)                                                                            |
-| A bare `hasData` filter to force instances to show up | The view is empty and you want it not to be | Populate the missing container. A standalone `hasData` filter is ignored by `/inspect`, so Canvas and Search disagree with your query (§3.8b) |
+| Scope every instance externalId by participant | "Feels safer"                    | Scope the **space**, keep externalIds literal (section 1.2) — simpler, and it's what makes identical files possible across participants |
+| One data model for everything                  | Fewer files to write             | Split enterprise/solution — the contrast between them is the actual lesson (section 3.4)                                                |
+| Fork CDM instead of extending it               | Full control over every field    | Throws away built-in contextualization tooling for no benefit here (section 3.3)                                                        |
+| Index every property                           | "Just in case we query it later" | Index only what you know you'll filter/sort on (section 3.7)                                                                            |
+| A bare `hasData` filter to force instances to show up | The view is empty and you want it not to be | Populate the missing container. A standalone `hasData` filter is ignored by `/inspect`, so Canvas and Search disagree with your query (section 3.8b) |
 
 
 ---
@@ -413,7 +413,7 @@ client.data_modeling.instances.inspect(
 
 `inspect()` reports which containers the node actually populates, ignoring views
 entirely. If the node is there but your view is not showing it, you have found your
-`hasData` mismatch. [Chapter 13](13-querying-the-graph.md) §13.7 does this hands-on.
+`hasData` mismatch. [Chapter 13](13-querying-the-graph.md) section 13.7 does this hands-on.
 
 ---
 
@@ -450,7 +450,7 @@ that lets you walk the solid one backwards.
 ⚠️ `[COMMON MISTAKE]` Assuming a direct relation is traversable both ways because the
 data "is there". It is not. `WorkOrder.assets` points at the pump, but you cannot ask the
 pump for its work orders through that property — DMS keeps no reverse index for list
-membership, and [Chapter 13](13-querying-the-graph.md) §13.5 shows you the exact error.
+membership, and [Chapter 13](13-querying-the-graph.md) section 13.5 shows you the exact error.
 
 ### Reverse direct relations
 
@@ -641,7 +641,7 @@ properties:
       System of record this order was extracted from. Immutable — a record's
       origin never changes. Example "SAP-PM".
 constraints:
-  # Chapter 03 §3.7 — a view that implements another view should always have a
+  # Chapter 03 section 3.7 — a view that implements another view should always have a
   # requires constraint from its own container to the implemented container.
   # It guarantees the data is co-located, so a query needs one fewer JOIN.
   requiresCogniteActivity:
@@ -788,7 +788,7 @@ properties:
     description: When the datasheet was last read into this profile.
 constraints:
   # This container's view implements CogniteDescribable, so it requires the
-  # CogniteDescribable container. See Chapter 03 §3.7.
+  # CogniteDescribable container. See Chapter 03 section 3.7.
   requiresCogniteDescribable:
     constraintType: requires
     require:
@@ -804,7 +804,7 @@ indexes:
 ```
 
 🔧 `[CHANGE]` Only the `space:` line in each file — every `externalId`, property name,
-and constraint stays **literal**, identical to every other participant's copy (§1.2).
+and constraint stays **literal**, identical to every other participant's copy (section 1.2).
 
 ⚠️ `[COMMON MISTAKE]` This is the container that carries `openWorkOrderCount` and
 `lastParsedTime` — both look like they *should* be computed automatically. They're
@@ -886,7 +886,7 @@ properties:
 Read what this view does **not** contain. There is no `name`, no `description`, no
 `scheduledStartTime`, no `assets` — yet a `WorkOrder` has all four. They arrive through
 `implements: CogniteActivity`. You map only the seven properties that are yours, and
-that is the whole point of §3.3's layering: your view is small because the core model
+that is the whole point of section 3.3's layering: your view is small because the core model
 carries the rest.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.View.yaml`
@@ -1011,7 +1011,7 @@ string that happens to look like an ID.
 💡 `[GOOD TO KNOW]` This view `implements: CogniteDescribable`, which is precisely why
 `ParseDatasheet` in [Chapter 10](10-datasheet-parsing.md) must write `name` alongside the
 specs. Two containers behind one view means the implicit `hasData` filter requires data
-in **both** — write only the specs and the node vanishes from the view. That is §3.8b,
+in **both** — write only the specs and the node vanishes from the view. That is section 3.8b,
 and it is the single most expensive afternoon in this course.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/Asset.View.yaml`
@@ -1037,7 +1037,7 @@ properties:
   # EquipmentHealthProfile.asset points AT this asset. A reverse direct relation
   # lets you walk that pointer backwards, which a plain direct relation cannot do.
   # `single_` because one asset has at most one health profile; the value still
-  # comes back as a list (see Chapter 03 §3.9).
+  # comes back as a list (see Chapter 03 section 3.9).
   healthProfile:
     connectionType: single_reverse_direct_relation
     name: Health profile
@@ -1080,7 +1080,7 @@ properties:
     direction: inwards
 ```
 
-This is §3.9 made concrete, and the only view here that adds **no container properties at
+This is section 3.9 made concrete, and the only view here that adds **no container properties at
 all** — a reverse direct relation and an edge connection are pure schema. Both are empty
 right now. `healthProfile` fills in when Chapter 10 writes the profiles;
 `diagramAnnotations` fills in when [Chapter 08](08-diagram-annotation.md) writes the
@@ -1104,7 +1104,7 @@ name: <YOURNAME> Training Core EDM
 description: >-
   Enterprise data model — the Cognite Core Data Model plus one custom view,
   WorkOrder. Owned by the participant. The view order below is for the human
-  reading this file - DMS does not preserve it. See Chapter 03 §3.4.
+  reading this file - DMS does not preserve it. See Chapter 03 section 3.4.
 views:
   # Your own views first, for the reader. The API returns them in its own order.
   - space: ssp_<YOURNAME>_TrainingCore_edm
@@ -1213,10 +1213,10 @@ views:
 🔧 `[CHANGE]` The `space:` lines only. Two things to notice before you move on:
 
 - The view order is written for a human reader — your views first, then the CDM views
-  they build on. DMS will not give it back to you in that order (§3.4); order the YAML
+  they build on. DMS will not give it back to you in that order (section 3.4); order the YAML
   for the reviewer, not for the API.
 - `MaintenanceInsight` lists `WorkOrder` from your **EDM** space. A solution model
-  reaching up into the enterprise model is normal and correct (§3.4); the reverse —
+  reaching up into the enterprise model is normal and correct (section 3.4); the reverse —
   an EDM view depending on an SDM view — is the coupling you must never create.
 
 ---
@@ -1250,7 +1250,7 @@ or a `Missing view (data_modeling) 'cdf_cdm:CogniteAsset(version=v1)'` — the c
 resources your containers `require` and your data models list. They exist in every CDF
 project. Read the suggested fix the Toolkit prints directly underneath: *"Provide
 credentials to enable CDF verification."* A build makes **no network calls**
-([Chapter 00](00-bootstrap.md) §0.7), so with no `.env` it cannot confirm a `cdf_cdm`
+([Chapter 00](00-bootstrap.md) section 0.7), so with no `.env` it cannot confirm a `cdf_cdm`
 reference and reports every one as unverified.
 
 ✅ `[VERIFY]` Load your `.env` and build again. The same 10 resources now report:
@@ -1309,7 +1309,7 @@ print(asset.properties["healthProfile"])        # a reverse direct relation, not
 
 - `cdf deploy --dry-run --include data_modeling` reports **nothing left to create**
 - Both data models open in Fusion at `v1.0.0` and list every view you named (the
-  order will not match your YAML — §3.4)
+  order will not match your YAML — section 3.4)
 - You can say, without looking it up, which of your three views owns a container
   property and which two do not
 - You can explain why `EquipmentHealthProfile` needs `source:` on its direct relations

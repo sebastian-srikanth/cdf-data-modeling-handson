@@ -5,7 +5,7 @@ regex, and the agentic Cognite Document Parser API — and understand why
 **description engineering on your view is the real lever** for the second one.
 
 Both techniques converge on the exact same target: upserting node `ehp_21-PA-2001A`
-(literal externalId, isolated by your own space — never `YOURNAME`-scoped, per §1.2)
+(literal externalId, isolated by your own space — never `YOURNAME`-scoped, per section 1.2)
 into `EquipmentHealthProfile`. The sequence is always: **model exists → file
 uploaded & matched → parse → verify the instance in the view.** You've already done
 the first two steps (Chapters 03, 04, 07) — this chapter is steps 3 and 4, twice.
@@ -41,7 +41,7 @@ at once, silently, with no severity signal beyond "missing."
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_ParseDatasheet_Regex/handler.py`
 *(build this one in the notebook and read it here — the deployed Function you'll ship
-in §10.5 is the Technique 2 version; keep this one as your own local comparison)*:
+in section 10.5 is the Technique 2 version; keep this one as your own local comparison)*:
 
 ```python
 """Parse the pump datasheet PDF via deterministic regex (Technique 1 baseline)."""
@@ -110,7 +110,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     ehp_props = {
         # hasData: this view implements CogniteDescribable, so a node with no
         # name is invisible through the view even though the specs are stored.
-        # Chapter 03 §3.8b.
+        # Chapter 03 section 3.8b.
         "name": "Health profile — 21-PA-2001A",
         "description": "Parsed datasheet specs and open work-order rollup for export pump A.",
         "asset": DirectRelationReference(space, "21-PA-2001A"),
@@ -148,7 +148,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 | `r.external_id if hasattr(r, "external_id") else r.get("externalId")` | Handles both shapes of a direct relation | The SDK returns a typed object in some paths and a plain dict in others |
 | `status != "CLOSED"` | Counts anything not closed as open | Deliberately permissive — an unexpected status counts as open. For a *health* metric, over-reporting risk is the safer error |
 | `isoformat(timespec="milliseconds")` | Timestamp with exactly 3 fractional digits | See the `[LIMITS]` note directly below — this is a hard API constraint, not a style choice |
-| `NodeApply(external_id="ehp_21-PA-2001A")` | Writes the health profile node | The externalId stays **literal**, not name-scoped — your space already isolates it (§1.2) |
+| `NodeApply(external_id="ehp_21-PA-2001A")` | Writes the health profile node | The externalId stays **literal**, not name-scoped — your space already isolates it (section 1.2) |
 | `{k: v for k, v in parsed.items() if k not in ("manufacturer", "serialNumber")}` | Omits two fields from the return | They are parsed to prove the regex works, but they are not view properties, so they are not written or reported |
 
 📚 `[DOCS]` [Data modeling](https://docs.cognite.com/cdf/dm/) ·
@@ -163,7 +163,7 @@ will be **rejected**. Always call `isoformat(timespec="milliseconds")`.
 ## 10.3 [OPTIMIZE] Description engineering — the real lever for Technique 2
 
 Before you touch the Document Parser API, understand this: `viewConfig` in the
-`start` call (§10.4) points at your `EquipmentHealthProfile` view — and
+`start` call (section 10.4) points at your `EquipmentHealthProfile` view — and
 **the view's property names and descriptions become the literal extraction schema**
 the model fills in. `userPrompt` only *steers* (tone, edge cases); the view *carries*
 the schema. This is the single highest-leverage thing you control in this whole
@@ -206,7 +206,7 @@ general-purpose LLM call), the discipline is identical.
 ⚡ `[OPTIMIZE]` — write descriptions for **both humans and agents**. The same
 description that helps a colleague understand your view in Fusion is exactly what
 steers this extraction model. There is no separate "AI-facing" documentation layer to
-maintain — one well-written description serves both audiences (§3.7 already told you
+maintain — one well-written description serves both audiences (section 3.7 already told you
 this; here it's no longer abstract).
 
 🟢 `[ACTION]` Redeploy the enriched container before continuing:
@@ -243,7 +243,7 @@ start_body = {
 job_id = client.post(f"{DOCPARSER}/jobs/start", json=start_body).json()["jobId"]
 ```
 
-🛑 `[COMMON MISTAKE]` — **raw `client.post` needs the full project-scoped path.** Unlike
+⚠️ `[COMMON MISTAKE]` — **raw `client.post` needs the full project-scoped path.** Unlike
 the typed SDK (`instances.retrieve`/`apply`), `client.post` / `client.get` do **not**
 prepend `/api/v1/projects/{project}` for you. The doc-parser endpoints are INTERNAL with
 no typed SDK, so you build the path yourself (as `DOCPARSER` does above). The bare
@@ -305,18 +305,18 @@ for f in TEXT_FIELDS:
     if v not in (None, ""):
         props[f] = str(v)
 
-props["name"] = "Health profile — 21-PA-2001A"          # required by hasData (§3.8b)
+props["name"] = "Health profile — 21-PA-2001A"          # required by hasData (section 3.8b)
 props["description"] = "Parsed datasheet specs and open work-order rollup for export pump A."
 
 # The three direct relations are the POINT of this view -- without them the profile
-# is a bag of numbers no query can reach from the asset. Chapter 03 §3.12 declares
-# `source:` on each of them, and Chapter 13 §13.5 walks `asset` backwards. Omit them
+# is a bag of numbers no query can reach from the asset. Chapter 03 section 3.12 declares
+# `source:` on each of them, and Chapter 13 section 13.5 walks `asset` backwards. Omit them
 # and that traversal returns 0 rows.
 props["asset"] = DirectRelationReference(space, "21-PA-2001A")
 props["equipment"] = DirectRelationReference(space, "EQ-1002")
 props["datasheetFile"] = DirectRelationReference(space, file_xid)
 
-# Nothing in CDF derives "count of open work orders" for you -- compute it (Ch 03 §3.11).
+# Nothing in CDF derives "count of open work orders" for you -- compute it (Ch 03 section 3.11).
 v_wo = ViewId(schema_edm, "WorkOrder", "v1.0.0")
 open_count = 0
 for wo in client.data_modeling.instances.list(instance_type="node", sources=[v_wo],
@@ -342,9 +342,9 @@ print("open work orders on the pump:", open_count)
 ⚠️ `[COMMON MISTAKE]` Writing only the parsed specs and stopping. The node then exists,
 the view even returns it (because `name` satisfies `hasData`), and everything *looks*
 fine — but `asset`, `equipment` and `datasheetFile` are `None`, so the profile is
-unreachable from the pump. [Chapter 13](13-querying-the-graph.md) §13.5 walks
+unreachable from the pump. [Chapter 13](13-querying-the-graph.md) section 13.5 walks
 `EquipmentHealthProfile.asset` backwards and returns **0 rows**; the `healthProfile`
-reverse direct relation you declared in [Chapter 03](03-data-modeling.md) §3.12 never
+reverse direct relation you declared in [Chapter 03](03-data-modeling.md) section 3.12 never
 resolves. A health profile that no asset can reach is not a health profile.
 
 ✅ `[VERIFY]` Prove the relations landed, rather than trusting the write:
@@ -384,9 +384,9 @@ node = client.data_modeling.instances.retrieve_nodes(nodes=[(space, "ehp_21-PA-2
 print(node.properties.get(v_ehp))
 ```
 
-Compare this against Technique 1's `parsed` output from §10.2 — on this clean,
+Compare this against Technique 1's `parsed` output from section 10.2 — on this clean,
 text-based training PDF both techniques should agree closely. Note where they don't,
-and why (§10.6).
+and why (section 10.6).
 
 ---
 
@@ -400,7 +400,7 @@ the technique that scales past one hand-tuned regex per vendor template.
 | | Technique 1 (regex) | Technique 2 (Document Parser) |
 |---|---|---|
 | How specs are found | Your `PATTERNS` dict | The API reads the PDF **and its own view property descriptions** |
-| Where the instructions live | In the Python | In the **view's property descriptions** (§10.3) |
+| Where the instructions live | In the Python | In the **view's property descriptions** (section 10.3) |
 | New vendor template | Rewrite every regex | Usually just works |
 | Cost / latency | Zero, instant | Paid, minutes |
 | Auditability | Perfect — point at the regex | A completeness score |
@@ -416,7 +416,7 @@ remove the need to know your own data model.
 `USER_PROMPT` is deliberately thin. It does not list fields or describe formats — it says
 *"per the target view's property descriptions"* and *"do not guess."* The real prompt is
 `viewConfig`, pointing at your `EquipmentHealthProfile`, whose property descriptions
-you wrote in §10.3.
+you wrote in section 10.3.
 
 Change what gets extracted by editing a **description in the data model**, not by editing and
 redeploying Python. That is what makes this genuinely agentic rather than a fancier regex.
@@ -444,7 +444,7 @@ USER_PROMPT = (
     "descriptions. If a value is not explicitly present in the document, leave it "
     "empty -- do not guess or estimate."
 )
-# Spec fields the parser fills, by destination type (see EquipmentHealthProfile, §3.7).
+# Spec fields the parser fills, by destination type (see EquipmentHealthProfile, section 3.7).
 FLOAT_FIELDS = ["ratedFlowM3h", "ratedHeadM", "ratedPowerKw",
                 "designPressureBarg", "designTemperatureC", "dryWeightKg"]
 TEXT_FIELDS = ["casingMaterial", "sealType"]
@@ -606,7 +606,7 @@ Failed`.
 
 💡 `[GOOD TO KNOW]` To run the Document Parser from a notebook, **your** login needs
 Data Models **read + write** and Files **read** (see [Chapter 02](02-auth-and-security.md)
-§2.4) — the same two-identity caveat as every other job-based call in this course. If a
+Section 2.4) — the same two-identity caveat as every other job-based call in this course. If a
 call returns `403`, run `cdf auth verify` and ask your CDF administrator to grant the
 missing capability.
 
@@ -636,10 +636,10 @@ and never in a pipeline where more than one writer touches the same node.
 - `auto_create_direct_relations=True` (**default on**) — targets of direct relations are
   created as bare nodes if missing. Convenient, and the reason a typo'd asset reference
   produces a silent dangling link rather than an error (you meet the consequence in
-  [Chapter 14](14-debugging-broken-links.md) §14.3).
+  [Chapter 14](14-debugging-broken-links.md) section 14.3).
 - `auto_create_start_nodes` / `auto_create_end_nodes` (**default off**) — an edge whose
   endpoints do not exist fails with `409` instead.
-- `skip_on_version_conflict=False` — see §10.5c.
+- `skip_on_version_conflict=False` — see section 10.5c.
 
 ---
 
@@ -680,7 +680,7 @@ print(result.get_response())
 ✅ `[VERIFY]` `status: "Completed"`, `openWorkOrderCount: 1` (matches `WO-1001`,
 `IN_PROGRESS`, on `21-PA-2001A`), and `fieldsWritten` lists the extracted spec fields.
 On this training project `write_status` will read `failed: ...` — that's the
-expected `jobs/write` 500 (§10.4), and the deterministic fallback still populates the
+expected `jobs/write` 500 (section 10.4), and the deterministic fallback still populates the
 node, so it's **not** a lab failure. Open `ehp_21-PA-2001A` in Fusion → confirm the
 rated-spec fields are populated and `datasheetFile` links back to your PDF.
 
@@ -689,7 +689,7 @@ rated-spec fields are populated and `datasheetFile` links back to your PDF.
 | `missing_fields` list — deterministic, explainable | `scores.completenessScore` / `typeScore` — statistical confidence, per job |
 | Zero cost, offline | Vision-capable, layout-tolerant, costs a job + polling budget |
 | Breaks silently on format drift | Degrades gracefully — a confidence score flags weak extractions instead of returning nothing |
-| No teardown obligation | No teardown obligation either (unlike entity-matching models, §7.4) — jobs are not global schema objects |
+| No teardown obligation | No teardown obligation either (unlike entity-matching models, section 7.4) — jobs are not global schema objects |
 
 ---
 

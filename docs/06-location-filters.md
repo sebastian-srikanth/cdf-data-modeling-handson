@@ -23,7 +23,7 @@ on," not "what can a user access."
 
 ## 6.2 [INFO] Why it points at the *solution* model
 
-Recall §3.4: `MaintenanceInsight` is the narrow, curated surface for one use
+Recall section 3.4: `MaintenanceInsight` is the narrow, curated surface for one use
 case; `TrainingCore` is the broad enterprise surface. A location filter is a
 **product decision** about what an end user should land on — and the answer is
 almost always the narrow, purpose-built surface, not the broad enterprise one.
@@ -62,7 +62,7 @@ dataModels:
 |---|---|
 | `dataModelingType: DATA_MODELING_ONLY` | This location is scoped purely to the Data Modeling Service — no classic assets/events fallback. Correct for this lab since everything lives in the model |
 | `instanceSpaces` | Which instance space(s) this location shows — yours, and only yours |
-| `dataModels` | Which data model(s) define the view surface a user sees inside this location — your solution model, per §6.2 |
+| `dataModels` | Which data model(s) define the view surface a user sees inside this location — your solution model, per section 6.2 |
 
 ---
 

@@ -54,7 +54,7 @@ PART B — four tasks. None of these appear in any chapter.
       `Equipment` in your SDM space that implements cdf_cdm:CogniteEquipment and adds a
       `healthProfile` single reverse direct relation through EquipmentHealthProfile.equipment.
       Deploy it and add it to the MaintenanceInsight data model.
-      (Tests: you understood §3.9 well enough to build a second one unaided.)
+      (Tests: you understood section 3.9 well enough to build a second one unaided.)
 
   B3  The phantom asset 21-XX-9999 from Chapter 14 should not be in your graph. Remove the
       node AND make sure no work-order operation still points at it.

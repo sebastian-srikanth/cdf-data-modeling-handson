@@ -121,7 +121,7 @@ properties:
     description: When the datasheet was last read into this profile.
 constraints:
   # This container's view implements CogniteDescribable, so it requires the
-  # CogniteDescribable container. See Chapter 03 §3.7.
+  # CogniteDescribable container. See Chapter 03 section 3.7.
   requiresCogniteDescribable:
     constraintType: requires
     require:

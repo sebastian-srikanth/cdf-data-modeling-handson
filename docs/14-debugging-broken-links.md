@@ -16,7 +16,7 @@ silently, and the first person to notice is usually a reliability engineer six w
 later asking why a pump has no maintenance history.
 
 📝 `[WRITE]` `docs/notebooks/08_debug_broken_links.ipynb` — run this chapter in a
-notebook, reusing the client setup from Chapter 13 §13.2.
+notebook, reusing the client setup from Chapter 13 section 13.2.
 
 ---
 
@@ -285,13 +285,13 @@ splits read and write classes: `Row` is what you *get back* (it carries
 `TypeError: Row.__init__() missing 1 required positional argument: 'last_updated_time'`.
 The same split shows up across the SDK — `DatabaseWrite`, `TableWrite`, `NodeApply`.
 
-🟢 `[ACTION]` Re-run the transformation, then re-run §14.3.
+🟢 `[ACTION]` Re-run the transformation, then re-run section 14.3.
 
 ```bash
 uv run cdf run transformation tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations
 ```
 
-✅ `[VERIFY]` The dangling-reference check now prints nothing. The orphan in §14.4 is
+✅ `[VERIFY]` The dangling-reference check now prints nothing. The orphan in section 14.4 is
 still there — you did not touch it, and that is correct: a missing work order is a
 different problem with a different owner.
 
@@ -400,7 +400,7 @@ created in [Chapter 08](08-diagram-annotation.md) — those are edges, and they 
 ## 14.10 ✅ Gate
 
 - [ ] You can explain 8 rows / 9 activities / 6 operations, and all four discrepancies
-- [ ] The anti-join in §14.3 found the phantom `21-XX-9999`, and you can explain why `retrieve` finds it but the view does not
+- [ ] The anti-join in section 14.3 found the phantom `21-XX-9999`, and you can explain why `retrieve` finds it but the view does not
 - [ ] You found the orphan `WO-9999-0010` and can say why it is *not* the same bug
 - [ ] You can explain why `OP-1001-0020-REV` being absent is correct behaviour
 - [ ] You deleted a node, saw it in `/sync` with a `deletedTime`, and restored it

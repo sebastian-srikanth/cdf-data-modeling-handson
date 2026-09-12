@@ -10,12 +10,12 @@ enough on its own.
 
 | Requirement | Notes |
 |---|---|
-| **Python 3.12 or 3.13** | The Toolkit CLI runs on this. Not the same as the Function runtime — see Chapter 00 §0.3 |
+| **Python 3.12 or 3.13** | The Toolkit CLI runs on this. Not the same as the Function runtime — see Chapter 00 section 0.3 |
 | **git** | You need real history and a real remote for Chapter 18 |
 | **A terminal** | macOS: Terminal. Windows: **Git Bash** (ships with git) — not PowerShell/cmd |
 | **A browser** | Every `[VERIFY]` step is confirmed visually in CDF Fusion |
 
-`uv` is installed in Chapter 00 §0.4 — you do not need it beforehand.
+`uv` is installed in Chapter 00 section 0.4 — you do not need it beforehand.
 
 ---
 
@@ -128,4 +128,4 @@ uv run cdf auth verify --dry-run
 ```
 
 If `auth verify` reaches your project and lists capabilities that cover the table in
-§3c, you are ready for [Chapter 00](docs/00-bootstrap.md).
+Section 3c, you are ready for [Chapter 00](docs/00-bootstrap.md).

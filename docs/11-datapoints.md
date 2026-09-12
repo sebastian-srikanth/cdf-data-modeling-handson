@@ -15,7 +15,7 @@ CSV, your "last 5 days" story is stale. A Function computes timestamps **relativ
 `now()`** every time it runs, so the trend always ends "recently" no matter when you
 call it — which is also why this is a Function and not a Transformation: writing
 computed, time-relative numeric data isn't a clean deterministic RAW-to-model key
-mapping (§5.1's rule).
+mapping (section 5.1's rule).
 
 ---
 
@@ -121,7 +121,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 
 | Code | What it does | Why it is written this way |
 |---|---|---|
-| `from ...data_modeling import NodeId` | Addresses a node by `(space, externalId)` | These time series are **DMS nodes**, not classic assets. The Chapter 01 §1.2 identity rule in code form. [Data modeling](https://docs.cognite.com/cdf/dm/) |
+| `from ...data_modeling import NodeId` | Addresses a node by `(space, externalId)` | These time series are **DMS nodes**, not classic assets. The Chapter 01 section 1.2 identity rule in code form. [Data modeling](https://docs.cognite.com/cdf/dm/) |
 | `SERIES = [...]` | The six tags, in fixed order | Order must be stable or the seeded noise below stops being reproducible |
 | `t = i / max(n - 1, 1)` | Normalises position to `0.0 → 1.0` | Used only as sine **phase**, so each tag completes a fixed number of cycles across the whole 30 days regardless of point count |
 | `noise = random.uniform(-1, 1)` | One draw per point | Scaled per tag below — a pressure sensor wobbles by tenths of a bar, a flow meter by several m³/h |
@@ -136,7 +136,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 | `random.seed(20260724)` | Fixed seed | Two participants comparing screenshots see the same curve **shape**. For synthetic teaching data, reproducibility beats entropy |
 | `end = ...replace(minute=0, ...)` / `hours=719` | Window anchored to the current hour | `719`, not `720`, because `start` is itself the first of 720 points |
 | `insert(points, instance_id=NodeId(space, tag))` | Writes to the DMS node | Passing `external_id=` instead would address a **classic** time series — a different object that does not exist here, and the call would fail |
-| `return {...}` | Counts, window, space | This is what `result.get_response()` prints in §11.5. A Function returning `None` is untestable |
+| `return {...}` | Counts, window, space | This is what `result.get_response()` prints in section 11.5. A Function returning `None` is untestable |
 
 ### Why the other four tags are boring on purpose
 

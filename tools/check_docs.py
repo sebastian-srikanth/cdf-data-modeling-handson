@@ -6,7 +6,7 @@ Exit: 0 if everything passes, 1 otherwise (so CI fails the build).
 
 Checks
   1. every relative markdown link resolves
-  2. every "§N.M" cross-reference names a heading that exists
+  2. every "section N.M" cross-reference names a heading that exists
   3. every ```yaml block parses
   4. every ```python block parses
   5. every notebook code cell parses
@@ -98,12 +98,13 @@ def check_crossrefs() -> int:
     }
     checked = 0
     for md in chapters():
-        for m in re.finditer(r"(?:Chapter (\d\d)[^§\n]{0,60})?§(\d+)\.(\d+[a-z]?)", md.read_text()):
+        for m in re.finditer(r"(?:Chapter (\d\d)[^\n]{0,60}?)?\bsections? (\d+)\.(\d+[a-z]?)",
+                             md.read_text(), re.I):
             checked += 1
             section = f"{m.group(2)}.{m.group(3)}"
             chapter = m.group(1) or f"{int(m.group(2)):02d}"
             if chapter in headings and section not in headings[chapter]:
-                fail(f"bad xref   {md.name} -> §{section} (chapter {chapter}) is not a heading")
+                fail(f"bad xref   {md.name} -> section {section} (chapter {chapter}) is not a heading")
     return checked
 
 
@@ -254,6 +255,33 @@ def check_chapter_shape() -> int:
     return checked
 
 
+# ---------------------------------------------- 7b. marker emoji consistency ----
+# The one emoji each paragraph marker is allowed to carry. A reader learns to skim by
+# these, so a [COMMON MISTAKE] wearing a different face costs them that shortcut.
+MARKER_EMOJI = {
+    "WRITE": "📝", "ACTION": "🟢", "CHANGE": "🔧", "VERIFY": "✅",
+    "INFO": "ℹ️", "GOOD TO KNOW": "💡", "COMMON MISTAKE": "⚠️", "LIMITS": "🚧",
+    "OPTIMIZE": "⚡", "SECURITY": "🔒", "DOCS": "📚", "PR": "🔀",
+}
+# Only a line that OPENS with a non-ASCII glyph is a marker paragraph. A numbered
+# recap list ("2. `[WRITE]` …") legitimately references markers without wearing one.
+MARKER_AT_START = re.compile(r"^([^\x00-\x7F]\S{0,2})\s*`\[([A-Z][A-Z ]*)\]`", re.M)
+
+
+def check_marker_emoji() -> int:
+    checked = 0
+    for md in chapters():
+        for m in MARKER_AT_START.finditer(md.read_text()):
+            emoji, marker = m.group(1), m.group(2)
+            want = MARKER_EMOJI.get(marker)
+            if want is None:
+                continue
+            checked += 1
+            if emoji != want:
+                fail(f"marker     {md.name}: [{marker}] uses {emoji}, expected {want}")
+    return checked
+
+
 # ------------------------------------------------ 8b. chapter table integrity ----
 CHAPTER_ROW = re.compile(r"\[(\d\d) — [^\]]+\]\((?:docs/)?(\d\d)-[^)]+\.md\)")
 
@@ -312,6 +340,7 @@ def main() -> int:
     writes = check_write_blocks()
     names = check_undefined_names()
     shapes = check_chapter_shape()
+    markers = check_marker_emoji()
     tables = check_chapter_tables()
     tools = check_tools_import()
 
@@ -323,6 +352,7 @@ def main() -> int:
     print(f"  [WRITE] blocks   {writes:>4} compared against the reference module")
     print(f"  notebook scopes  {names:>4} cells scanned for undefined names")
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
+    print(f"  marker emoji     {markers:>4} markers: consistent emoji")
     print(f"  chapter tables   {tables:>4} rows: label matches link target")
     print(f"  tools import     {tools:>4} tools imported")
     for note in notes:

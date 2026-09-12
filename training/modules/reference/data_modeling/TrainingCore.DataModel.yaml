@@ -5,7 +5,7 @@ name: {{ participant }} Training Core EDM
 description: >-
   Enterprise data model — the Cognite Core Data Model plus one custom view,
   WorkOrder. Owned by the participant. The view order below is for the human
-  reading this file - DMS does not preserve it. See Chapter 03 §3.4.
+  reading this file - DMS does not preserve it. See Chapter 03 section 3.4.
 views:
   # Your own views first, for the reader. The API returns them in its own order.
   - space: {{ schema_space_edm }}

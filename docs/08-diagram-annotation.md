@@ -60,9 +60,9 @@ The view (`used_for: edge`) defines properties — `startNodePageNumber`, `start
 
 Status **polling** for a detect job requires `diagramParsingAcl` +
 `annotationsAcl` — both already verified present on the training SP
-([Chapter 02](02-auth-and-security.md), §2.2). If your interactive login 403s on a
+([Chapter 02](02-auth-and-security.md), section 2.2). If your interactive login 403s on a
 detect call but the SP-run transformation-equivalent would work, that's the
-two-identity gap from §2.3 — not a bug in this chapter.
+two-identity gap from section 2.3 — not a bug in this chapter.
 
 ---
 
@@ -109,7 +109,7 @@ The attribute never refreshes on its own — the same trap as the entity-matchin
 stale value and wrongly conclude the job "never finished." Refresh every iteration.
 
 ⚠️ `[COMMON MISTAKE]` Looping forever without a cap "just to be sure it finishes."
-Given §8.2's caveat, an uncapped loop against a stuck `Distributed` job is precisely
+Given section 8.2's caveat, an uncapped loop against a stuck `Distributed` job is precisely
 how you turn a two-minute notebook cell into a hung kernel. Bound every poll.
 
 💡 `[GOOD TO KNOW]` — **the result is two levels deep.** `job.result` (= `job.get_result()`)
@@ -118,14 +118,14 @@ real detections live in that block's **`annotations`** list. Each annotation car
 **`entities`** (the matched assets) and a **`region`** whose box is a **`vertices`**
 polygon (normalized `{x, y}` points), *not* `xMin/xMax`. So you walk
 **`items[] → annotations[] → entities[]`** and build the bounding box from the `min`/`max`
-of the vertices — exactly what the Function handler in §8.5 does. Reading
+of the vertices — exactly what the Function handler in section 8.5 does. Reading
 `entities`/`region` off the top-level `items[]` entry (the obvious first guess) finds
 nothing and silently creates **zero** edges.
 
 ✅ `[VERIFY]` notebook results in CDF: after creating the edges, open the P&ID file in
 Fusion — you should see clickable bounding boxes on the rendered PDF over the tags
 `21-VG-2001`, `21-PA-2001A`, `21-PA-2001B`, `21-HA-2001`, `21-XV-2001` (or a subset,
-if OCR didn't find every tag — see §8.6).
+if OCR didn't find every tag — see section 8.6).
 
 ---
 
@@ -352,7 +352,7 @@ actually legible at that zoom level/rotation? Diagram OCR confidence is genuinel
 lower than the other techniques in this course; a partial `tags_found` list is an
 expected, acceptable outcome for this lab, not a failure to chase.
 
-🔀 `[PR]` Per §8.2, when you wire this into your workflow DAG in
+🔀 `[PR]` Per section 8.2, when you wire this into your workflow DAG in
 [Chapter 12](12-workflows.md) it gets `onFailure: skipTask` and `retries: 1` — never
 `abortWorkflow`, and never a high retry count. Here, call it manually exactly once.
 
@@ -360,9 +360,9 @@ expected, acceptable outcome for this lab, not a failure to chase.
 
 ## 8.7 [ACTION] Read the edges back — from both ends
 
-§8.5 claimed edges "give you both directions". Prove it, because this is the payoff for
+Section 8.5 claimed edges "give you both directions". Prove it, because this is the payoff for
 the `diagramAnnotations` connection you declared on your `Asset` view in
-[Chapter 03](03-data-modeling.md) §3.12.
+[Chapter 03](03-data-modeling.md) section 3.12.
 
 🟢 `[ACTION]` First, the edges themselves — the raw instances your Function wrote:
 
@@ -374,7 +374,7 @@ ANNOTATION = ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1")
 
 edges = client.data_modeling.instances.list(
     instance_type="edge", sources=ANNOTATION,
-    space=space, limit=-1)          # `space` from the notebook setup, §8.4
+    space=space, limit=-1)          # `space` from the notebook setup, section 8.4
 
 for e in edges:
     p = e.properties[ANNOTATION]
@@ -436,7 +436,7 @@ side your Function used as `start_node`.
 result-set expressions to express one English sentence: *the diagrams that mention this
 pump*. Declaring the connection in Chapter 03 is what lets Fusion, Canvas and an Atlas AI
 agent ask the same question without writing any of this — see
-[Chapter 13](13-querying-the-graph.md) §13.5 for why "the query works anyway" is not an
+[Chapter 13](13-querying-the-graph.md) section 13.5 for why "the query works anyway" is not an
 argument against declaring it.
 
 ✅ `[VERIFY]` In Fusion, open your `MaintenanceInsight` model → `Asset` → `21-PA-2001A`.
@@ -451,7 +451,7 @@ of Chapter 03.
 
 - You have called `DetectDiagramTags` **exactly once** and it returned successfully
 - At least one `CogniteDiagramAnnotation` edge exists and renders in Fusion
-- §8.7 ran: you listed the edges with `instance_type="edge"` and traversed from the
+- section 8.7 ran: you listed the edges with `instance_type="edge"` and traversed from the
   pump back to the P&ID, and `diagramAnnotations` on your `Asset` view is no longer
   empty in Fusion
 - You can state, from memory, why there's no cancel API workaround for a stuck
