@@ -304,6 +304,45 @@ def check_chapter_tables() -> int:
     return checked
 
 
+# ------------------------------------------------- 8c. no tooling attribution ----
+# This repository is Sebastian's work and carries no tool attribution. The patterns are
+# assembled from fragments on purpose: spelling the vendor names literally here would
+# put the very strings this check exists to forbid back into the repository.
+_FRAGMENTS = [
+    ("cla", "ude"), ("anthro", "pic"), ("chat", "gpt"), ("open", "ai"),
+    ("copi", "lot"), ("co-authored", "-by"), ("generated", " with"),
+]
+ATTRIBUTION = re.compile("|".join(a + b for a, b in _FRAGMENTS), re.I)
+
+# Legitimate hits that have nothing to do with tooling.
+ATTRIBUTION_ALLOWED = re.compile(
+    r"cursor"          # the CDF pagination cursor, all through chapters 09 and 14
+    r"|_FRAGMENTS"     # this check's own machinery
+    r"|ATTRIBUTION",
+    re.I)
+
+
+def check_no_attribution() -> int:
+    """Nothing in this repository should credit a tool."""
+    checked = 0
+    for path in sorted(ROOT.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(ROOT)
+        if any(part in {".git", ".venv", "site", "build", "__pycache__", "node_modules"}
+               for part in rel.parts):
+            continue
+        try:
+            text = path.read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+        checked += 1
+        for i, line in enumerate(text.splitlines(), 1):
+            if ATTRIBUTION.search(line) and not ATTRIBUTION_ALLOWED.search(line):
+                fail(f"attribution {rel}:{i}: {line.strip()[:70]}")
+    return checked
+
+
 # ------------------------------------------------------- 9. the tools import ----
 def check_tools_import() -> int:
     """Every tool must at least import.
@@ -342,6 +381,7 @@ def main() -> int:
     shapes = check_chapter_shape()
     markers = check_marker_emoji()
     tables = check_chapter_tables()
+    attribution = check_no_attribution()
     tools = check_tools_import()
 
     print(f"  links            {links:>4} checked")
@@ -354,6 +394,7 @@ def main() -> int:
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
     print(f"  marker emoji     {markers:>4} markers: consistent emoji")
     print(f"  chapter tables   {tables:>4} rows: label matches link target")
+    print(f"  attribution      {attribution:>4} files: no tool attribution")
     print(f"  tools import     {tools:>4} tools imported")
     for note in notes:
         print(f"  note: {note}")
