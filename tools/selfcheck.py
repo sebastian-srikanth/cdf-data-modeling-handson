@@ -115,6 +115,8 @@ def check_04(client, name, r: Report) -> None:
         "rwt_Training_TRN_TimeSeries": 6,
         "rwt_Training_TRN_WorkOrders": 3,
         "rwt_Training_TRN_WorkOrderOperations": 8,
+        # Chapter 07 rung 1: the contextualization mapping rules. Two seed rows.
+        "rwt_Training_TRN_MappingRules": 2,
     }
     try:
         tables = {t.name for t in client.raw.tables.list(raw_db, limit=-1)}
