@@ -1,0 +1,101 @@
+space: {{ schema_space_sdm }}
+externalId: ContextualizationRun
+version: {{ model_version }}
+name: ContextualizationRun
+description: Query surface for ContextualizationRun. See Chapter 17 section 17.1c.
+implements:
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+properties:
+  runId:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: runId
+  technique:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: technique
+  status:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: status
+  rulesVersion:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: rulesVersion
+  sourceSystem:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: sourceSystem
+  startedTime:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: startedTime
+  completedTime:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: completedTime
+  scannedCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: scannedCount
+  appliedCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: appliedCount
+  reviewCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: reviewCount
+  rejectedCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: rejectedCount
+  unresolvedCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: unresolvedCount
+  staleRemovedCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: staleRemovedCount
+  failedCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: failedCount
+  workflowExecutionId:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: workflowExecutionId

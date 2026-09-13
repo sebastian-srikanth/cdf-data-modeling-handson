@@ -319,7 +319,13 @@ from cognite.client.data_classes.data_modeling import (
 # Rung 2. Matches a tag embedded anywhere in a file name: TRN-21-PA-2001A-Datasheet.pdf
 TAG_IN_FILENAME = re.compile(r"\b(\d{2}-[A-Z]{2}-\d{4}[A-Z]?)\b")
 
-SCORE_THRESHOLD = 0.5
+# Three bands, not one threshold. A single cut-off forces every uncertain match into
+# one of two wrong answers: apply it silently, or throw it away. Bands give the middle
+# case somewhere to go -- a review queue -- which is where contextualization actually
+# lives in production. Calibrate these against a labelled set; do not guess them.
+AUTO_APPLY_AT = 0.80      # at or above: write the link, record why
+REVIEW_AT = 0.45          # between: suggest it, let a human decide
+                          # below REVIEW_AT: reject, but still record that you looked
 
 
 def _load_mapping_rules(client, raw_db: str, table: str) -> list[dict]:
@@ -361,11 +367,63 @@ def _apply_rules(rules: list[dict], file_xid: str, file_name: str) -> str | None
     return None
 
 
+def _band(score: float) -> str:
+    if score >= AUTO_APPLY_AT:
+        return "auto-applied"
+    if score >= REVIEW_AT:
+        return "needs-review"
+    return "rejected"
+
+
+def _existing_decisions(client, space: str, sdm: str, version: str) -> dict:
+    """Every suggestion this space already holds, keyed by node externalId.
+
+    Loaded **before** the handler does any work, because it drives two rules:
+
+    * a person's decision outranks the machine's, on every rung, every run;
+    * a pair a previous run proposed and this one does not is stale, not absent.
+
+    Get the first one wrong once -- silently reverse an approval somebody made this
+    morning -- and they stop trusting the system permanently.
+    """
+    from cognite.client.data_classes.data_modeling import ViewId as _ViewId
+    view = _ViewId(sdm, "ContextualizationSuggestion", version)
+    try:
+        rows = client.data_modeling.instances.list(sources=view, space=space, limit=-1)
+    except Exception:  # noqa: BLE001 - first run, the view has no data yet
+        return {}
+    return {row.external_id: dict(row.properties[view]) for row in rows}
+
+
+def _human_vetoes(prior: dict) -> dict:
+    """The subset of `prior` a person ruled on, keyed source|target."""
+    out = {}
+    for props in prior.values():
+        if props.get("decidedBy") not in (None, "", "pipeline"):
+            out[f"{props.get('sourceExternalId')}|{props.get('targetExternalId')}"] = \
+                props.get("decision")
+    return out
+
+
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
     raw_db = os.environ.get("RAW_DB", f"rwd_{participant}_Training_TRN")
+    sdm = os.environ["SCHEMA_SPACE_SDM"]
+    version = os.environ.get("MODEL_VERSION", "v1.0.0")
     model_xid = f"emp_{participant}_Datasheet_TRN"
+
+    from datetime import datetime, timezone
+    started = datetime.now(timezone.utc)
+    # One correlation ID for everything this run produces. Callers can pass their own
+    # so a Workflow can stamp every task in one execution with the same ID.
+    data = data or {}
+    run_id = data.get("runId") or f"ctxrun-{started:%Y%m%dT%H%M%SZ}-matchdocuments"
+    workflow_execution = data.get("workflowExecutionId")
+
+    # A person's decision outranks the machine's. Load them before doing anything.
+    prior = _existing_decisions(client, space, sdm, version)
+    human_decisions = _human_vetoes(prior)
 
     file_xids = [
         f"file_{participant}_TRN_PID_21_SEP",
@@ -392,6 +450,8 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     rules = _load_mapping_rules(client, raw_db, "rwt_Training_TRN_MappingRules")
     resolved: dict[str, dict] = {}          # file externalId -> {target, how}
     unresolved = []
+    below: list[dict] = []                  # recorded, not applied
+    vetoed: set[str] = set()                # a human said no; do not re-propose
 
     for f in files:
         name = f.properties.get(v_file, {}).get("name") or f.external_id
@@ -408,10 +468,26 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         if target is not None and target not in asset_ids:
             target = None
 
+        # A person's decision outranks the machine's -- on EVERY rung, not just on
+        # the model. A rule is not more authoritative than a human who looked at the
+        # link and said no; it is only cheaper. Without this check the rule rung
+        # silently re-applies every rejection on the next run.
+        if target is not None and human_decisions.get(f"{f.external_id}|{target}") == "rejected":
+            below.append({"source": f.external_id, "target": target, "score": 1.0,
+                          "method": how, "decision": "rejected-by-human"})
+            target = None
+            vetoed.add(f.external_id)
+
         if target is None:
-            unresolved.append(f)
+            # A vetoed file does not go to the model. Escalating to a paid rung to
+            # re-propose a link a person already rejected is the worst of both.
+            if f.external_id not in vetoed:
+                unresolved.append(f)
         else:
-            resolved[f.external_id] = {"target": target, "how": how}
+            evidence = (f"rule matched {name!r}" if how == "rule"
+                        else f"tag {target!r} found in {name!r}")
+            resolved[f.external_id] = {"target": target, "how": how,
+                                       "score": 1.0, "evidence": evidence}
 
     # ---- rung 3: Entity Matching, on the remainder only --------------------------
     sources = []
@@ -425,15 +501,19 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         targets.append({"id": a.external_id, "name": props.get("name") or a.external_id})
 
     matches: list[dict] = []
-    below: list[dict] = []
     model = None
 
     # If rules and regex resolved everything, there is nothing to fit a model on -- and
     # fitting one anyway is exactly the waste this cascade exists to avoid.
     if not sources:
-        return _write_and_report(
+        result = _write_and_report(
             client, space, v_file, files, resolved, matches, below, rules, model_used=False
         )
+        result["suggestions_recorded"] = _write_spine(
+            client, space, sdm, version, run_id, resolved, below, unresolved, rules,
+            started, prior=prior, workflow_execution=workflow_execution)
+        result["run_id"] = run_id
+        return result
 
     # Drop a leftover model from a previous failed run (same externalId).
     try:
@@ -484,20 +564,163 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         tgt = best.get("target") or best.get("targetId") or {}
         tgt_id = tgt.get("id") if isinstance(tgt, dict) else tgt
         row = {"source": src_id, "target": tgt_id, "score": score}
-        if score < SCORE_THRESHOLD:
-            below.append(row)          # never written; surfaced for a human to review
+        band = _band(score)
+        # If somebody already ruled on this pair, their decision stands.
+        prior = human_decisions.get(f"{src_id}|{tgt_id}")
+        if prior == "rejected":
+            below.append({**row, "decision": "rejected-by-human"})
             continue
-        resolved[src_id] = {"target": tgt_id, "how": "entity-matching", "score": score}
+        if prior == "approved":
+            band = "auto-applied"
+        if band != "auto-applied":
+            # Still recorded. "We looked at this and were not sure" is information;
+            # throwing it away is how a backlog becomes invisible.
+            below.append({**row, "decision": band})
+            continue
+        resolved[src_id] = {"target": tgt_id, "how": "entity-matching", "score": score,
+                            "evidence": f"entity matching scored {score:.3f}"}
 
     result = _write_and_report(
         client, space, v_file, files, resolved, matches, below, rules, model_used=True
     )
+    result["suggestions_recorded"] = _write_spine(
+        client, space, sdm, version, run_id, resolved, below, unresolved, rules,
+        started, prior=prior, workflow_execution=workflow_execution)
+    result["run_id"] = run_id
 
     try:
         client.entity_matching.delete(id=model.id)
     except Exception as exc:  # noqa: BLE001 - cleanup is best-effort
         result["model_delete_warning"] = str(exc)
     return result
+
+
+def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolved,
+                 rules, started, prior=None, technique="entity-matching",
+                 workflow_execution=None):
+    """Persist the run and the current state of every suggestion it considered.
+
+    This is the difference between a pipeline you can operate and one you can only
+    re-run and hope. `file.assets` tells you a link exists; these records tell you which
+    rung made it, on what evidence, how confident it was, and who signed it off.
+
+    Two identity decisions carry the whole design:
+
+    * **A run is keyed by its run ID** -- immutable history. Every execution adds one.
+    * **A suggestion is keyed by (source, target)** -- current state, not history. Run
+      seventeen updates the same node run one created. That is what lets a person's
+      decision survive: the handler refuses to overwrite a node whose `decidedBy` is
+      anybody but `pipeline`. Key suggestions by run instead and you get an
+      ever-growing pile in which this morning's approval is indistinguishable from a
+      stale proposal nobody has looked at since March.
+    """
+    from datetime import datetime, timezone
+    from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId
+
+    def _ts(dt):
+        return dt.isoformat(timespec="milliseconds")
+
+    run_view = ViewId(sdm, "ContextualizationRun", version)
+    sug_view = ViewId(sdm, "ContextualizationSuggestion", version)
+    now = datetime.now(timezone.utc)
+    prior = prior or {}
+
+    nodes = []
+    seen: set[str] = set()
+
+    def _suggestion(source, target, method, confidence, decision, evidence):
+        # Deterministic, run-independent external ID: the same pair is the same node
+        # every run, so a re-run updates in place instead of duplicating.
+        xid = f"sug_{source}_{target or 'none'}"[:255]
+        seen.add(xid)
+        # A person outranks the pipeline. Their row is left exactly as they left it.
+        if prior.get(xid, {}).get("decidedBy") not in (None, "", "pipeline"):
+            return None
+        return NodeApply(space=space, external_id=xid,
+            sources=[NodeOrEdgeData(source=sug_view, properties={
+                "name": f"{source} -> {target or 'unresolved'}",
+                "runId": run_id,
+                "sourceExternalId": source,
+                "targetExternalId": target,
+                "method": method,
+                "confidence": confidence,
+                "decision": decision,
+                "decidedBy": "pipeline",
+                "decidedTime": _ts(now),
+                "evidenceText": evidence,
+            })])
+
+    for src, info in resolved.items():
+        nodes.append(_suggestion(src, info["target"], info["how"],
+                                 info.get("score", 1.0), "auto-applied",
+                                 info.get("evidence")))
+    for row in below:
+        decision = row.get("decision", "needs-review")
+        method = row.get("method", "entity-matching")
+        evidence = (row.get("evidence")
+                    or ("a person rejected this pair" if decision == "rejected-by-human"
+                        else f"scored {row.get('score') or 0:.3f}"))
+        nodes.append(_suggestion(row["source"], row.get("target"), method,
+                                 row.get("score"), decision, evidence))
+    for f in unresolved:
+        nodes.append(_suggestion(f.external_id, None, "none", 0.0, "unresolved",
+                                 "no rung resolved this"))
+
+    # ---- reconciliation: what a previous run proposed and this one no longer does ----
+    # Silence is not agreement. A pair the pipeline applied last week and did not
+    # produce today is a *change*, and leaving its row reading `auto-applied` is how a
+    # link nobody can justify any more survives an audit.
+    stale = 0
+    for xid, props in prior.items():
+        if xid in seen:
+            continue
+        if props.get("decidedBy") not in (None, "", "pipeline"):
+            continue                      # a person owns this row; it is not stale
+        if props.get("decision") == "superseded":
+            continue                      # already reconciled by an earlier run
+        stale += 1
+        nodes.append(NodeApply(space=space, external_id=xid,
+            sources=[NodeOrEdgeData(source=sug_view, properties={
+                "runId": run_id,
+                "decision": "superseded",
+                "decidedBy": "pipeline",
+                "decidedTime": _ts(now),
+                "evidenceText": f"run {run_id} no longer produces this pair",
+            })]))
+
+    nodes = [n for n in nodes if n is not None]
+
+    # Counts are read off the decisions actually recorded, never off a parallel
+    # tally kept by hand -- a hand-kept tally is a second source of truth that
+    # disagrees with the first the moment anyone edits this function.
+    def _count(value):
+        return sum(1 for n in nodes
+                   if n.sources[0].properties.get("decision") == value)
+
+    nodes.append(NodeApply(
+        space=space, external_id=run_id,
+        sources=[NodeOrEdgeData(source=run_view, properties={
+            "name": f"{technique} {run_id}",
+            "runId": run_id,
+            "technique": technique,
+            "status": "completed",
+            # The rule set is identified by its row count, so a results change can be
+            # attributed to a rules change rather than argued about.
+            "rulesVersion": f"rules:{len(rules)}",
+            "startedTime": _ts(started),
+            "completedTime": _ts(now),
+            "scannedCount": len(resolved) + len(below) + len(unresolved),
+            "appliedCount": _count("auto-applied"),
+            "reviewCount": _count("needs-review"),
+            "rejectedCount": _count("rejected") + _count("rejected-by-human"),
+            "unresolvedCount": _count("unresolved"),
+            "staleRemovedCount": stale,
+            "failedCount": 0,
+            "workflowExecutionId": workflow_execution,
+        })]))
+
+    client.data_modeling.instances.apply(nodes=nodes, auto_create_direct_relations=False)
+    return len(nodes) - 1
 
 
 def _write_and_report(client, space, v_file, files, resolved, matches, below, rules,

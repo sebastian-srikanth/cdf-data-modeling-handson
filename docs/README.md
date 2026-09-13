@@ -36,7 +36,7 @@ By the end you will have:
 
 - Bootstrapped the Toolkit and SDK from an empty machine
 - Authored a full CDF Toolkit module by hand: spaces, containers, views, a data model,
-  a data set, RAW tables, files, transformations, five Cognite Functions (each
+  a data set, RAW tables, files, transformations, six Cognite Functions (each
   preceded by a Jupyter notebook), a workflow, and a location filter
 - Learned the **(space, externalId) identity rule** that makes 15 participants able to
   build the *same* model without a single collision

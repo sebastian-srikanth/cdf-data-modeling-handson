@@ -89,6 +89,138 @@ a reason to deploy.**
 
 ---
 
+## 17.1c [INFO] The production spine — runs, suggestions, bands and gates
+
+Everything so far writes **the answer**. `file.assets` gains a reference; the P&ID gains an
+edge. That is enough to demo and not enough to operate, and the gap shows up as four
+questions you cannot answer:
+
+> *When did that link appear? Which rules produced it? Somebody approved this last
+> month — will tonight's run undo it? Is contextualization getting better or worse?*
+
+Two extra records fix all four. They cost you two containers.
+
+### `ContextualizationRun` — one row per execution
+
+Run ID, technique, status, rules version, timestamps, and the counts that matter:
+`scanned`, `applied`, `review`, `rejected`, `unresolved`, `staleRemoved`, `failed`. Plus
+the `workflowExecutionId`, so a bad link traces back to the pipeline run that made it.
+
+💡 `[GOOD TO KNOW]` A run still marked `running` an hour later is **itself a finding**. A
+record with no completion is how you discover a Function that died silently — which no
+amount of looking at `file.assets` will ever tell you.
+
+### `ContextualizationSuggestion` — one row per proposed link
+
+Source, target, **method** (which rung), **confidence**, **evidence** (the text matched,
+the page, the locator), and the **decision** with who made it.
+
+⚡ `[OPTIMIZE]` `method` and `evidence` are what make a review queue possible. A reviewer
+handed *"file X → asset Y, 0.62"* has to redo your work. Handed *"matched the text
+`21-PA-2001A` on page 3 at that bounding box"*, they answer in seconds.
+
+### Three bands, not one threshold
+
+```mermaid
+flowchart LR
+  S["score"] --> A{"≥ 0.80"}
+  A -- yes --> AP["auto-applied<br/><i>write the link</i>"]
+  A -- no --> B{"≥ 0.45"}
+  B -- yes --> RV["needs-review<br/><i>a human decides</i>"]
+  B -- no --> RJ["rejected<br/><i>recorded, not written</i>"]
+```
+
+⚠️ `[COMMON MISTAKE]` One threshold. It forces every uncertain match into one of two wrong
+answers — apply it silently, or throw it away with no trace. **The middle band is where
+contextualization actually lives**, and a rejected match is still worth recording: *"we
+looked and were not sure"* is information, and discarding it is how a backlog becomes
+invisible.
+
+🚧 `[LIMITS]` Those two numbers are **calibrated, not chosen**. Label a few dozen pairs by
+hand, measure precision at several cut-offs, and set `AUTO_APPLY_AT` where precision meets
+what your use case can tolerate. A number somebody picked because it felt about right is
+not a gate, it is a shrug.
+
+### Two identity decisions carry the whole design
+
+A **run** is keyed by its run ID. Every execution adds one, and none is ever modified —
+that is the history.
+
+A **suggestion** is keyed by `(source, target)`. Run seventeen updates the same node run
+one created — that is the *current state* of one proposal, not a log of it.
+
+⚠️ `[COMMON MISTAKE]` Keying suggestions by run as well, because it feels more auditable.
+What you get is an ever-growing pile in which this morning's approval is indistinguishable
+from a stale proposal nobody has looked at since March, and a review queue that grows
+every night whether or not anyone works it. The run records are the audit trail; the
+suggestions are the working set.
+
+### The two rules that make a pipeline safe to re-run
+
+> **1. A person's decision outranks the machine's — on every rung, every run.**
+
+The handler loads the existing suggestions *before* it does anything, and refuses to
+overwrite a node whose `decidedBy` is anybody but `pipeline`. Note **every rung**: it is
+tempting to apply this only to the model's output, on the grounds that a deterministic
+rule is authoritative. It is not. A rule is only *cheaper* than a person who looked at the
+link and said no. A vetoed pair is also never escalated to a paid rung — re-proposing
+something a person already rejected, and paying for the privilege, is the worst of both.
+
+Get this wrong once — silently reverse an approval somebody made this morning — and they
+stop trusting the system permanently. There is no second chance at that.
+
+> **2. Silence is not agreement.**
+
+A pair the pipeline applied last week and does not produce today is a **change**, not an
+absence. Somebody edited a rule, or a source name moved. The handler compares what it just
+produced against what it finds already recorded, and marks the difference `superseded`
+with the run that orphaned it — counted as `staleRemovedCount`.
+
+🚧 `[LIMITS]` A run whose `staleRemovedCount` suddenly jumps is the single highest-value
+alert in this whole chapter. It is what a broken rule, a renamed source system or a bad
+deploy looks like from the outside — *hours* before anyone notices links have gone
+missing in Fusion. Leave that count unwatched and you find out from a user instead.
+
+✅ `[VERIFY]` Ask the graph how the last run went, and what is waiting for a human:
+
+```python
+from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.data_classes import filters as flt
+
+RUN = ViewId(SDM_SPACE, "ContextualizationRun", MODEL_VERSION)
+SUG = ViewId(SDM_SPACE, "ContextualizationSuggestion", MODEL_VERSION)
+
+runs = client.data_modeling.instances.list(sources=RUN, space=INSTANCE_SPACE, limit=-1)
+for r in runs:
+    p = r.properties[RUN]
+    print(f"{p['runId']}  {p['status']}  applied={p.get('appliedCount')} "
+          f"review={p.get('reviewCount')} unresolved={p.get('unresolvedCount')}")
+
+queue = client.data_modeling.instances.list(
+    sources=SUG, space=INSTANCE_SPACE, limit=-1,
+    filter=flt.Equals(SUG.as_property_ref("decision"), "needs-review"))
+print(f"\nwaiting for a human: {len(queue)}")
+```
+
+### The quality gate
+
+A count is not a gate until something **fails** on it. The last task in your workflow
+should assert the numbers and go red when they are wrong:
+
+```python
+assert run["failedCount"] == 0, "items errored -- this is a bug, not data quality"
+assert run["status"] == "completed", "the run never finished"
+assert run["unresolvedCount"] <= 2, f"too many unresolved: {run['unresolvedCount']}"
+assert run["reviewCount"] <= 10, "review backlog is growing faster than it is cleared"
+```
+
+💡 `[GOOD TO KNOW]` Note which of those is *not* a data-quality check. `failedCount` and a
+missing `status` are **bugs** — code that threw, or a job that died. Unresolved and review
+counts are the business signal. Conflating them is how a crashing pipeline gets explained
+away as "the data is messy this week".
+
+---
+
 ## 17.2 [INFO] Idempotency & re-runnability — why every handler upserts
 
 Look back across every handler you wrote: `client.data_modeling.instances.apply(...)`

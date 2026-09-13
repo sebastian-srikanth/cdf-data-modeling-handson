@@ -138,3 +138,23 @@ workflowDefinition:
       onFailure: skipTask
       dependsOn:
         - externalId: load_equipment
+
+    # The gate runs last and depends on everything that writes provenance. Note
+    # `onFailure: abortWorkflow` and `retries: 0` -- a gate that retries is not a gate,
+    # it is a hope, and a gate that lets the workflow finish green is decoration.
+    - externalId: quality_gate
+      type: function
+      name: 11. Quality gate
+      parameters:
+        function:
+          externalId: fnc_{{ participant }}_Training_QualityGate
+          data: {}
+        isAsyncComplete: false
+      retries: 0
+      timeout: 900
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: match_documents
+        - externalId: detect_diagram_tags
+        - externalId: parse_datasheet
+        - externalId: load_3d_revision

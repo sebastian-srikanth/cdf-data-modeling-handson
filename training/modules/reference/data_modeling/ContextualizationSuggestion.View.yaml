@@ -1,0 +1,77 @@
+space: {{ schema_space_sdm }}
+externalId: ContextualizationSuggestion
+version: {{ model_version }}
+name: ContextualizationSuggestion
+description: Query surface for ContextualizationSuggestion. See Chapter 17 section 17.1c.
+implements:
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+properties:
+  runId:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: runId
+  sourceExternalId:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: sourceExternalId
+  targetExternalId:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: targetExternalId
+  method:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: method
+  confidence:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: confidence
+  decision:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: decision
+  decidedBy:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: decidedBy
+  decidedTime:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: decidedTime
+  evidenceText:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: evidenceText
+  evidencePage:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: evidencePage
+  evidenceLocator:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: evidenceLocator

@@ -217,7 +217,7 @@ Personalize the `[CHANGE]` bits:
 - [ ] Spaces, containers, views, 2 data models
 - [ ] Data set + RAW tables + files (PID, datasheet, 3D)
 - [ ] 4 transformations (SP auth block, not interactive client)
-- [ ] 5 Functions (each preceded by its notebook)
+- [ ] 6 Functions (five that do work, one quality gate)
 - [ ] Workflow + location filter
 - [ ] Contextualization: manual / regex / entity-matching; datasheet regex + Doc Parser
 
@@ -278,7 +278,7 @@ conflicts.
 
 You bootstrapped the Toolkit from zero, hand-authored a full CDF module — spaces,
 containers, views, two data models, a data set, RAW tables, files, four transformations,
-five Cognite Functions (each preceded by a notebook), a workflow, and a location filter
+six Cognite Functions (each preceded by a notebook), a workflow, and a location filter
 — watched a real pump degrade in real data, contextualized documents three different
 ways, parsed a datasheet two different ways including a genuinely agentic API call, and
 opened a clean PR that could be merged next to a dozen others without a single

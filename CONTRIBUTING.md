@@ -45,11 +45,29 @@ never quietly teach something different from what it ships.
 
 ## If you change the reference module
 
-Chapters embed it. Re-sync rather than hand-editing both:
+Two things embed it, and both go stale silently.
+
+**The chapters.** Re-sync rather than hand-editing both:
 
 ```bash
-uv run python tools/check_docs.py   # tells you which blocks drifted
+uv run python tools/check_docs.py         # tells you which blocks drifted
+uv run python tools/sync_write_blocks.py --write   # YAML blocks
+uv run python tools/sync_handlers.py --write       # Function handlers
 ```
+
+**Your deployed participant module.** `training/modules/participants/<NAME>/` is
+*generated* from the reference and is gitignored. Editing the reference and running
+`cdf build` does **nothing** — the build reads the generated copy, the Toolkit sees no
+change, the deploy reports success, and your Function keeps running the old code with no
+error anywhere. Re-materialise first:
+
+```bash
+uv run python -c "import sys; sys.path.insert(0,'tools'); \
+  from live_e2e import materialise; materialise('<NAME>')"
+```
+
+`tools/live_e2e.py` and `tools/cohort.py provision` both do this for you; a hand-run
+`cdf build` does not.
 
 ## If you add a chapter
 

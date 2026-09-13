@@ -1,0 +1,121 @@
+space: {{ schema_space_sdm }}
+externalId: ContextualizationRun
+name: ContextualizationRun
+description: >-
+  One execution of one contextualization technique. Without this you can answer
+  "what is linked" but never "when did that happen, by which rules, and did it
+  get better or worse" - which is the question every operations team asks first.
+usedFor: node
+properties:
+  runId:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Run ID
+    description: Correlation ID shared by every record this run produced. Example ctxrun-2026-09-13T09-00-00Z-matchdocuments.
+  technique:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Technique
+    description: Which contextualization this was. entity-matching, diagram-detect, datasheet-parse or three-d-mapping.
+  status:
+    type:
+      type: text
+      list: false
+    nullable: false
+    defaultValue: running
+    name: Status
+    description: running, completed or failed. A run stuck in running is itself a finding.
+  rulesVersion:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Rules version
+    description: Identity of the rule set used, so a change in results can be attributed to a change in rules. Example the RAW table lastUpdatedTime.
+  sourceSystem:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Source system
+    description: Where the input came from. Example SAP, or the P&ID file external ID.
+  startedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: false
+    name: Started
+    description: When the run began.
+  completedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    name: Completed
+    description: When it finished. Null while running, and still null means it died.
+  scannedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Scanned
+    description: Candidates considered.
+  appliedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Applied
+    description: Links written automatically.
+  reviewCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: For review
+    description: Suggestions held back for a human.
+  rejectedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Rejected
+    description: Scored below the reject band and discarded.
+  unresolvedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Unresolved
+    description: Candidates no rung could resolve at all.
+  staleRemovedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Stale removed
+    description: Previously suggested links retired because the input no longer supports them.
+  failedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Failed
+    description: Items that errored. Non-zero is a bug, not a data-quality signal.
+  workflowExecutionId:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Workflow execution
+    description: The orchestration run this belonged to, so a bad link traces back to a pipeline execution.
+indexes:
+  runIdIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - runId

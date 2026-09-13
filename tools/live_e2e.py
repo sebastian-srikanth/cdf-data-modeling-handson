@@ -46,7 +46,9 @@ TEMPLATE = {
 TRANSFORMATIONS = ["Load_Assets", "Load_Equipment", "Load_TimeSeries",
                    "Load_WorkOrders", "Load_WorkOrderOperations"]
 FUNCTIONS = ["MatchDocuments", "DetectDiagramTags", "Load3DRevision",
-             "ParseDatasheet", "GenerateDatapoints"]
+             "ParseDatasheet", "GenerateDatapoints",
+             # The gate is called last on purpose: it asserts what the others wrote.
+             "QualityGate"]
 
 
 def run(*args: str) -> str:
@@ -90,7 +92,7 @@ def materialise(name: str) -> None:
     )
 
 
-# Measured on bluefield: five functions take 6-25 minutes and do NOT finish together.
+# Measured on bluefield: the functions take 6-25 minutes and do NOT finish together.
 # A 15-minute budget looked generous and was not; give it 40 and report progress, so a
 # CI log shows movement instead of twenty silent minutes.
 FUNCTION_BUILD_TIMEOUT = 2400
