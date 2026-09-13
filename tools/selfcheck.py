@@ -117,6 +117,8 @@ def check_04(client, name, r: Report) -> None:
         "rwt_Training_TRN_WorkOrderOperations": 8,
         # Chapter 07 rung 1: the contextualization mapping rules. Two seed rows.
         "rwt_Training_TRN_MappingRules": 2,
+        # Chapter 08: the tag-alias library that feeds DiagramDetectConfig.substitutions
+        "rwt_Training_TRN_TagAliases": 4,
     }
     try:
         tables = {t.name for t in client.raw.tables.list(raw_db, limit=-1)}
@@ -344,11 +346,23 @@ def check_15(client, name, r: Report) -> None:
     r.check("agent exists", agent.external_id, xid)
     r.check("agent has instructions", bool(agent.instructions), True)
     tools = list(agent.tools or [])
-    r.check("agent has exactly one tool", len(tools), 1)
+    r.check("agent has graph and datapoint tools", len(tools), 2)
     if not tools:
         return
 
-    config = getattr(tools[0], "configuration", None)
+    graph_tool = next(
+        (
+            tool
+            for tool in tools
+            if getattr(getattr(tool, "configuration", None), "data_models", None)
+        ),
+        None,
+    )
+    r.check("agent has a graph-query tool", graph_tool is not None, True)
+    if graph_tool is None:
+        return
+
+    config = getattr(graph_tool, "configuration", None)
     models = [(m.space, m.external_id) for m in (getattr(config, "data_models", None) or [])]
     _, _, sdm = spaces_for(name)
     r.check("tool scoped to MaintenanceInsight", models, [(sdm, "MaintenanceInsight")])

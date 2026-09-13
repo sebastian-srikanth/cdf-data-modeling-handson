@@ -33,9 +33,40 @@ def _bbox(region: dict) -> tuple[float, float, float, float]:
     return 0.0, 0.1, 0.0, 0.1  # degenerate fallback if the API omits vertices
 
 
+from cognite.client.data_classes.contextualization import DiagramDetectConfig
+
+
+def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
+    """The nearest thing CDF offers to a custom symbol library.
+
+    You cannot deploy a symbol recogniser into diagram detect -- there is no such API.
+    What you CAN do is tell it which strings mean the same thing, and keep that list as
+    data rather than in code, so a drawing-office engineer can add "the 2011 sheets
+    abbreviate PUMP as P" without a deploy.
+
+    Returns {canonical: [alias, ...]} for DiagramDetectConfig(substitutions=...).
+    """
+    try:
+        rows = client.raw.rows.list(
+            db_name=raw_db, table_name="rwt_Training_TRN_TagAliases", limit=-1)
+    except Exception:  # noqa: BLE001 - an absent table means "no aliases", not a failure
+        return {}
+    aliases: dict[str, list[str]] = {}
+    for row in rows:
+        c = row.columns or {}
+        canonical = (c.get("canonical") or "").strip()
+        raw_aliases = (c.get("aliases") or "").strip()
+        if not canonical or not raw_aliases:
+            continue
+        # pipe-separated, because a comma would fight the CSV
+        aliases[canonical] = [a.strip() for a in raw_aliases.split("|") if a.strip()]
+    return aliases
+
+
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
+    raw_db = os.environ.get("RAW_DB", f"rwd_{participant}_Training_TRN")
     file_xid = f"file_{participant}_TRN_PID_21_SEP"
     v_asset = ViewId("cdf_cdm", "CogniteAsset", "v1")
     view = ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1")
@@ -49,10 +80,26 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         name = a.properties.get(v_asset, {}).get("name") or a.external_id
         entities.append({"externalId": a.external_id, "space": space, "name": [name, a.external_id]})
 
+    # The alias library, and the tuning that goes with it. Every one of these is a
+    # precision/recall decision -- see Chapter 08 section 8.3b.
+    substitutions = _load_tag_aliases(client, raw_db)
+    config = DiagramDetectConfig(
+        substitutions=substitutions or None,
+        # Vector PDFs carry real text. Read it: OCR is the fallback, not the default.
+        read_embedded_text=True,
+        # RAW strips leading zeros from tag numbers; so does this, on the other side.
+        remove_leading_zeros=True,
+        case_sensitive=False,
+        # Below this, a "match" is a guess. Raise it to cut false positives, lower it
+        # to catch more and accept review cost.
+        min_fuzzy_score=0.7,
+    )
+
     job = client.diagrams.detect(
         entities=entities, search_field="name",
         file_instance_ids=[NodeId(space, file_xid)],
         partial_match=True, min_tokens=2,
+        configuration=config,
     )
     result = job.result  # blocks until the job completes; returns {"items": [...]}
 

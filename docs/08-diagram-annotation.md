@@ -66,6 +66,67 @@ two-identity gap from section 2.3 — not a bug in this chapter.
 
 ---
 
+## 8.3b [INFO] What you can tune — and the symbol library you cannot deploy
+
+Everyone asks the same question at this point: *can I load my own symbol library so it
+recognises a pump from its shape?*
+
+🚧 `[LIMITS]` **No — and it is worth being precise about why.** The diagram API detects
+**text**: it looks for strings that match the entities you hand it. There is no
+symbol-recognition endpoint, no shape library to upload, and nothing in the SDK for one —
+`client.diagrams` has exactly three methods: `detect`, `convert`, `get_detect_jobs`. If
+you need shape recognition today, that is a computer-vision problem you solve outside CDF
+and bring back in as annotations.
+
+What you *can* control is how forgiving the text matching is, and **that is where the real
+quality lever is**:
+
+| Parameter | What it decides |
+|---|---|
+| `substitutions` | which strings mean the same thing — `PMP` is a `PUMP`. **The closest thing to a library, and it is yours to maintain** |
+| `min_fuzzy_score` / `customize_fuzziness` | how close is close enough. The precision/recall dial |
+| `read_embedded_text` | vector PDFs carry real text. Read it; OCR is the fallback, not the default |
+| `remove_leading_zeros` | `21-PA-2001` vs `21-PA-02001`. The same class of bug [Chapter 05](05-transformations.md) fixes with `lpad`, on the other side |
+| `case_sensitive`, `partial_match`, `min_tokens` | matching strictness |
+| `pattern_mode` | detect tags by *pattern* instead of a fixed entity list |
+
+### The alias library belongs in RAW, for the same reason the mapping rules do
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.yaml`
+
+```yaml
+dbName: rwd_<YOURNAME>_Training_TRN
+tableName: rwt_Training_TRN_TagAliases
+```
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.csv`
+
+```text
+key,canonical,aliases,addedBy,reason
+alias-001,PUMP,PMP|P,course,Older drawing revisions abbreviate PUMP; the 2011 sheets use P.
+alias-002,VALVE,VLV|V,course,VLV is the vendor's abbreviation; V appears on the isometrics.
+alias-003,SEPARATOR,SEP|SEPR,course,SEP is used on the P&ID title block and SEPR in the equipment list.
+alias-004,HEAT EXCHANGER,HX|HE,course,HX on the P&ID, HE in the SAP equipment master.
+```
+
+Aliases are pipe-separated because a comma would fight the CSV. `addedBy` and `reason`
+are here for the same reason as in [Chapter 07](07-entity-matching.md) section 7.2: in a
+year, *"who decided VLV means VALVE, and is that still true for this vendor"* is the only
+question that matters.
+
+💡 `[GOOD TO KNOW]` This is the honest version of a symbol library. You are not teaching
+CDF what a pump *looks like*; you are teaching it what a pump is *called* on your
+drawings — and that is where most real misses come from. A drawing office that changed
+its abbreviation in 2011 costs you more detections than any shape model would win back.
+
+⚠️ `[COMMON MISTAKE]` Tuning `min_fuzzy_score` down until the count looks good. Every
+point you lower it buys detections and sells precision, and a wrong annotation is worse
+than a missing one — it silently attaches a document to the wrong asset, and nobody
+checks a link that already exists. Raise the score, add an alias, and let the genuinely
+ambiguous ones fail into review.
+
+---
+
 ## 8.4 [WRITE] + [ACTION] Notebook: `02_diagram_detect.ipynb`
 
 📝 `[WRITE]` Recreate `docs/notebooks/02_diagram_detect.ipynb`. Cell
@@ -200,9 +261,40 @@ def _bbox(region: dict) -> tuple[float, float, float, float]:
     return 0.0, 0.1, 0.0, 0.1  # degenerate fallback if the API omits vertices
 
 
+from cognite.client.data_classes.contextualization import DiagramDetectConfig
+
+
+def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
+    """The nearest thing CDF offers to a custom symbol library.
+
+    You cannot deploy a symbol recogniser into diagram detect -- there is no such API.
+    What you CAN do is tell it which strings mean the same thing, and keep that list as
+    data rather than in code, so a drawing-office engineer can add "the 2011 sheets
+    abbreviate PUMP as P" without a deploy.
+
+    Returns {canonical: [alias, ...]} for DiagramDetectConfig(substitutions=...).
+    """
+    try:
+        rows = client.raw.rows.list(
+            db_name=raw_db, table_name="rwt_Training_TRN_TagAliases", limit=-1)
+    except Exception:  # noqa: BLE001 - an absent table means "no aliases", not a failure
+        return {}
+    aliases: dict[str, list[str]] = {}
+    for row in rows:
+        c = row.columns or {}
+        canonical = (c.get("canonical") or "").strip()
+        raw_aliases = (c.get("aliases") or "").strip()
+        if not canonical or not raw_aliases:
+            continue
+        # pipe-separated, because a comma would fight the CSV
+        aliases[canonical] = [a.strip() for a in raw_aliases.split("|") if a.strip()]
+    return aliases
+
+
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
+    raw_db = os.environ.get("RAW_DB", f"rwd_{participant}_Training_TRN")
     file_xid = f"file_{participant}_TRN_PID_21_SEP"
     v_asset = ViewId("cdf_cdm", "CogniteAsset", "v1")
     view = ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1")
@@ -216,10 +308,26 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         name = a.properties.get(v_asset, {}).get("name") or a.external_id
         entities.append({"externalId": a.external_id, "space": space, "name": [name, a.external_id]})
 
+    # The alias library, and the tuning that goes with it. Every one of these is a
+    # precision/recall decision -- see Chapter 08 section 8.3b.
+    substitutions = _load_tag_aliases(client, raw_db)
+    config = DiagramDetectConfig(
+        substitutions=substitutions or None,
+        # Vector PDFs carry real text. Read it: OCR is the fallback, not the default.
+        read_embedded_text=True,
+        # RAW strips leading zeros from tag numbers; so does this, on the other side.
+        remove_leading_zeros=True,
+        case_sensitive=False,
+        # Below this, a "match" is a guess. Raise it to cut false positives, lower it
+        # to catch more and accept review cost.
+        min_fuzzy_score=0.7,
+    )
+
     job = client.diagrams.detect(
         entities=entities, search_field="name",
         file_instance_ids=[NodeId(space, file_xid)],
         partial_match=True, min_tokens=2,
+        configuration=config,
     )
     result = job.result  # blocks until the job completes; returns {"items": [...]}
 

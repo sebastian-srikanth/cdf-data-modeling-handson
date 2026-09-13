@@ -1,0 +1,5 @@
+key,canonical,aliases,addedBy,reason
+alias-001,PUMP,PMP|P,course,Older drawing revisions abbreviate PUMP; the 2011 sheets use P.
+alias-002,VALVE,VLV|V,course,VLV is the vendor's abbreviation; V appears on the isometrics.
+alias-003,SEPARATOR,SEP|SEPR,course,SEP is used on the P&ID title block and SEPR in the equipment list.
+alias-004,HEAT EXCHANGER,HX|HE,course,HX on the P&ID, HE in the SAP equipment master.
