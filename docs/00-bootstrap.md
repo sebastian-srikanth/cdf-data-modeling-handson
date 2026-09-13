@@ -197,6 +197,10 @@ root explains where each value comes from and what access it needs. If someone s
 project up for you, they can hand you a filled-in `.env` instead.
 
 ```bash
+# Your name, in CAPITALS, no spaces. Everything you build is prefixed with it, and the
+# tooling reads it from here. Chapter 01 explains why it is the whole isolation model.
+PARTICIPANT=<YOURNAME>
+
 CDF_CLUSTER=<your-cluster>
 CDF_PROJECT=<your-cdf-project>
 CDF_URL=https://<your-cluster>.cognitedata.com
@@ -245,6 +249,20 @@ answer `n`.) Why your login is a different identity from that group:
 [Chapter 02](02-auth-and-security.md) section 2.3 and section 2.5.
 
 📚 `[DOCS]` https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/auth
+
+---
+
+⚠️ `[COMMON MISTAKE]` Leaving `PARTICIPANT` out. Nothing fails immediately — the first
+few chapters build and deploy fine — and then the moment you check your own work you get:
+
+```
+  PARTICIPANT is not set.
+  Add PARTICIPANT=<YOURNAME> to your .env, or export it for this shell.
+```
+
+Every Gate from [Chapter 03](03-data-modeling.md) onward is checkable with
+`tools/selfcheck.py`, and it reads this one variable to know whose resources to look
+for. Set it now, in the same edit as the rest.
 
 ---
 

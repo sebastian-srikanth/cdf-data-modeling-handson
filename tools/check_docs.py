@@ -304,6 +304,26 @@ def check_chapter_tables() -> int:
     return checked
 
 
+# ------------------------------------------------------- 8e. .env.example ----
+# Step one of the course is `cp .env.example .env`, so anything the tooling needs must
+# be in that template. PARTICIPANT in particular: selfcheck.py refuses to run without
+# it, and a participant meets that at their very first Gate in Chapter 03.
+ENV_REQUIRED = ["PARTICIPANT", "CDF_PROJECT", "CDF_CLUSTER", "IDP_CLIENT_ID"]
+
+
+def check_env_example() -> int:
+    example = ROOT / ".env.example"
+    if not example.exists():
+        fail("env        .env.example is missing, but the README tells you to copy it")
+        return 0
+    keys = {line.split("=", 1)[0].strip().lstrip("# ").strip()
+            for line in example.read_text().splitlines() if "=" in line}
+    for required in ENV_REQUIRED:
+        if required not in keys:
+            fail(f"env        .env.example has no {required}= line, but the tooling needs it")
+    return len(ENV_REQUIRED)
+
+
 # ----------------------------------------------------- 8d. advertised counts ----
 # Numbers in the prose rot silently. The README claimed "16 chapters" when there were
 # 20, and "four transformations" when there were five -- three false statements in the
@@ -424,6 +444,7 @@ def main() -> int:
     shapes = check_chapter_shape()
     markers = check_marker_emoji()
     tables = check_chapter_tables()
+    envkeys = check_env_example()
     counts = check_advertised_counts()
     attribution = check_no_attribution()
     tools = check_tools_import()
@@ -438,6 +459,7 @@ def main() -> int:
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
     print(f"  marker emoji     {markers:>4} markers: consistent emoji")
     print(f"  chapter tables   {tables:>4} rows: label matches link target")
+    print(f"  .env.example     {envkeys:>4} required keys present")
     print(f"  advertised counts{counts:>4} claims match the files")
     print(f"  attribution      {attribution:>4} files: no tool attribution")
     print(f"  tools import     {tools:>4} tools imported")

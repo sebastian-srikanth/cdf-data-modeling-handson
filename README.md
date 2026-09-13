@@ -24,13 +24,31 @@ Nothing is pre-filled. You type every file yourself, so you understand it and yo
    this first; "I have a CDF login" is not sufficient on its own.
 2. **[The course →](docs/README.md)** — 20 chapters, in order.
 
+**Fork it first.** [Chapter 18](docs/18-pr-and-merge.md) has you open a pull request, so
+you need a copy you can push to. Use the **Fork** button above, then:
+
 ```bash
-git clone https://github.com/sebastian-srikanth/cdf-data-modeling-handson.git
+git clone https://github.com/<your-github-username>/cdf-data-modeling-handson.git
 cd cdf-data-modeling-handson
-cp .env.example .env    # then fill in every <angle-bracket> value
+cp .env.example .env    # then fill in every <angle-bracket> value,
+                        # including PARTICIPANT=<YOURNAME>
 uv sync
 uv run cdf auth verify --dry-run
 ```
+
+> Just reading, not doing the exercises? Clone this repository directly and skip the fork.
+
+### What you supply, and what you get back
+
+| | |
+|---|---|
+| **The CDF project** | Yours, or one shared with other participants — both work. [Chapter 01](docs/01-naming-isolation-and-setup.md) section 1.1 explains the difference. Everything you create is prefixed with your `PARTICIPANT` name, so a shared project is safe |
+| **Your progress** | `tools/selfcheck.py <chapter>` asks CDF what you actually deployed and prints PASS/FAIL per Gate item. It runs **on your machine, against your project** |
+| **Your score** | `tools/assess.py` scores your real CDF project out of 100. Also local |
+
+Nothing is sent anywhere. The automated evaluation you may see on pull requests in the
+upstream repository is for maintaining the course — in your fork it has no credentials
+and skips itself, which is expected and not an error.
 
 ---
 
