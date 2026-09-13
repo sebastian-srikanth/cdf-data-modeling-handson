@@ -44,6 +44,11 @@ jobs:
       IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
       IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
       IDP_TENANT_ID: ${{ secrets.IDP_TENANT_ID }}
+      # Taken from secrets rather than reconstructed from the tenant id, so CI uses
+      # exactly the values that are known to work.
+      IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
+      IDP_SCOPES: ${{ secrets.IDP_SCOPES }}
+      CDF_URL: ${{ secrets.CDF_URL }}
       LOGIN_FLOW: client_credentials
       PROVIDER: entra_id
       CI: "true"
@@ -75,9 +80,10 @@ jobs:
       - name: Derive the remaining CDF variables
         if: steps.guard.outputs.configured == 'true'
         run: |
-          echo "CDF_URL=https://${CDF_CLUSTER}.cognitedata.com" >> "$GITHUB_ENV"
-          echo "IDP_SCOPES=https://${CDF_CLUSTER}.cognitedata.com/.default" >> "$GITHUB_ENV"
-          echo "IDP_TOKEN_URL=https://login.microsoftonline.com/${IDP_TENANT_ID}/oauth2/v2.0/token" >> "$GITHUB_ENV"
+          # Fall back to deriving these only if they were not supplied as secrets.
+          [ -n "${CDF_URL:-}" ] || echo "CDF_URL=https://${CDF_CLUSTER}.cognitedata.com" >> "$GITHUB_ENV"
+          [ -n "${IDP_SCOPES:-}" ] || echo "IDP_SCOPES=https://${CDF_CLUSTER}.cognitedata.com/.default" >> "$GITHUB_ENV"
+          [ -n "${IDP_TOKEN_URL:-}" ] || echo "IDP_TOKEN_URL=https://login.microsoftonline.com/${IDP_TENANT_ID}/oauth2/v2.0/token" >> "$GITHUB_ENV"
           echo "TRAINING_CDF_CLIENT_ID=${IDP_CLIENT_ID}" >> "$GITHUB_ENV"
           echo "TRAINING_CDF_CLIENT_SECRET=${IDP_CLIENT_SECRET}" >> "$GITHUB_ENV"
 
