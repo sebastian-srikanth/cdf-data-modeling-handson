@@ -390,10 +390,29 @@ and why (section 10.6).
 
 ---
 
-## 10.5 [WRITE] The Function: `ParseDatasheet` (Technique 2, deployed)
+## 10.5 [WRITE] The Function: `ParseDatasheet` (Technique 1, deployed)
 
-This is the version you actually ship — the agentic Document Parser API, since it's
-the technique that scales past one hand-tuned regex per vendor template.
+⚠️ `[COMMON MISTAKE]` Assuming the newer technique is the one to deploy. **This Function
+ships Technique 1 — deterministic regex — and that is a deliberate choice, not an
+oversight.** You met the Document Parser API in the notebook above, and you saw what
+happened when the notebook tried to persist through it:
+
+```
+jobs/write failed (items[0].data: Missing data for required field. | code: 400)
+```
+
+The parser reads the document well. Its **write** endpoint is preview, its payload shape
+is unpublished, and it returns 400 on one project and 500 on another. So the notebook
+uses it to *read* and falls back to the typed SDK to *write* — and the Function, which
+runs unattended in a workflow with nobody watching, uses the technique that cannot
+surprise it.
+
+💡 `[GOOD TO KNOW]` This is the judgement the whole chapter is for. Technique 2 scales
+past one hand-tuned regex per vendor template and is the right answer for fifty
+templates. Technique 1 is the right answer for *this* pipeline today, because an
+unattended job's first requirement is that it is predictable. **Pick the technique that
+matches the blast radius, not the one that is newest** — and write down why, as this
+section does, so the next person can re-decide when the preview endpoint stabilises.
 
 ### What changes versus Technique 1 — and what doesn't
 
@@ -424,51 +443,36 @@ redeploying Python. That is what makes this genuinely agentic rather than a fanc
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_ParseDatasheet/handler.py`
 
 ```python
-"""Parse the pump datasheet via the Cognite Document Parser API, then compute the
-relational/derived fields the parser cannot see in the PDF text (Technique 2)."""
+"""Parse the pump datasheet PDF into EquipmentHealthProfile."""
 
 from __future__ import annotations
 
+import io
 import os
-import time
+import re
 from datetime import datetime, timezone
 
 from cognite.client.data_classes.data_modeling import (
-    DirectRelationReference, NodeApply, NodeOrEdgeData, ViewId,
+    DirectRelationReference,
+    NodeApply,
+    NodeId,
+    NodeOrEdgeData,
+    ViewId,
 )
+from pypdf import PdfReader
 
-POLL_BUDGET_SECONDS = 8 * 60
-POLL_INTERVAL_SECONDS = 15
-USER_PROMPT = (
-    "Extract pump datasheet specifications per the target view's property "
-    "descriptions. If a value is not explicitly present in the document, leave it "
-    "empty -- do not guess or estimate."
-)
-# Spec fields the parser fills, by destination type (see EquipmentHealthProfile, section 3.7).
-FLOAT_FIELDS = ["ratedFlowM3h", "ratedHeadM", "ratedPowerKw",
-                "designPressureBarg", "designTemperatureC", "dryWeightKg"]
-TEXT_FIELDS = ["casingMaterial", "sealType"]
-
-
-def _extracted_props(result: dict) -> dict:
-    """Map the parser's per-field answers to typed EHP view properties.
-
-    result["rawResponses"] is {propName: {"value": .., "pageNum": .., "spatialData": ..}}.
-    """
-    raw = (result or {}).get("rawResponses") or {}
-    props: dict = {}
-    for field in FLOAT_FIELDS:
-        value = (raw.get(field) or {}).get("value")
-        if value not in (None, ""):
-            try:
-                props[field] = float(str(value).split()[0])  # tolerate "320 m3/h"
-            except (ValueError, IndexError):
-                pass
-    for field in TEXT_FIELDS:
-        value = (raw.get(field) or {}).get("value")
-        if value not in (None, ""):
-            props[field] = str(value)
-    return props
+PATTERNS = {
+    "ratedFlowM3h": r"Rated Flow:\s*([\d.]+)\s*m3/h",
+    "ratedHeadM": r"Rated Head:\s*([\d.]+)\s*m",
+    "ratedPowerKw": r"Rated Power:\s*([\d.]+)\s*kW",
+    "designPressureBarg": r"Design Pressure:\s*([\d.]+)\s*barg",
+    "designTemperatureC": r"Design Temperature:\s*([\d.]+)\s*degC",
+    "dryWeightKg": r"Dry Weight:\s*([\d.]+)\s*kg",
+    "casingMaterial": r"Casing Material:\s*(.+)",
+    "sealType": r"Seal Type:\s*(.+)",
+    "manufacturer": r"Manufacturer:\s*(.+)",
+    "serialNumber": r"Serial Number:\s*(.+)",
+}
 
 
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
@@ -478,74 +482,111 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     schema_sdm = os.environ["SCHEMA_SPACE_SDM"]
     model_version = os.environ.get("MODEL_VERSION", "v1.0.0")
     file_xid = f"file_{participant}_TRN_DS_21_PA_2001A"
-    # Raw client.post does NOT auto-prepend the project scope -- build the full path
-    # (same reason Load3DRevision in Chapter 09 uses /api/v1/projects/{project}/...).
-    DOCPARSER = f"/api/v1/projects/{client.config.project}/context/documentparser"
 
-    # /jobs/start is single-job: a FLAT body, and it returns {jobId, status}
-    # (the batch endpoint is POST /jobs with an items[] array).
-    start_body = {
-        "viewConfig": {"space": schema_sdm, "externalId": "EquipmentHealthProfile", "version": model_version},
-        "files": [{"fileInstanceId": {"space": space, "externalId": file_xid}}],
-        "node": {"space": space, "externalId": "ehp_21-PA-2001A"},
-        "useVision": True,
-        "userPrompt": USER_PROMPT,
-    }
-    job_id = client.post(f"{DOCPARSER}/jobs/start", json=start_body).json()["jobId"]
-
-    deadline = time.time() + POLL_BUDGET_SECONDS
-    status, detail = "Queued", {}
-    while status in ("Queued", "Running") and time.time() < deadline:
-        time.sleep(POLL_INTERVAL_SECONDS)
-        detail = client.post(f"{DOCPARSER}/jobs/byids", json={"items": [{"jobId": job_id}]}).json()["items"][0]
-        status = detail["status"]["job"] if isinstance(detail.get("status"), dict) else detail.get("status")
-
-    if status != "Completed":
-        # Never block indefinitely -- report back and let the caller retry later.
-        return {"jobId": job_id, "status": status, "resume": status in ("Queued", "Running")}
-
-    result = detail.get("result") or {}          # scores + rawResponses live here
-    spec_props = _extracted_props(result)
-
-    # jobs/write is INTERNAL (public preview) and may return 500. Attempt it (so
-    # this self-heals if the platform is fixed), but never depend on it -- we already
-    # hold the extracted values, so we write them ourselves below (idempotent).
-    write_status = "ok"
     try:
-        client.post(f"{DOCPARSER}/jobs/write", json={"items": [{"jobId": job_id}]})
-    except Exception as exc:
-        write_status = f"failed: {exc}"
+        content = client.files.download_bytes(instance_id=NodeId(space, file_xid))
+    except Exception:
+        content = client.files.download_bytes(external_id=file_xid)
 
-    # Relational/derived fields the extraction model cannot read off the page --
-    # compute them yourself, same as Technique 1 did.
+    reader = PdfReader(io.BytesIO(content))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+
+    parsed: dict = {}
+    missing: list[str] = []
+    for key, pattern in PATTERNS.items():
+        m = re.search(pattern, text)
+        if not m:
+            missing.append(key)
+            continue
+        raw = m.group(1).strip()
+        if key in {
+            "ratedFlowM3h",
+            "ratedHeadM",
+            "ratedPowerKw",
+            "designPressureBarg",
+            "designTemperatureC",
+            "dryWeightKg",
+        }:
+            parsed[key] = float(raw)
+        else:
+            parsed[key] = raw
+
     v_wo = ViewId(schema_edm, "WorkOrder", model_version)
-    work_orders = client.data_modeling.instances.list(instance_type="node", sources=[v_wo], space=space, limit=-1)
+    work_orders = client.data_modeling.instances.list(
+        instance_type="node",
+        sources=[v_wo],
+        space=space,
+        limit=-1,
+    )
     open_count = 0
     for wo in work_orders:
         props = wo.properties.get(v_wo, {})
-        wo_status = (props.get("status") or "").upper()
-        asset_ids = [r.external_id if hasattr(r, "external_id") else r.get("externalId") for r in (props.get("assets") or [])]
-        if "21-PA-2001A" in asset_ids and wo_status != "CLOSED":
+        status = (props.get("status") or "").upper()
+        assets = props.get("assets") or []
+        asset_ids = []
+        for rel in assets:
+            if hasattr(rel, "external_id"):
+                asset_ids.append(rel.external_id)
+            elif isinstance(rel, dict):
+                asset_ids.append(rel.get("externalId"))
+        if "21-PA-2001A" in asset_ids and status != "CLOSED":
             open_count += 1
 
-    node_props = {
-        **spec_props,  # extracted specs (parser) + relational/derived (computed here)
+    v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", model_version)
+    v_eq = ViewId("cdf_cdm", "CogniteEquipment", "v1")
+    ehp_props = {
+        # EquipmentHealthProfile implements CogniteDescribable, so the view
+        # references TWO containers. The implicit hasData filter requires data in
+        # BOTH: without name/description here the node exists in the registry but
+        # the view returns nothing. See Chapter 03 section 3.8b.
+        "name": "Health profile — 21-PA-2001A",
+        "description": "Parsed datasheet specs and open work-order rollup for export pump A.",
         "asset": DirectRelationReference(space, "21-PA-2001A"),
         "equipment": DirectRelationReference(space, "EQ-1002"),
         "datasheetFile": DirectRelationReference(space, file_xid),
         "openWorkOrderCount": open_count,
+        # CDF timestamp props allow 1–3 fractional digits only (not full microseconds).
         "lastParsedTime": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
     }
-    v_ehp = ViewId(schema_sdm, "EquipmentHealthProfile", model_version)
-    client.data_modeling.instances.apply(nodes=[NodeApply(
-        space=space, external_id="ehp_21-PA-2001A",
-        sources=[NodeOrEdgeData(source=v_ehp, properties=node_props)],
-    )])
+    for key in (
+        "ratedFlowM3h",
+        "ratedHeadM",
+        "ratedPowerKw",
+        "designPressureBarg",
+        "designTemperatureC",
+        "dryWeightKg",
+        "casingMaterial",
+        "sealType",
+    ):
+        if key in parsed:
+            ehp_props[key] = parsed[key]
 
-    completeness = ((result.get("scores") or {}).get("completenessScore") or {}).get("score")
+    applies = [
+        NodeApply(
+            space=space,
+            external_id="ehp_21-PA-2001A",
+            sources=[NodeOrEdgeData(source=v_ehp, properties=ehp_props)],
+        )
+    ]
+    eq_props = {}
+    if "manufacturer" in parsed:
+        eq_props["manufacturer"] = parsed["manufacturer"]
+    if "serialNumber" in parsed:
+        eq_props["serialNumber"] = parsed["serialNumber"]
+    if eq_props:
+        applies.append(
+            NodeApply(
+                space=space,
+                external_id="EQ-1002",
+                sources=[NodeOrEdgeData(source=v_eq, properties=eq_props)],
+            )
+        )
+
+    client.data_modeling.instances.apply(nodes=applies)
+
     return {
-        "jobId": job_id, "status": status, "write_status": write_status,
-        "completenessScore": completeness, "fieldsWritten": sorted(spec_props),
+        "parsed": {k: v for k, v in parsed.items() if k not in ("manufacturer", "serialNumber")},
+        "missing_fields": [m for m in missing if m not in ("manufacturer", "serialNumber")],
         "openWorkOrderCount": open_count,
     }
 ```

@@ -1,0 +1,3 @@
+key,sourcePattern,targetExternalId,matchType,addedBy,reason
+rule-001,TRN-21-SEP-PID.pdf,TRN-21-SEP,exact,course,The P&ID is the separation train drawing; its name carries no tag to match on.
+rule-002,^TRN-21-PA-2001A-Datasheet,21-PA-2001A,regex,course,Vendor datasheets are named <tag>-Datasheet.pdf; anchor on the prefix.

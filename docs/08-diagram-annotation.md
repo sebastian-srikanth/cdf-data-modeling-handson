@@ -170,6 +170,9 @@ annotations out of a job that actually succeeded.
 diagrams.detect returns items[] (one block per file); each block's annotations[] holds
 the detections. Each annotation carries entities[] (the matched assets) and a region
 whose box is a vertices[] polygon (normalized 0-1), not xMin/xMax.
+
+Edge TYPE is cdf_cdm:diagrams.AssetLink. CogniteDiagramAnnotation is the edge VIEW only
+(used in sources=). Using the view name as type= returns HTTP 400.
 """
 
 from __future__ import annotations
@@ -242,7 +245,8 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                 edges.append(EdgeApply(
                     space=space,
                     external_id=f"anno_{file_xid}_{asset_xid}_{idx}",
-                    # Edge TYPE (not the view externalId). View is CogniteDiagramAnnotation.
+                    # Edge TYPE in cdf_cdm (not the view/container externalId).
+                    # File→asset diagram hits use diagrams.AssetLink; CogniteDiagramAnnotation is the view.
                     type=DirectRelationReference("cdf_cdm", "diagrams.AssetLink"),
                     start_node=DirectRelationReference(space, file_xid),
                     end_node=DirectRelationReference(space, asset_xid),

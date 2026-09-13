@@ -255,6 +255,45 @@ def check_chapter_shape() -> int:
     return checked
 
 
+# ------------------------------------------- 6b. [WRITE] python handler blocks ----
+# The YAML check above has been catching schema drift while six Cognite Function
+# handlers quietly diverged from the chapters that teach them -- because nothing
+# compared Python. Every handler block presents itself as a complete file, with no
+# elision markers, so a participant who types one gets something the reference module
+# does not ship and live_e2e never exercises.
+WRITE_PY = re.compile(
+    r"\[WRITE\]`\s*`(?P<path>[^`]+?\.py)`"
+    r"(?:(?!```)[\s\S])*?"
+    r"```python\n(?P<body>[\s\S]*?)```"
+)
+FUNCTION_FOLDER = re.compile(r"fnc_.*?_Training_(\w+)")
+
+
+def _reference_handler(path: str):
+    parts = pathlib.PurePosixPath(path).parts
+    if "functions" not in parts:
+        return None
+    m = FUNCTION_FOLDER.match(parts[parts.index("functions") + 1])
+    if not m:
+        return None
+    candidate = REFERENCE / "functions" / f"fnc_REFERENCE_Training_{m.group(1)}" / "handler.py"
+    return candidate if candidate.exists() else None
+
+
+def check_write_python() -> int:
+    checked = 0
+    for md in chapters():
+        for m in WRITE_PY.finditer(md.read_text()):
+            reference = _reference_handler(m.group("path").strip())
+            if reference is None:
+                continue
+            checked += 1
+            if render(m.group("body")).strip() != reference.read_text().strip():
+                fail(f"drift      {md.name}: the handler it tells you to write differs "
+                     f"from {reference.relative_to(ROOT)}")
+    return checked
+
+
 # ---------------------------------------------- 7b. marker emoji consistency ----
 # The one emoji each paragraph marker is allowed to carry. A reader learns to skim by
 # these, so a [COMMON MISTAKE] wearing a different face costs them that shortcut.
@@ -440,6 +479,7 @@ def main() -> int:
     n_yaml, n_python = check_fenced_blocks()
     cells = check_notebook_syntax()
     writes = check_write_blocks()
+    handlers = check_write_python()
     names = check_undefined_names()
     shapes = check_chapter_shape()
     markers = check_marker_emoji()
@@ -455,6 +495,7 @@ def main() -> int:
     print(f"  python blocks    {n_python:>4} checked")
     print(f"  notebook cells   {cells:>4} parsed")
     print(f"  [WRITE] blocks   {writes:>4} compared against the reference module")
+    print(f"  handler blocks   {handlers:>4} compared against the reference module")
     print(f"  notebook scopes  {names:>4} cells scanned for undefined names")
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
     print(f"  marker emoji     {markers:>4} markers: consistent emoji")

@@ -74,7 +74,15 @@ from datetime import datetime, timedelta, timezone
 
 from cognite.client.data_classes.data_modeling import NodeId
 
-SERIES = ["21-PT-2001", "21-TT-2001", "21-LT-2001", "21-FT-2002", "21-VT-2002", "21-PT-2003"]
+
+SERIES = [
+    "21-PT-2001",
+    "21-TT-2001",
+    "21-LT-2001",
+    "21-FT-2002",
+    "21-VT-2002",
+    "21-PT-2003",
+]
 
 
 def _value(tag: str, i: int, n: int) -> float:
@@ -90,11 +98,14 @@ def _value(tag: str, i: int, n: int) -> float:
     if tag == "21-LT-2001":
         return 52.0 + 6.0 * math.sin(2 * math.pi * t * 2) + 0.8 * noise
     if tag == "21-FT-2002":
-        return 320.0 + 8.0 * noise - degrade * (320.0 - 268.0)
+        base = 320.0 + 8.0 * noise
+        return base - degrade * (320.0 - 268.0)
     if tag == "21-VT-2002":
-        return 2.1 + 0.2 * noise + degrade * (7.4 - 2.1)
+        base = 2.1 + 0.2 * noise
+        return base + degrade * (7.4 - 2.1)
     if tag == "21-PT-2003":
-        return 38.0 + 0.6 * noise - degrade * (38.0 - 33.5)
+        base = 38.0 + 0.6 * noise
+        return base - degrade * (38.0 - 33.5)
     return 0.0
 
 
@@ -112,8 +123,11 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         client.time_series.data.insert(points, instance_id=NodeId(space, tag))
 
     return {
-        "series": len(SERIES), "points_per_series": 720, "total": len(SERIES) * 720,
-        "window": [start.isoformat(), end.isoformat()], "space": space,
+        "series": len(SERIES),
+        "points_per_series": 720,
+        "total": len(SERIES) * 720,
+        "window": [start.isoformat(), end.isoformat()],
+        "space": space,
     }
 ```
 
