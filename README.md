@@ -65,6 +65,8 @@ notebook** first — raw SDK calls, cell by cell — before it is packaged into 
 
 ---
 
+Changing the course? See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
 ## Why you can trust what is in here
 
 Most courses ask you to believe them. This one is checked, and you can check it too.
