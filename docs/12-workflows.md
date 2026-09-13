@@ -127,6 +127,61 @@ edits either — and then you are debugging your monitoring instead of your pipe
 
 ---
 
+## 12.2c [LIMITS] Nothing stops two runs overlapping
+
+Trigger a workflow that is already running and you might reasonably expect CDF to say no.
+
+✅ `[VERIFY]` It does not. Measured on this project — start one execution, wait two
+seconds, start another:
+
+```
+execution A: 9ea7a295-...  running
+execution B: baeeb145-...  running   -> CDF ACCEPTED a concurrent execution
+
+final: both completed, 76 s
+```
+
+Two full pipelines ran over the same data at the same time, and both reported success.
+
+⚠️ `[COMMON MISTAKE]` Assuming a schedule cannot overlap itself. An hourly trigger on a
+job that usually takes eight minutes is safe right up to the night it takes seventy, and
+then you have two runs writing the same nodes — with no error, because as far as CDF is
+concerned you asked for both.
+
+### Why this pipeline survives it, and where that stops being true
+
+The spine came through the test undamaged: still exactly two suggestions, the human
+rejection intact with its evidence, nothing duplicated. That is not luck, and it is not a
+guarantee either. It holds because of two properties worth naming:
+
+- **Every identity is deterministic.** Two runs computing the same link produce the same
+  suggestion external ID, so the second write updates the first instead of adding to it.
+  This is the same property that stopped [Chapter 08](08-diagram-annotation.md)'s
+  annotations piling up, and it is what makes concurrent writes merge rather than
+  multiply.
+- **Nothing reads a counter and writes it back.** No step does *"fetch the total, add
+  one, store it"* — the classic lost-update shape. Counts are derived from what the run
+  itself produced.
+
+🚧 `[LIMITS]` Be precise about what the test proves. Two runs producing the **same**
+results converge safely. Two runs producing **different** results — because someone
+edited a mapping rule between them — can interleave so that the older run retracts a link
+the newer one just applied. Both runs report success. The graph ends up reflecting
+whichever finished last, which is not necessarily the one with the newer rules.
+
+⚡ `[OPTIMIZE]` If overlap is possible and the results can differ, do not rely on
+convergence. A run record makes this tractable: before writing, check whether a
+`ContextualizationRun` for this technique is still `running`, and exit early if so. That
+is three lines, and it is only possible because [Chapter 17](17-cross-cutting-mastery.md)
+section 17.1c made runs a first-class thing rather than a log line.
+
+💡 `[GOOD TO KNOW]` This is the second time in two chapters that the fix was *"give the
+thing a real identity, then you can reason about it"*. Annotations keyed on result order
+piled up; runs with no record could not be checked for overlap. Identity is not
+bookkeeping — it is the thing that makes every other guarantee available to you.
+
+---
+
 ## 12.2b [WRITE] The quality gate Function
 
 Write this before the workflow, because the workflow references it by external ID and a

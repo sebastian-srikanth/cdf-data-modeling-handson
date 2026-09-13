@@ -288,5 +288,25 @@ That's the craft. Well done.
 
 ---
 
+## Gate
+
+**Do not proceed to Chapter 19 until:**
+
+- Your pull request is open, and its title and body say what you built rather than
+  what you touched
+- Every check on it is green — including the course evaluation, which deploys your
+  work to CDF and scores it
+- `uv run python tools/assess.py` gave you a score you are willing to have read out
+- You reviewed your own diff, file by file, before asking anyone else to
+- You can name one thing in it you would do differently, and say why you did not
+- 📓 Your `participants/<YOURNAME>/NOTES.md` has a line for every chapter — **now**,
+  not tonight
+
+⚠️ `[COMMON MISTAKE]` Tearing down before the PR is merged. Chapter 19 removes the
+resources your evaluation deploys against; run it too early and the check that was
+green goes red with nothing left to inspect.
+
+---
+
 When you're finished with the lab and want to remove your CDF resources, see
 → [Chapter 19 — Teardown](19-teardown.md).

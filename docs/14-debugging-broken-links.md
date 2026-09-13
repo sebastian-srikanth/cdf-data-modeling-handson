@@ -397,14 +397,16 @@ created in [Chapter 08](08-diagram-annotation.md) — those are edges, and they 
 
 ---
 
-## 14.10 ✅ Gate
+## Gate
 
-- [ ] You can explain 8 rows / 9 activities / 6 operations, and all four discrepancies
-- [ ] The anti-join in section 14.3 found the phantom `21-XX-9999`, and you can explain why `retrieve` finds it but the view does not
-- [ ] You found the orphan `WO-9999-0010` and can say why it is *not* the same bug
-- [ ] You can explain why `OP-1001-0020-REV` being absent is correct behaviour
-- [ ] You deleted a node, saw it in `/sync` with a `deletedTime`, and restored it
-- [ ] You can recite the five-step lineage checklist without looking
+**Do not proceed to Chapter 15 until:**
+
+- You can explain 8 rows / 9 activities / 6 operations, and all four discrepancies
+- The anti-join in section 14.3 found the phantom `21-XX-9999`, and you can explain why `retrieve` finds it but the view does not
+- You found the orphan `WO-9999-0010` and can say why it is *not* the same bug
+- You can explain why `OP-1001-0020-REV` being absent is correct behaviour
+- You deleted a node, saw it in `/sync` with a `deletedTime`, and restored it
+- You can recite the five-step lineage checklist without looking
 
 You can now find what is wrong, prove it, fix it at the right layer, and undo yourself
 if you are wrong. That is the last engineering skill this course owes you.

@@ -134,4 +134,26 @@ platform limit, not a step you forgot.
 
 That's a clean exit. 🎉
 
+---
+
+## Gate
+
+This is the last chapter, so this gate closes the course rather than opening the next one.
+**You are done when:**
+
+- All three of your spaces are gone from Fusion, verified by looking rather than by
+  trusting the notebook's output
+- Your functions, transformations and 3D model lists come back empty
+- Your data set reports **archived** — the clean end state, because a data set can never
+  be hard-deleted
+- Nobody else's resources changed. Re-run `tools/selfcheck.py` for a colleague still
+  working and confirm it still passes
+- You kept `config.<YOURNAME>-training.yaml`
+
+💡 `[GOOD TO KNOW]` That fourth one is the real test of everything
+[Chapter 01](01-naming-isolation-and-setup.md) taught you. A teardown that takes a
+neighbour's work with it means the isolation was never real — you just never stressed it.
+
+---
+
 ← [Chapter 18 — PR & Merge](18-pr-and-merge.md)

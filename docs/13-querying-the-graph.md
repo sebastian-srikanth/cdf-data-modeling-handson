@@ -761,20 +761,20 @@ believe it.
 
 ---
 
-## 13.13 ✅ Gate
+## Gate
 
-Do not proceed until all of these are true:
+**Do not proceed to Chapter 14 until:**
 
-- [ ] `aggregate` returns 8 assets in your instance space
-- [ ] section 13.5's inward traversal fails, and you can say why a *list* cannot be walked backwards
-- [ ] The `ContainsAny` filter returns **exactly** `WO-1001`
-- [ ] The bounded edge traversal reaches the P&ID from the pump
-- [ ] section 13.6 gives 9 activities / 3 work orders / 6 operations, and you can explain the 9
-- [ ] `inspect()` in section 13.7 tells you which containers your EHP node has data in
-- [ ] `group_by="status"` fails because it is an enum; `orderType` gives two buckets
-- [ ] One batched latest-datapoint call returns the pump's 3 sensor values
-- [ ] The second `sync` call returns 0 changes
-- [ ] You can say, in one sentence each, when you would use `list`, `query` and `aggregate`
+- `aggregate` returns 8 assets in your instance space
+- section 13.5's inward traversal fails, and you can say why a *list* cannot be walked backwards
+- The `ContainsAny` filter returns **exactly** `WO-1001`
+- The bounded edge traversal reaches the P&ID from the pump
+- section 13.6 gives 9 activities / 3 work orders / 6 operations, and you can explain the 9
+- `inspect()` in section 13.7 tells you which containers your EHP node has data in
+- `group_by="status"` fails because it is an enum; `orderType` gives two buckets
+- One batched latest-datapoint call returns the pump's 3 sensor values
+- The second `sync` call returns 0 changes
+- You can say, in one sentence each, when you would use `list`, `query` and `aggregate`
 
 You can now ask your model anything. Next you will use exactly these tools to find what
 is **wrong** with it.

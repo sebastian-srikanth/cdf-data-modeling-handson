@@ -48,7 +48,11 @@ SUBSTITUTIONS = [
 ]
 
 # Chapters that are pure process (tooling, naming, git) and deploy nothing to CDF.
-NO_GATE_EXPECTED = {"13", "14", "18", "19"}
+# Every chapter ends the same way: one "## Gate" section, bullets a learner can
+# actually check, and a link to the next chapter. The exclusion list is empty on
+# purpose -- it used to hold 13, 14, 18 and 19, and it was hiding that two of them
+# had a differently-titled gate and two had none at all.
+NO_GATE_EXPECTED: set[str] = set()
 
 failures: list[str] = []
 notes: list[str] = []
