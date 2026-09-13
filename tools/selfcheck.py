@@ -222,6 +222,21 @@ def check_08(client, name, r: Report) -> None:
         r.check("edges start at the P&ID file",
                 all(s.startswith(f"file_{name}_TRN_PID") for s in starts), True)
 
+        # The pile-up check. Annotation identity is derived from the geometry, so two
+        # edges describing the same tag at the same place on the same page mean the
+        # Function ran twice and keyed on result order -- which is how a drawing ends
+        # up twice-annotated with no error anywhere (Chapter 08).
+        fingerprints = []
+        for e in edges:
+            props = e.properties.get(anno) or {}
+            fingerprints.append((
+                e.start_node.external_id, e.end_node.external_id,
+                props.get("startNodePageNumber"),
+                round(float(props.get("startNodeXMin") or 0), 4),
+                round(float(props.get("startNodeYMin") or 0), 4)))
+        r.check("no duplicate annotations (same tag, same place)",
+                len(set(fingerprints)), len(edges))
+
 
 # --------------------------------------------------------------------- ch 09 ----
 def check_09(client, name, r: Report) -> None:
