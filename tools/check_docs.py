@@ -304,6 +304,49 @@ def check_chapter_tables() -> int:
     return checked
 
 
+# ----------------------------------------------------- 8d. advertised counts ----
+# Numbers in the prose rot silently. The README claimed "16 chapters" when there were
+# 20, and "four transformations" when there were five -- three false statements in the
+# first paragraph a visitor reads. Tie the claims to the files.
+COUNT_CLAIMS = [
+    (re.compile(r"(\d+) chapters"),
+     lambda: len(list(DOCS.glob("[0-9][0-9]-*.md"))), "chapters"),
+    (re.compile(r"(\d+) Jupyter notebooks"),
+     lambda: len(list(NOTEBOOKS.glob("*.ipynb"))), "notebooks"),
+]
+WORD_NUMBERS = {"four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+SPELLED = [
+    (re.compile(r"(\w+) transformations"),
+     lambda: len(list((ROOT / "training/modules/reference/transformations")
+                      .glob("*.Transformation.yaml"))), "transformations"),
+    (re.compile(r"(\w+) Cognite Functions"),
+     lambda: len(list((ROOT / "training/modules/reference/functions").glob("fnc_*"))),
+     "functions"),
+]
+
+
+def check_advertised_counts() -> int:
+    checked = 0
+    for md in (ROOT / "README.md", DOCS / "README.md", ROOT / "PREREQUISITES.md"):
+        if not md.exists():
+            continue
+        text = md.read_text()
+        for pattern, actual, label in COUNT_CLAIMS:
+            for m in pattern.finditer(text):
+                checked += 1
+                if int(m.group(1)) != actual():
+                    fail(f"count      {md.name}: says {m.group(0)!r}, there are {actual()}")
+        for pattern, actual, label in SPELLED:
+            for m in pattern.finditer(text):
+                claimed = WORD_NUMBERS.get(m.group(1).lower())
+                if claimed is None:
+                    continue
+                checked += 1
+                if claimed != actual():
+                    fail(f"count      {md.name}: says {m.group(0)!r}, there are {actual()}")
+    return checked
+
+
 # ------------------------------------------------- 8c. no tooling attribution ----
 # This repository is Sebastian's work and carries no tool attribution. The patterns are
 # assembled from fragments on purpose: spelling the vendor names literally here would
@@ -381,6 +424,7 @@ def main() -> int:
     shapes = check_chapter_shape()
     markers = check_marker_emoji()
     tables = check_chapter_tables()
+    counts = check_advertised_counts()
     attribution = check_no_attribution()
     tools = check_tools_import()
 
@@ -394,6 +438,7 @@ def main() -> int:
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
     print(f"  marker emoji     {markers:>4} markers: consistent emoji")
     print(f"  chapter tables   {tables:>4} rows: label matches link target")
+    print(f"  advertised counts{counts:>4} claims match the files")
     print(f"  attribution      {attribution:>4} files: no tool attribution")
     print(f"  tools import     {tools:>4} tools imported")
     for note in notes:

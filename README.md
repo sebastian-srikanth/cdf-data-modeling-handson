@@ -1,12 +1,17 @@
 # CDF Data Modeling — Hands-On
 
+[![checks](https://github.com/sebastian-srikanth/cdf-data-modeling-handson/actions/workflows/checks.yml/badge.svg)](https://github.com/sebastian-srikanth/cdf-data-modeling-handson/actions/workflows/checks.yml)
+[![site](https://github.com/sebastian-srikanth/cdf-data-modeling-handson/actions/workflows/site.yml/badge.svg)](https://sebastian-srikanth.github.io/cdf-data-modeling-handson/)
+
 **A from-zero, hand-authored path through Cognite Data Fusion, the Cognite Toolkit,
 and one deliberately real industrial data model.**
 
+📖 **Read it as a site:** <https://sebastian-srikanth.github.io/cdf-data-modeling-handson/>
+
 You start with Python, git, and a browser. You finish having built — by hand, file by
 file — a complete CDF module: spaces, containers, views, two data models, a data set,
-RAW tables, files, four transformations, five Cognite Functions, a workflow, and a
-location filter. Along the way a pump quietly fails, and you make that visible in the
+RAW tables, files, five transformations, five Cognite Functions, a workflow, access
+groups, and a location filter. Along the way a pump quietly fails, and you make that visible in the
 data.
 
 Nothing is pre-filled. You type every file yourself, so you understand it and you own it.
@@ -17,7 +22,7 @@ Nothing is pre-filled. You type every file yourself, so you understand it and yo
 
 1. **[PREREQUISITES.md](PREREQUISITES.md)** — what you need before Chapter 00. Read
    this first; "I have a CDF login" is not sufficient on its own.
-2. **[The course →](docs/README.md)** — 16 chapters, in order.
+2. **[The course →](docs/README.md)** — 20 chapters, in order.
 
 ```bash
 git clone https://github.com/sebastian-srikanth/cdf-data-modeling-handson.git
@@ -57,6 +62,26 @@ uv run cdf auth verify --dry-run
 Chapters that introduce a Cognite Function always meet the capability in a **Jupyter
 notebook** first — raw SDK calls, cell by cell — before it is packaged into a
 `handler.py`.
+
+---
+
+## Why you can trust what is in here
+
+Most courses ask you to believe them. This one is checked, and you can check it too.
+
+- **Every number in the text was measured against a live CDF project**, not estimated.
+  When a chapter says you will get 6 operations from 8 source rows, someone ran it.
+- **Every chapter's Gate is executable.** `tools/selfcheck.py` asks CDF what you actually
+  deployed and tells you PASS or FAIL per item. No guessing whether you are ready.
+- **The course tests itself in CI.** Every push verifies that the YAML a chapter tells you
+  to write still matches the module it ships, that 227 links and 179 cross-references
+  resolve, that every code block parses, and that every diagram renders.
+- **A weekly job deploys the whole course to a scratch project, runs it, and tears it
+  down.** If CDF changes underneath it, that job goes red before you do.
+- **You are assessed on what you built**, not on a quiz — `tools/assess.py` scores your
+  real CDF project out of 100.
+
+That is the whole argument for this being code in a repository rather than slides.
 
 ---
 

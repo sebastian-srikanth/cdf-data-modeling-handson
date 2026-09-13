@@ -73,7 +73,7 @@ chapter; missing one produces a `403` at that point and nowhere earlier.
 | `rawAcl` | READ, WRITE | Ch 04, 05 — RAW db/tables |
 | `filesAcl` | READ, WRITE | Ch 04, 10 — PID / datasheet / 3D uploads |
 | `datasetsAcl` | READ, WRITE | Ch 04 — the training data set |
-| `transformationsAcl` | READ, WRITE | Ch 05 — deploy and run four transformations |
+| `transformationsAcl` | READ, WRITE | Ch 05 — deploy and run five transformations |
 | `timeSeriesAcl` | READ, WRITE | Ch 11 — vibration / flow datapoints |
 | `functionsAcl` | READ, WRITE | Ch 07–11 — five Cognite Functions |
 | `entitymatchingAcl` | READ, WRITE | Ch 07 — `fit` / `predict`, **and deleting your model** |
