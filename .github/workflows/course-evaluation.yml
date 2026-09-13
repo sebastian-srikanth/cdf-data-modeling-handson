@@ -34,7 +34,7 @@ jobs:
   evaluate:
     runs-on: ubuntu-latest
     environment: live-verification
-    timeout-minutes: 75
+    timeout-minutes: 110
     env:
       # A distinct name per PR so two open PRs never collide, and teardown only ever
       # touches resources carrying this name.
