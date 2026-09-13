@@ -71,15 +71,35 @@ two-identity gap from section 2.3 — not a bug in this chapter.
 Everyone asks the same question at this point: *can I load my own symbol library so it
 recognises a pump from its shape?*
 
-🚧 `[LIMITS]` **No — and it is worth being precise about why.** The diagram API detects
-**text**: it looks for strings that match the entities you hand it. There is no
-symbol-recognition endpoint, no shape library to upload, and nothing in the SDK for one —
-`client.diagrams` has exactly three methods: `detect`, `convert`, `get_detect_jobs`. If
-you need shape recognition today, that is a computer-vision problem you solve outside CDF
-and bring back in as annotations.
+**Yes — but not with the API this chapter uses.** CDF has two different diagram
+capabilities and conflating them is the mistake:
 
-What you *can* control is how forgiving the text matching is, and **that is where the real
-quality lever is**:
+| | **Tag detection** (this chapter) | **Full diagram parsing** |
+|---|---|---|
+| What it matches | **text** — strings matching entities you supply | **symbols**, via a symbol library you choose |
+| Also produces | tag annotations | geometries, connections between symbols, pipe-connectivity verification |
+| Input | any PDF, scanned or vector | **vector diagrams only** |
+| Driven from | `client.diagrams.detect` — automatable, what your Function calls | Fusion's parsing UI, with Symbols and Connections tabs for review |
+| In the pinned SDK | yes | **no** — `client.diagrams` has exactly three methods: `detect`, `convert`, `get_detect_jobs` |
+
+🚧 `[LIMITS]` So: **symbol libraries exist in CDF, and they are not reachable from the API
+this Function uses.** If your drawings are vector and you need symbol and connection
+topology — *which pipe runs from which pump to which valve* — that is Full diagram
+parsing, and today you drive it from Fusion rather than from a Cognite Function. If your
+drawings are scans, symbol detection is not available to you at all and tag detection is
+the whole game.
+
+📚 `[DOCS]` https://docs.cognite.com/cdf/integration/guides/contextualization/parse_diagrams
+
+⚠️ `[COMMON MISTAKE]` Choosing the capability by ambition rather than by input. Full
+diagram parsing is strictly better *if* your diagrams are vector. Run it on a scanned
+1990s P&ID and you get nothing — and the failure is silent, because there are simply no
+paths to detect.
+
+### What you can tune on the path you are automating
+
+Since this chapter automates tag detection, the quality levers are matching parameters,
+and **that is where the real work is**:
 
 | Parameter | What it decides |
 |---|---|
@@ -114,10 +134,11 @@ are here for the same reason as in [Chapter 07](07-entity-matching.md) section 7
 year, *"who decided VLV means VALVE, and is that still true for this vendor"* is the only
 question that matters.
 
-💡 `[GOOD TO KNOW]` This is the honest version of a symbol library. You are not teaching
-CDF what a pump *looks like*; you are teaching it what a pump is *called* on your
-drawings — and that is where most real misses come from. A drawing office that changed
-its abbreviation in 2011 costs you more detections than any shape model would win back.
+💡 `[GOOD TO KNOW]` An alias library is **not** a symbol library — it is the other half of
+the problem. Full diagram parsing teaches CDF what a pump *looks like*; this teaches it
+what a pump is *called* on your drawings. On scanned diagrams the second is all you have,
+and even on vector ones a drawing office that changed its abbreviation in 2011 costs you
+detections that no shape model recovers.
 
 ⚠️ `[COMMON MISTAKE]` Tuning `min_fuzzy_score` down until the count looks good. Every
 point you lower it buys detections and sells precision, and a wrong annotation is worse
