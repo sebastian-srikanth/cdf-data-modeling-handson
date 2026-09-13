@@ -29,6 +29,12 @@ jobs:
       - name: Documentation and notebook checks
         run: uv run python tools/check_docs.py
 
+      # Handler decision logic, against fake clients. Fast, and it reaches the cases a
+      # live run reaches only by contrivance: the middle confidence band, a human veto,
+      # a rule that was deleted, a gate racing the write it checks.
+      - name: Handler unit tests
+        run: uv run --group dev python -m pytest tests/ -q
+
       # Installed explicitly, with its browser, so a Chromium problem fails here and
       # visibly rather than looking like six broken diagrams.
       - name: Install mermaid-cli and Chromium

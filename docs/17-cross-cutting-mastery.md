@@ -317,6 +317,69 @@ which is exactly why they dodge this bug entirely — worth knowing for the day 
 
 ---
 
+## 17.2b [INFO] Testing a Function without a CDF project
+
+A Cognite Function is the worst possible place to find a logic bug. The edit-to-answer
+loop is **six to twenty-five minutes** — build the image, wait for `Ready`, call it, read
+the log — and you spend it on a mistake a test would have caught in a millisecond.
+
+Split the handler in two and the problem mostly disappears:
+
+| Part | What it is | How you test it |
+|---|---|---|
+| **Decisions** | Which rung resolved this file. What band is this score. Is this pair vetoed. What must be retracted | Plain functions of plain data. Unit tests, no CDF |
+| **Effects** | `instances.apply`, `entity_matching.fit`, `raw.rows.list` | A live run. There is no substitute |
+
+The handlers in this course are written that way on purpose. `_apply_rules`,
+`_band`, `_human_vetoes` and `_retractions` take dictionaries and return values — no
+client, no network, no space names. Everything that touches CDF lives in `handle()`,
+`_write_and_report` and `_write_spine`.
+
+```python
+def test_a_malformed_regex_in_a_data_row_does_not_break_the_pipeline():
+    """The moment humans can edit rules, one of them will be `(unclosed`."""
+    rules = [
+        {"pattern": "(unclosed", "target": "BAD", "matchType": "regex"},
+        {"pattern": "good.pdf", "target": "GOOD", "matchType": "exact"},
+    ]
+    assert _apply_rules(rules, "f1", "good.pdf") == "GOOD"
+```
+
+### Fake the client, do not mock the SDK
+
+Where a test does need a client, hand it a small fake — an object with just the methods
+under test:
+
+```python
+class FakeRaw:
+    def __init__(self, tables): self._tables, self.rows = tables, self
+    def list(self, db_name=None, table_name=None, limit=None):
+        try:
+            return self._tables[(db_name, table_name)]
+        except KeyError:
+            raise RuntimeError(f"table {db_name}.{table_name} does not exist")
+```
+
+That fake exists to assert one thing: an absent rule table is a **valid state**, not an
+error, because somebody who has not created it yet must still get a working cascade.
+
+⚠️ `[COMMON MISTAKE]` Growing the fake until it mimics the whole SDK. At that point it is
+not a test aid, it is a second implementation — with its own bugs, no users, and a
+standing invitation to write tests that pass against your fake and fail against CDF.
+Keep it thin enough to read in one screen.
+
+🚧 `[LIMITS]` Be honest about what these prove. **Nothing here tests that CDF behaves as
+documented.** A test asserting `apply()` merges a list would have passed happily for
+months, and been wrong — [section 3.8c](03-data-modeling.md) had to *measure* that, and it
+replaces. Unit tests protect your decisions; only a live run protects your assumptions
+about the platform. The course runs both on every pull request, and that is the point.
+
+✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 33 tests, well under a
+second. The ones worth reading first are in `tests/test_quality_gate.py`, because they
+answer the question you cannot answer by watching a gate pass: *can it fail?*
+
+---
+
 ## 17.3 [INFO] Observability & debugging
 
 | Resource | Where to look |

@@ -3,15 +3,27 @@
 The course is code, so it changes like code: on a branch, through a pull request, with
 the checks doing the arguing.
 
-## The two gates
+## The three gates
 
 | Check | Runs | Needs credentials | Answers |
 |---|---|---|---|
-| **checks** | every push and PR | no | *Does the course still parse?* Links, cross-references, YAML, Python, notebooks, diagrams, the `[WRITE]` blocks against the reference module, the advertised counts |
+| **checks** | every push and PR | no | *Does the course still parse, and does it still tell the truth?* Links, cross-references, YAML, Python, notebooks, diagrams, the `[WRITE]` blocks against the reference module, the advertised counts, the documented Function return fields, and every code fragment quoted in a walkthrough table |
+| **unit tests** | every push and PR | no | *Is the handler logic right?* The cascade's rungs, the confidence bands, human vetoes, retraction, and whether the quality gate can actually fail |
 | **course evaluation** | every PR touching `docs/`, `tools/` or `training/` | yes | *Does the course still **work**?* Deploys the whole thing to CDF, runs it, self-checks every chapter, scores it, tears down |
 
-The first takes seconds. The second takes up to an hour, mostly waiting for Cognite
+The first two take seconds. The third takes up to an hour, mostly waiting for Cognite
 Functions to build — that is normal, not a hang.
+
+```bash
+uv run python tools/check_docs.py
+uv run --group dev python -m pytest tests/ -q
+```
+
+The division is deliberate. The unit tests never talk to CDF, so they can reach the
+cases a live run reaches only by contrivance — the middle confidence band, a deleted
+rule, a gate racing the write it checks. The live run is what proves CDF actually
+behaves the way the chapters say it does. Neither substitutes for the other, and a
+change to a handler usually needs both.
 
 ## Change a few chapters at a time
 

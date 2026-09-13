@@ -660,6 +660,32 @@ def check_walkthrough_fragments() -> int:
     return checked
 
 
+def check_test_count() -> int:
+    """Any chapter that names a number of unit tests must name the right one.
+
+    A count in prose is a claim like any other, and this one changes every time
+    somebody adds a test -- which is exactly when nobody is thinking about the docs.
+    """
+    tests_dir = ROOT / "tests"
+    if not tests_dir.exists():
+        return 0
+    actual = sum(
+        len(re.findall(r"^def (test_\w+)", f.read_text(), re.M))
+        for f in tests_dir.glob("test_*.py"))
+    pattern = re.compile(r"(\d+) tests?\b[^.\n]{0,40}\bpytest|pytest[^.\n]{0,60}?(\d+) tests?\b")
+    checked = 0
+    for md in sorted(DOCS.glob("*.md")) + [ROOT / "CONTRIBUTING.md", ROOT / "README.md"]:
+        if not md.exists():
+            continue
+        for m in pattern.finditer(md.read_text()):
+            claimed = int(m.group(1) or m.group(2))
+            checked += 1
+            if claimed != actual:
+                fail(f"testcount {md.name}: claims {claimed} unit tests, "
+                     f"tests/ defines {actual}")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -679,6 +705,7 @@ def main() -> int:
     contracts = check_query_story_contracts()
     retkeys = check_function_return_keys()
     walkthru = check_walkthrough_fragments()
+    testcount = check_test_count()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -699,6 +726,7 @@ def main() -> int:
     print(f"  story contracts  {contracts:>4} query/agent invariants checked")
     print(f"  return keys      {retkeys:>4} documented Function fields exist")
     print(f"  walkthroughs     {walkthru:>4} quoted fragments exist in a handler")
+    print(f"  test count       {testcount:>4} claim(s) match tests/")
     for note in notes:
         print(f"  note: {note}")
 
