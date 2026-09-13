@@ -15,7 +15,7 @@ notebook. Recreate it cell by cell as you read, the same way you did in
 
 ---
 
-## 13.1 [INFO] Five endpoints, and which one you actually want
+## 13.1 [INFO] Six read patterns, and which one you actually want
 
 Everything below sits on the Data Modeling instances API. Reaching for the wrong one is
 the most common reason a "slow model" is actually a slow query.
@@ -153,6 +153,7 @@ q = Query(
         "pump": NodeResultSetExpression(
             filter=flt.And(
                 flt.SpaceFilter(INSTANCE_SPACE, "node"),
+                flt.HasData(views=[ASSET]),
                 flt.Equals(["node", "externalId"], "21-PA-2001A"),
             ),
             limit=1,
@@ -170,6 +171,12 @@ for node in result["pump"]:
 
 ✅ `[VERIFY]` One node, external ID `21-PA-2001A`, description
 `Crude oil export pump A`.
+
+🔒 `[SECURITY]` The anchor uses all three constraints deliberately: `space` selects your
+tenant-like instance boundary, `externalId` selects the business object, and `hasData`
+selects its type. In this shared project, fifteen participants can all have a node named
+`21-PA-2001A`. Filtering only on `externalId` and then adding `limit=1` returns an
+arbitrary participant's node—a plausible-looking wrong answer, not an error.
 
 ⚠️ `[COMMON MISTAKE]` Writing `ASSET.as_property_ref("externalId")` here. It looks
 right and it fails:
@@ -200,7 +207,12 @@ WORKORDER = ViewId(EDM_SPACE, "WorkOrder", MODEL_VERSION)
 q = Query(
     with_={
         "pump": NodeResultSetExpression(
-            filter=flt.Equals(["node", "externalId"], "21-PA-2001A"), limit=1),
+            filter=flt.And(
+                flt.SpaceFilter(INSTANCE_SPACE, "node"),
+                flt.HasData(views=[ASSET]),
+                flt.Equals(["node", "externalId"], "21-PA-2001A"),
+            ),
+            limit=1),
         "orders": NodeResultSetExpression(
             from_="pump",
             through=WORKORDER.as_property_ref("assets"),
@@ -215,9 +227,10 @@ client.data_modeling.instances.query(q)
 CogniteAPIError: Cannot traverse lists of direct relations inwards. | code: 400
 ```
 
-🚧 `[LIMITS]` **You cannot walk a *list* of direct relations backwards.** `assets` is a
-list — one activity can touch several assets — and DMS does not maintain a reverse index
-for list membership. Traversing *outwards* (order → its assets) is fine. Inwards is not.
+🚧 `[LIMITS]` **You cannot walk a *list* of direct relations backwards through
+`/query`.** `assets` is a list—one activity can touch several assets—and that query
+shape is rejected. Traversing *outwards* (order → its assets) is fine. For the reverse
+question, use the supported list-membership filter below or remodel the relation.
 
 This is the single most important structural decision in the whole chapter, so it is
 worth stating plainly:
@@ -248,15 +261,20 @@ for n in orders:
 ```
 
 ✅ `[VERIFY]` Exactly one order: **WO-1001**, `IN_PROGRESS`, 18500 EUR — the seal
-replacement on the failing pump. `WO-1002` and `WO-1003` point at the separator, so they
+replacement on the degrading pump. `WO-1002` and `WO-1003` point at the separator, so they
 are correctly absent.
 
 ⚠️ `[COMMON MISTAKE]` Using `Equals` instead of `ContainsAny` on a list property. It
 fails with *"Invalid value for list property"*. `Equals` compares the whole value;
 `ContainsAny` asks whether the list contains one of your candidates.
 
-⚡ `[OPTIMIZE]` This is why [Chapter 03](03-data-modeling.md) put a btree index on the
-`asset` direct relation. Filtering an unindexed relation is a full scan.
+⚡ `[OPTIMIZE]` `ContainsAny` is the supported query shape; it is not evidence that the
+physical access path is optimal. The `assets` property lives in Cognite's
+`cdf_cdm:CogniteActivity` container, not in your `WorkOrder` container, so you cannot
+add an index to it. In a container you own, membership lookup on a list property is an
+**inverted-index** use case—not a B-tree use case. If asset → work-order navigation is
+latency-critical at production scale, make it an explicit edge you own and benchmark
+that access path. Schema ownership sets the ceiling for query tuning.
 
 ### Walking a *single* direct relation backwards — the row that says "Works"
 
@@ -274,7 +292,12 @@ EHP = ViewId(SDM_SPACE, "EquipmentHealthProfile", MODEL_VERSION)
 q = Query(
     with_={
         "pump": NodeResultSetExpression(
-            filter=flt.Equals(["node", "externalId"], "21-PA-2001A"), limit=1),
+            filter=flt.And(
+                flt.SpaceFilter(INSTANCE_SPACE, "node"),
+                flt.HasData(views=[ASSET]),
+                flt.Equals(["node", "externalId"], "21-PA-2001A"),
+            ),
+            limit=1),
         "profile": NodeResultSetExpression(
             from_="pump",
             through=EHP.as_property_ref("asset"),   # the FORWARD property
@@ -310,6 +333,61 @@ The declaration does not enable the traversal — it **publishes** it. Anything 
 your model rather than hand-writing queries against it (an application, a UI, an agent)
 can only see connections the model declares. That is the whole argument for spending a
 schema change on something that stores nothing.
+
+### Walking a real edge — from the pump to its P&ID
+
+Direct relations are properties on nodes. Diagram annotations are different: the
+relationship itself carries the bounding box and confidence score, so Chapter 08 wrote
+it as an edge from `CogniteFile` → `CogniteAsset`. Starting at the asset means following
+that edge **inwards**.
+
+🟢 `[ACTION]`
+
+```python
+from cognite.client.data_classes.data_modeling.query import EdgeResultSetExpression
+
+ASSET_LINK = {"space": "cdf_cdm", "externalId": "diagrams.AssetLink"}
+FILE = ViewId("cdf_cdm", "CogniteFile", "v1")
+
+q = Query(
+    with_={
+        "pump": NodeResultSetExpression(
+            filter=flt.And(
+                flt.SpaceFilter(INSTANCE_SPACE, "node"),
+                flt.HasData(views=[ASSET]),
+                flt.Equals(["node", "externalId"], "21-PA-2001A"),
+            ),
+            limit=1,
+        ),
+        "annotations": EdgeResultSetExpression(
+            from_="pump",
+            direction="inwards",             # File --edge--> Asset
+            max_distance=1,                   # this is one relationship, never recursive
+            filter=flt.Equals(["edge", "type"], ASSET_LINK),
+            limit=100,
+        ),
+        "diagrams": NodeResultSetExpression(
+            from_="annotations",
+            chain_to="destination",           # with inward traversal, this is startNode
+            limit=100,
+        ),
+    },
+    # `annotations` is a stepping stone. Do not select edge properties you do not need.
+    select={"diagrams": Select([SourceSelector(FILE, ["name", "mimeType"])])},
+)
+
+res = client.data_modeling.instances.query(q)
+for diagram in res["diagrams"]:
+    print(diagram.external_id, diagram.properties[FILE])
+```
+
+✅ `[VERIFY]` The result includes your P&ID file. This is a genuine graph traversal:
+the query anchors one pump, follows only `diagrams.AssetLink`, stops after one hop, and
+projects only the two file properties the caller needs.
+
+⚡ `[OPTIMIZE]` Put cardinality controls in the query, not in Python after the response:
+an exact anchor and space filter, an edge-type filter, `max_distance=1`, explicit limits,
+and a narrow `select`. Each removes work or bytes before they reach your process.
 
 ---
 
@@ -489,7 +567,62 @@ a pipeline — the ranking is not a contract.
 
 ---
 
-## 13.10 [ACTION] Sync — read once, then only the changes
+## 13.10 [ACTION] Cross the API boundary — graph metadata, then datapoints
+
+The knowledge graph tells you **which** sensors belong to the pump. The time-series API
+is optimized to tell you **what those sensors are reading**. Do not force either API to
+do the other's job, and do not issue one datapoint request per time series.
+
+🟢 `[ACTION]` Resolve the three pump-A series in one DMS read, then retrieve all three
+latest values in one batched datapoint call:
+
+```python
+from cognite.client.data_classes.data_modeling import NodeId
+
+TIMESERIES = ViewId("cdf_cdm", "CogniteTimeSeries", "v1")
+
+sensors = client.data_modeling.instances.list(
+    sources=TIMESERIES,
+    space=INSTANCE_SPACE,
+    limit=-1,
+    filter=flt.ContainsAny(TIMESERIES.as_property_ref("assets"), [PUMP]),
+)
+
+metadata = {
+    (n.space, n.external_id): n.properties[TIMESERIES]
+    for n in sensors
+}
+latest = client.time_series.data.retrieve_latest(
+    instance_id=[NodeId(n.space, n.external_id) for n in sensors],
+    ignore_unknown_ids=True,
+)
+
+for point in latest:
+    key = (point.instance_id.space, point.instance_id.external_id)
+    unit = metadata[key].get("sourceUnit", "")
+    print(point.instance_id.external_id, point.value, unit, "@", point.timestamp)
+```
+
+✅ `[VERIFY]` You get one latest value each for `21-FT-2002`, `21-VT-2002`, and
+`21-PT-2003`. Flow is near 268 m³/h, vibration near 7.4 mm/s, and discharge pressure
+near 33.5 barg—the same degradation signature Chapter 11 generated.
+
+⚡ `[OPTIMIZE]` This is the production pattern: **resolve IDs once, deduplicate them,
+batch the specialized read, merge by `(space, externalId)`**. Calling
+`retrieve_latest()` inside a loop creates an N+1 request pattern; it looks harmless with
+three sensors and becomes the dominant latency with three thousand. For larger ID sets,
+chunk to the endpoint's request limit and use bounded concurrency with retry/backoff for
+`408`, `429`, and transient `5xx` responses.
+
+🚧 `[LIMITS]` The graph assembles evidence; it does not prove causality. The sensor trend
+corroborates the maintenance record's seal-wear hypothesis. It does not, by itself,
+establish a root cause or a vibration alarm threshold. A decision-grade application must
+say which facts came from measurements, which came from maintenance records, and which
+are engineering inference.
+
+---
+
+## 13.11 [ACTION] Sync — read once, then only the changes
 
 A dashboard that re-reads your whole model every 30 seconds is how you turn a small
 model into a support ticket. `/sync` hands you a cursor and then returns only what
@@ -498,10 +631,12 @@ changed since it.
 🟢 `[ACTION]`
 
 ```python
-from cognite.client.data_classes.data_modeling.query import QuerySync
+from cognite.client.data_classes.data_modeling.query import (
+    QuerySync, NodeResultSetExpressionSync,
+)
 
 sq = QuerySync(
-    with_={"orders": NodeResultSetExpression(
+    with_={"orders": NodeResultSetExpressionSync(
         # SpaceFilter alone would sync EVERY node in the space -- assets, files,
         # operations, all of it. HasData narrows it to instances that actually
         # carry WorkOrder data. This is the explicit form of the implicit filter
@@ -510,6 +645,8 @@ sq = QuerySync(
             flt.SpaceFilter(INSTANCE_SPACE, "node"),
             flt.HasData(views=[WORKORDER]),
         ),
+        # A custom hasData filter benefits from indexed backfill, then live updates.
+        sync_mode="two_phase",
         limit=100)},
     select={"orders": Select([SourceSelector(WORKORDER, ["workOrderNumber", "status"])])},
 )
@@ -534,21 +671,62 @@ mechanism [Chapter 14](14-debugging-broken-links.md) uses to undo an accidental 
 badly, and the endpoint does not support arbitrary sorting — results come back in
 transaction order, not by `lastUpdatedTime`.
 
+🚧 `[LIMITS]` Persist the cursor durably and consume it within the soft-delete grace
+period—three days by default. An expired cursor can miss deletes. Starting over with a
+fresh backfill restores current state, but it cannot reconstruct deletes that have
+already aged out.
+
 ---
 
-## 13.11 [LIMITS] What will bite you at scale
+## 13.12 [LIMITS] What will bite you at scale
 
 | Limit | Number | What to do |
 |---|---|---|
 | Default result set size | 100 | Set `limit` explicitly; you rarely want the default |
 | Maximum per result set | 10,000 | Page with cursors, or narrow the filter |
-| Query timeout | `408 Request Timeout` | Reduce `max_distance`, add filters, split the query |
+| Query timeout | `408 Request Timeout` | Narrow the anchor, add filters, bound edge traversal, split the query |
 | Traversal execution | Nested-loop, breadth-first | Fine to a few hundred thousand paths; fully connected graphs and loops will not finish |
 | Search / aggregate freshness | Eventually consistent | Wait a few seconds after a write |
+| Large `in` filter | 1,000 values per expression | Chunk IDs, merge by stable identity, deduplicate deterministically |
+| Concurrency | `429 Too Many Requests` | Use bounded concurrency and exponential backoff with jitter |
 
-⚡ `[OPTIMIZE]` `max_distance` is the single biggest lever on a traversal. If you know
-the answer is one hop away, say `max_distance=1` — the planner stops instead of
-exploring your whole graph breadth-first.
+⚡ `[OPTIMIZE]` `max_distance` applies to **edge** result expressions, not direct-relation
+node steps. Always set it explicitly for edge traversals. If the answer is one hop away,
+say `max_distance=1`; for recursive traversal, add edge and node filters plus a termination
+condition so breadth-first exploration cannot fan out without a business boundary.
+
+### Measure the query; do not optimize from folklore
+
+The SDK can ask DMS for query-quality notices. Start with the lightweight form; it keeps
+the results and reports issues such as a sort not backed by an index:
+
+```python
+from cognite.client.data_classes.data_modeling.debug import DebugParameters
+
+measured = client.data_modeling.instances.query(q, debug=DebugParameters())
+print(measured.debug)
+```
+
+Then verify the physical resource, because index creation is asynchronous:
+
+```python
+container = client.data_modeling.containers.retrieve(
+    (SDM_SPACE, "EquipmentHealthProfile")
+)
+print(container.indexes["assetIndex"].state)   # must be "current", not pending/failed
+```
+
+Use `include_plan=True` or profiling only for deliberate diagnosis; those deeper debug
+options are preview capabilities and can add work. The operating loop is: capture the
+slow query shape, read its notices, change one filter/index/traversal decision, verify the
+index is `current`, and measure again.
+
+### Cursors are per result set
+
+`/query` returns a cursor for each named result expression, not one cursor for the whole
+query. Feed the mapping back through `Query.cursors`; do not attach one step's cursor to
+another. Custom-sort pagination requires a matching cursorable index. If you are
+repeating this process to keep a cache current, stop paging `/query` and use `/sync`.
 
 ### The `space=` trap — a wrong answer with no error
 
@@ -583,16 +761,18 @@ believe it.
 
 ---
 
-## 13.12 ✅ Gate
+## 13.13 ✅ Gate
 
 Do not proceed until all of these are true:
 
 - [ ] `aggregate` returns 8 assets in your instance space
 - [ ] section 13.5's inward traversal fails, and you can say why a *list* cannot be walked backwards
 - [ ] The `ContainsAny` filter returns **exactly** `WO-1001`
+- [ ] The bounded edge traversal reaches the P&ID from the pump
 - [ ] section 13.6 gives 9 activities / 3 work orders / 6 operations, and you can explain the 9
 - [ ] `inspect()` in section 13.7 tells you which containers your EHP node has data in
 - [ ] `group_by="status"` fails because it is an enum; `orderType` gives two buckets
+- [ ] One batched latest-datapoint call returns the pump's 3 sensor values
 - [ ] The second `sync` call returns 0 changes
 - [ ] You can say, in one sentence each, when you would use `list`, `query` and `aggregate`
 

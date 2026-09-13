@@ -1,7 +1,8 @@
 # Templated Toolkit resources under training/modules/reference/ contain
 # {{ variable }} placeholders. They are not valid YAML until `cdf build`
 # substitutes them, so check-yaml must skip that tree — `cdf build` is what
-# actually validates those files.
+# actually validates those files. MkDocs uses a deliberate !!python/name tag;
+# `mkdocs build --strict` validates that configuration in the site workflow.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -10,7 +11,7 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
         args: [--allow-multiple-documents]
-        exclude: ^training/modules/
+        exclude: ^(training/modules/|mkdocs\.yml$)
       - id: check-added-large-files
         args: [--maxkb=2048]
   - repo: https://github.com/gitleaks/gitleaks
@@ -25,4 +26,4 @@ repos:
         entry: uv run python tools/check_docs.py
         language: system
         pass_filenames: false
-        files: ^(docs/|training/modules/reference/|README\.md|PREREQUISITES\.md)
+        files: ^(docs/|training/modules/reference/|tools/check_docs\.py$|README\.md|PREREQUISITES\.md)

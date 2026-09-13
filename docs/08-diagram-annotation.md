@@ -413,9 +413,14 @@ FILE = ViewId("cdf_cdm", "CogniteFile", "v1")
 q = Query(
     with_={
         "pump": NodeResultSetExpression(
-            filter=flt.Equals(["node", "externalId"], "21-PA-2001A"), limit=1),
+            filter=flt.And(
+                flt.SpaceFilter(INSTANCE_SPACE, "node"),
+                flt.HasData(views=[ASSET]),
+                flt.Equals(["node", "externalId"], "21-PA-2001A"),
+            ),
+            limit=1),
         "links": EdgeResultSetExpression(
-            from_="pump", direction="inwards", limit=100,
+            from_="pump", direction="inwards", max_distance=1, limit=100,
             filter=flt.Equals(["edge", "type"],
                               {"space": "cdf_cdm", "externalId": "diagrams.AssetLink"})),
         "diagrams": NodeResultSetExpression(from_="links", limit=100),

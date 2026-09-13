@@ -104,10 +104,12 @@ graph TD
     OBJ["3D CAD node"] -->|object3D| PUMP
 ```
 
-**The aha moment:** `21-VT-2002` rising and `21-FT-2002` falling ([Chapter 11](11-datapoints.md))
-*is* the story behind `WO-1001` ([Chapter 05](05-transformations.md)) — and now every
-piece of evidence for that story (sensors, work order, datasheet, P&ID, 3D position)
-is one graph walk away from the same node, in your own isolated space.
+**The aha moment:** `21-VT-2002` rising and `21-FT-2002` falling
+([Chapter 11](11-datapoints.md)) corroborate the degraded condition recorded in
+`WO-1001` ([Chapter 05](05-transformations.md)) — and now every piece of evidence for
+that operational picture (sensors, work order, datasheet, P&ID, 3D position) is reachable
+from the same node, in your own isolated space. The graph connects evidence; engineering
+judgement still distinguishes correlation, hypothesis and confirmed cause.
 
 🟢 `[ACTION]` Open your location filter ([Chapter 06](06-location-filters.md)) →
 `21-PA-2001A` → confirm you can reach every neighbor in the diagram above by clicking
