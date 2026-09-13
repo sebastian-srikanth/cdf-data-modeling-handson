@@ -37,14 +37,17 @@ from cognite.client.data_classes.contextualization import DiagramDetectConfig
 
 
 def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
-    """The nearest thing CDF offers to a custom symbol library.
+    """Character substitutions for the OCR, from RAW.
 
-    You cannot deploy a symbol recogniser into diagram detect -- there is no such API.
-    What you CAN do is tell it which strings mean the same thing, and keep that list as
-    data rather than in code, so a drawing-office engineer can add "the 2011 sheets
-    abbreviate PUMP as P" without a deploy.
+    `substitutions` keys must be a SINGLE CHARACTER -- the API rejects anything longer
+    with `configuration.substitutions.PUMP.key: Length must be 1`. This is not a
+    word-alias feature. It tells the matcher which characters the OCR confuses, which on
+    a scanned P&ID is where most misses come from: 21-PA-2001A read as 21-PA-2OO1A.
 
-    Returns {canonical: [alias, ...]} for DiagramDetectConfig(substitutions=...).
+    Word-level aliases are a different mechanism -- you pass several strings per entity
+    in `name`, which this handler already does.
+
+    Returns {character: [alternative, ...]} for DiagramDetectConfig(substitutions=...).
     """
     try:
         rows = client.raw.rows.list(
@@ -54,12 +57,16 @@ def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
     aliases: dict[str, list[str]] = {}
     for row in rows:
         c = row.columns or {}
-        canonical = (c.get("canonical") or "").strip()
-        raw_aliases = (c.get("aliases") or "").strip()
-        if not canonical or not raw_aliases:
+        # RAW TYPES its values: a column of 0, 1, 5, 8 comes back as int, not str, and
+        # .strip() on an int raises AttributeError. Same family as the leading-zero trap
+        # in Chapter 05 -- never assume a RAW column is text.
+        character = str(c.get("character") if c.get("character") is not None else "").strip()
+        alternatives = str(c.get("alternatives") or "").strip()
+        # Skip anything the API would reject rather than failing the whole detect job.
+        if len(character) != 1 or not alternatives:
             continue
         # pipe-separated, because a comma would fight the CSV
-        aliases[canonical] = [a.strip() for a in raw_aliases.split("|") if a.strip()]
+        aliases[character] = [a.strip() for a in alternatives.split("|") if a.strip()]
     return aliases
 
 

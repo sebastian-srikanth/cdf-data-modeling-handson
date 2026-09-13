@@ -1,5 +1,5 @@
-key,canonical,aliases,addedBy,reason
-alias-001,PUMP,PMP|P,course,Older drawing revisions abbreviate PUMP; the 2011 sheets use P.
-alias-002,VALVE,VLV|V,course,VLV is the vendor's abbreviation; V appears on the isometrics.
-alias-003,SEPARATOR,SEP|SEPR,course,SEP is used on the P&ID title block and SEPR in the equipment list.
-alias-004,HEAT EXCHANGER,HX|HE,course,HX on the P&ID, HE in the SAP equipment master.
+key,character,alternatives,addedBy,reason
+sub-001,0,O|o,course,OCR reads the digit zero as a letter O on scanned sheets; 21-PA-2OO1A is the classic miss.
+sub-002,1,I|l,course,Digit one versus capital I and lowercase L in the drawing-office font.
+sub-003,5,S,course,Digit five versus capital S in stencilled tag numbers.
+sub-004,8,B,course,Digit eight versus capital B when the scan is poor.

@@ -11,4 +11,6 @@ envVars:
   SCHEMA_SPACE_EDM: "{{ schema_space_edm }}"
   SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
   DATASET: "{{ dataset }}"
+  # The CAD-node to asset mapping table lives in RAW.
+  RAW_DB: "{{ raw_db }}"
   MODEL_VERSION: "{{ model_version }}"

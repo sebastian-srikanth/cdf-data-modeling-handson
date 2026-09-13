@@ -119,6 +119,8 @@ def check_04(client, name, r: Report) -> None:
         "rwt_Training_TRN_MappingRules": 2,
         # Chapter 08: the tag-alias library that feeds DiagramDetectConfig.substitutions
         "rwt_Training_TRN_TagAliases": 4,
+        # Chapter 09: CAD node -> asset mappings
+        "rwt_Training_TRN_Model3DMappings": 6,
     }
     try:
         tables = {t.name for t in client.raw.tables.list(raw_db, limit=-1)}

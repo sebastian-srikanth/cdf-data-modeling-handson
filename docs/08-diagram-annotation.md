@@ -103,14 +103,30 @@ and **that is where the real work is**:
 
 | Parameter | What it decides |
 |---|---|
-| `substitutions` | which strings mean the same thing — `PMP` is a `PUMP`. **The closest thing to a library, and it is yours to maintain** |
+| `substitutions` | which **single characters** the OCR confuses — `0` for `O`, `1` for `I`. **Keys must be one character; the API rejects longer ones** |
 | `min_fuzzy_score` / `customize_fuzziness` | how close is close enough. The precision/recall dial |
 | `read_embedded_text` | vector PDFs carry real text. Read it; OCR is the fallback, not the default |
 | `remove_leading_zeros` | `21-PA-2001` vs `21-PA-02001`. The same class of bug [Chapter 05](05-transformations.md) fixes with `lpad`, on the other side |
 | `case_sensitive`, `partial_match`, `min_tokens` | matching strictness |
 | `pattern_mode` | detect tags by *pattern* instead of a fixed entity list |
 
-### The alias library belongs in RAW, for the same reason the mapping rules do
+### The character-substitution library belongs in RAW
+
+⚠️ `[COMMON MISTAKE]` Reading `substitutions` as a word-alias feature — *"tell it that PMP
+means PUMP"*. It is not, and the API says so:
+
+```
+configuration.substitutions.PUMP.key: Length must be 1. | code: 400
+```
+
+**Keys must be a single character.** This is an *OCR confusion* table: which characters
+the reader mistakes for which. On a scanned P&ID that is where most misses come from —
+`21-PA-2001A` read as `21-PA-2OO1A`, zero for the letter O.
+
+💡 `[GOOD TO KNOW]` Word-level aliases are a different mechanism entirely: you pass
+**several strings per entity** in `name`. Your handler already does it —
+`"name": [name, a.external_id]` gives every asset two spellings to match on. If you need
+`PMP` to find `PUMP`, add it there, not here.
 
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.yaml`
 
@@ -122,17 +138,29 @@ tableName: rwt_Training_TRN_TagAliases
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.csv`
 
 ```text
-key,canonical,aliases,addedBy,reason
-alias-001,PUMP,PMP|P,course,Older drawing revisions abbreviate PUMP; the 2011 sheets use P.
-alias-002,VALVE,VLV|V,course,VLV is the vendor's abbreviation; V appears on the isometrics.
-alias-003,SEPARATOR,SEP|SEPR,course,SEP is used on the P&ID title block and SEPR in the equipment list.
-alias-004,HEAT EXCHANGER,HX|HE,course,HX on the P&ID, HE in the SAP equipment master.
+key,character,alternatives,addedBy,reason
+sub-001,0,O|o,course,OCR reads the digit zero as a letter O on scanned sheets; 21-PA-2OO1A is the classic miss.
+sub-002,1,I|l,course,Digit one versus capital I and lowercase L in the drawing-office font.
+sub-003,5,S,course,Digit five versus capital S in stencilled tag numbers.
+sub-004,8,B,course,Digit eight versus capital B when the scan is poor.
 ```
 
-Aliases are pipe-separated because a comma would fight the CSV. `addedBy` and `reason`
-are here for the same reason as in [Chapter 07](07-entity-matching.md) section 7.2: in a
-year, *"who decided VLV means VALVE, and is that still true for this vendor"* is the only
-question that matters.
+Alternatives are pipe-separated because a comma would fight the CSV. `addedBy` and
+`reason` are here for the same reason as in [Chapter 07](07-entity-matching.md) section
+7.2: in a year, *"who decided 5 and S are interchangeable, and is that still true for this
+scanner"* is the only question that matters.
+
+⚠️ `[COMMON MISTAKE]` Calling `.strip()` on what you read back from that table. **RAW
+types its values** — a column containing `0`, `1`, `5`, `8` comes back as `int`, not
+`str`, and the Function dies with `AttributeError: 'int' object has no attribute 'strip'`
+*inside* the detect job, where you will not see it until you read the logs. Coerce with
+`str(...)` first. This is the same family as the leading-zero trap in
+[Chapter 05](05-transformations.md): **never assume a RAW column is text.**
+
+🚧 `[LIMITS]` Every substitution you add widens the match space for **every** tag, so each
+one buys recall and sells precision globally. Four well-chosen character pairs are worth
+more than twenty speculative ones — and the handler skips any row whose key is not exactly
+one character rather than letting a bad row fail the whole detect job.
 
 💡 `[GOOD TO KNOW]` An alias library is **not** a symbol library — it is the other half of
 the problem. Full diagram parsing teaches CDF what a pump *looks like*; this teaches it
@@ -286,14 +314,17 @@ from cognite.client.data_classes.contextualization import DiagramDetectConfig
 
 
 def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
-    """The nearest thing CDF offers to a custom symbol library.
+    """Character substitutions for the OCR, from RAW.
 
-    You cannot deploy a symbol recogniser into diagram detect -- there is no such API.
-    What you CAN do is tell it which strings mean the same thing, and keep that list as
-    data rather than in code, so a drawing-office engineer can add "the 2011 sheets
-    abbreviate PUMP as P" without a deploy.
+    `substitutions` keys must be a SINGLE CHARACTER -- the API rejects anything longer
+    with `configuration.substitutions.PUMP.key: Length must be 1`. This is not a
+    word-alias feature. It tells the matcher which characters the OCR confuses, which on
+    a scanned P&ID is where most misses come from: 21-PA-2001A read as 21-PA-2OO1A.
 
-    Returns {canonical: [alias, ...]} for DiagramDetectConfig(substitutions=...).
+    Word-level aliases are a different mechanism -- you pass several strings per entity
+    in `name`, which this handler already does.
+
+    Returns {character: [alternative, ...]} for DiagramDetectConfig(substitutions=...).
     """
     try:
         rows = client.raw.rows.list(
@@ -303,12 +334,16 @@ def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
     aliases: dict[str, list[str]] = {}
     for row in rows:
         c = row.columns or {}
-        canonical = (c.get("canonical") or "").strip()
-        raw_aliases = (c.get("aliases") or "").strip()
-        if not canonical or not raw_aliases:
+        # RAW TYPES its values: a column of 0, 1, 5, 8 comes back as int, not str, and
+        # .strip() on an int raises AttributeError. Same family as the leading-zero trap
+        # in Chapter 05 -- never assume a RAW column is text.
+        character = str(c.get("character") if c.get("character") is not None else "").strip()
+        alternatives = str(c.get("alternatives") or "").strip()
+        # Skip anything the API would reject rather than failing the whole detect job.
+        if len(character) != 1 or not alternatives:
             continue
         # pipe-separated, because a comma would fight the CSV
-        aliases[canonical] = [a.strip() for a in raw_aliases.split("|") if a.strip()]
+        aliases[character] = [a.strip() for a in alternatives.split("|") if a.strip()]
     return aliases
 
 

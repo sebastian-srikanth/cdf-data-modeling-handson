@@ -153,7 +153,7 @@ workflowDefinition:
 
     - externalId: generate_datapoints
       type: function
-      name: 5. Generate datapoints
+      name: 6. Generate datapoints
       parameters:
         function:
           externalId: fnc_<YOURNAME>_Training_GenerateDatapoints
@@ -165,11 +165,10 @@ workflowDefinition:
       dependsOn:
         - externalId: load_timeseries
 
-    # Call it manually, once. Do not wire it into a re-runnable workflow.
 
     - externalId: match_documents
       type: function
-      name: 6. Match documents to assets
+      name: 7. Match documents to assets
       parameters:
         function:
           externalId: fnc_<YOURNAME>_Training_MatchDocuments
@@ -191,13 +190,13 @@ workflowDefinition:
         isAsyncComplete: false
       retries: 1
       timeout: 1800
-      onFailure: skipTask          # a flaky service must not abort the run
+      onFailure: skipTask
       dependsOn:
         - externalId: load_equipment
 
     - externalId: parse_datasheet
       type: function
-      name: 7. Parse datasheet
+      name: 9. Parse datasheet
       parameters:
         function:
           externalId: fnc_<YOURNAME>_Training_ParseDatasheet
@@ -212,7 +211,7 @@ workflowDefinition:
 
     - externalId: load_3d_revision
       type: function
-      name: 8. Upload 3D revision and map to assets
+      name: 10. Upload 3D revision and map to assets
       parameters:
         function:
           externalId: fnc_<YOURNAME>_Training_Load3DRevision
