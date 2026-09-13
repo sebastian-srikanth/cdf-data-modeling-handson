@@ -50,11 +50,29 @@ else is `abortWorkflow`.
 Eleven tasks: five transformations, five Functions that do work, and one that asserts
 the work was good — orchestrated uniformly.
 
-ℹ️ `[INFO]` **Two of them are allowed to fail.** `detect_diagram_tags` and
-`load_3d_revision` both call services that can be slow or temporarily unhealthy —
-diagram-detect jobs have been seen stuck at `Distributed` with no cancel API, and 3D
-conversion is genuinely long-running. Both therefore carry `onFailure: skipTask`
-rather than the default `abortWorkflow`.
+ℹ️ `[INFO]` **Two of them are allowed to fail**, for two different reasons, and the
+difference is worth understanding before you copy the setting.
+
+`detect_diagram_tags` calls a service that can be slow or temporarily unhealthy —
+diagram-detect jobs have been seen stuck at `Distributed` with no cancel API. That is a
+**flaky dependency**: it usually works, and you bound what its failure costs.
+
+`load_3d_revision` is different. It fails **every time it runs here**, and predictably:
+
+```
+Sessions chaining depth limit exceeded | code: 400
+```
+
+The Function mints its own session for the 3D conversion nonce
+([Chapter 09](09-3d.md)). Called directly that is three sessions deep; called from a
+Workflow it is four, and four is past the limit. The identical Function, on the identical
+data, **succeeds when you call it yourself and fails inside this workflow**.
+
+That is not a flaky dependency, it is a structural constraint, and `skipTask` is a
+deliberate *acceptance* of it rather than a hedge against bad luck. Know which of the two
+you are doing every time you write that line. The honest way to record it is in the
+comment next to the setting — a `skipTask` with no note reads, to the next person, as
+"nobody was sure".
 
 That is the pattern worth taking away: **you do not keep a flaky dependency out of your
 pipeline, you bound what its failure can cost.** A task with `skipTask` plus a real

@@ -564,15 +564,28 @@ The first argument is a **name you choose** for the watermark; the second is the
 it advances on. On each successful run CDF records the high-water mark under that name,
 and the next run sees only rows past it.
 
-⚠️ `[COMMON MISTAKE]` Naming the watermark after the transformation and then copying the
-SQL into a second transformation. Both now share one watermark: whichever runs first
-advances it, and the second silently processes nothing. The name is a **global
-identifier**, not a label — treat it like an external ID.
+✅ `[VERIFY]` Four things about that watermark, measured against a live project rather
+than assumed — build a two-row table, a transformation, and watch it:
 
-⚠️ `[COMMON MISTAKE]` Advancing on a column the source system does not actually update.
-If `lastUpdatedTime` is set at row creation and never touched again, an edit to an
-existing row is invisible to `is_new()` forever. Check what the column *means* in the
-source, not what it is called.
+| Claim | Measured |
+|---|---|
+| The first run under a fresh watermark name processes everything | ✅ both rows written |
+| An immediate re-run, nothing changed, processes nothing | ✅ zero rows written |
+| A row whose watermark column **advances** is picked up | ✅ only that row |
+| A row edited **without** advancing the column is picked up | ❌ **never** — the edit is invisible |
+
+⚠️ `[COMMON MISTAKE]` That last row is the one that costs you. Advancing on a column the
+source system does not actually update means an edit to an existing row is invisible to
+`is_new()` **forever** — not late, not eventually: never. If `lastUpdatedTime` is set when
+the row is created and never touched again, you have built a pipeline that can only ever
+see inserts. Check what the column *means* in the source, not what it is called.
+
+💡 `[GOOD TO KNOW]` The watermark is scoped to the **transformation**, not to the name
+alone. Two transformations using the same watermark name were measured not to interfere:
+the second still processed every row on its first run, because it had its own watermark.
+Convenient, and worth knowing before you spend an afternoon assuming the opposite — but
+still name them distinctly, because the name is what you will read in six months when you
+are trying to work out which job is stuck.
 
 🚧 `[LIMITS]` A watermark is state that lives in CDF, not in your repository. It survives
 `cdf deploy`, so re-deploying a transformation does **not** replay history — and after a
