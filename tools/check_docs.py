@@ -448,6 +448,32 @@ def check_no_attribution() -> int:
     return checked
 
 
+# ------------------------------------------------------ 8f. unit references ----
+def check_unit_references() -> int:
+    """Every `unit:` block must carry `space: cdf_units`.
+
+    This is not style. CDF stores and returns the field, and the Toolkit diffs local
+    YAML against the API response, so a unit without it makes every future dry-run
+    report a change that will never happen. Measured: with it, 0 to update; without it,
+    1 container to update forever.
+
+    A rebase once dropped it from all six properties and every other check still
+    passed, which is why this one exists.
+    """
+    checked = 0
+    for path in (REFERENCE / "data_modeling").glob("*.Container.yaml"):
+        lines = path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.strip() != "unit:":
+                continue
+            checked += 1
+            block = lines[i + 1 : i + 4]
+            if not any(l.strip() == "space: cdf_units" for l in block):
+                fail(f"unit       {path.name}: a unit near line {i + 1} has no "
+                     f"`space: cdf_units` (see the comment at the top of that file)")
+    return checked
+
+
 # ------------------------------------------------------- 9. the tools import ----
 def check_tools_import() -> int:
     """Every tool must at least import.
@@ -534,6 +560,7 @@ def main() -> int:
     shapes = check_chapter_shape()
     markers = check_marker_emoji()
     tables = check_chapter_tables()
+    units = check_unit_references()
     envkeys = check_env_example()
     counts = check_advertised_counts()
     attribution = check_no_attribution()
@@ -551,6 +578,7 @@ def main() -> int:
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
     print(f"  marker emoji     {markers:>4} markers: consistent emoji")
     print(f"  chapter tables   {tables:>4} rows: label matches link target")
+    print(f"  unit references  {units:>4} units carry space: cdf_units")
     print(f"  .env.example     {envkeys:>4} required keys present")
     print(f"  advertised counts{counts:>4} claims match the files")
     print(f"  attribution      {attribution:>4} files: no tool attribution")
