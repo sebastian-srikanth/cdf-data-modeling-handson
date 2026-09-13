@@ -538,6 +538,99 @@ https://docs.cognite.com/cdf/integration/guides/transformation/troubleshooting
 
 ---
 
+## 5.7b [OPTIMIZE] Three things these five transformations do not do
+
+Your five transformations are correct for eight assets and wrong for eight million, in
+three specific ways. None of them is a bug here. All three are the first questions a
+reviewer will ask about the real thing.
+
+### 1. They re-read the whole table, every run
+
+Every `select` above scans its RAW table end to end. At this scale that is free. At
+production scale it is the difference between a nightly job that finishes and one that
+does not.
+
+CDF Transformations give you a watermark for this — `is_new()`:
+
+```sql
+select
+  cast(`workOrderNumber` as STRING) as externalId,
+  ...
+from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_WorkOrders`
+where is_new('workorders_watermark', lastUpdatedTime)
+```
+
+The first argument is a **name you choose** for the watermark; the second is the column
+it advances on. On each successful run CDF records the high-water mark under that name,
+and the next run sees only rows past it.
+
+⚠️ `[COMMON MISTAKE]` Naming the watermark after the transformation and then copying the
+SQL into a second transformation. Both now share one watermark: whichever runs first
+advances it, and the second silently processes nothing. The name is a **global
+identifier**, not a label — treat it like an external ID.
+
+⚠️ `[COMMON MISTAKE]` Advancing on a column the source system does not actually update.
+If `lastUpdatedTime` is set at row creation and never touched again, an edit to an
+existing row is invisible to `is_new()` forever. Check what the column *means* in the
+source, not what it is called.
+
+🚧 `[LIMITS]` A watermark is state that lives in CDF, not in your repository. It survives
+`cdf deploy`, so re-deploying a transformation does **not** replay history — and after a
+teardown that removed your instances but left the transformation, a re-run loads
+*nothing* and the tables look mysteriously empty. That is the single most confusing
+consequence of incremental loading, and it is why this course loads in full: a learner
+who re-runs Chapter 05 must get their data back.
+
+### 2. They have nowhere to put a bad row
+
+Section 5.6 taught you to *filter out* rows that would break the load — a null external
+ID, a duplicate, a reference to nothing. Filtering makes the job succeed. It also makes
+the bad rows **disappear**, and nobody is counting them.
+
+```sql
+-- the load: only rows that are safe to write
+where `operationId` is not null and `workOrderNumber` is not null
+
+-- the quarantine: a second transformation, same source, opposite predicate
+where `operationId` is null or `workOrderNumber` is null
+```
+
+Point the second one at a RAW table — `rwt_Training_TRN_WorkOrderOperations_rejected` —
+and you have turned silent data loss into a queue somebody can work. The pattern is the
+same one [Chapter 17](17-cross-cutting-mastery.md) section 17.1c applies to
+contextualization: *"we looked at this and could not use it"* is information, and
+discarding it is how a backlog becomes invisible.
+
+⚡ `[OPTIMIZE]` The two predicates must be exact complements. Write them as one
+`case` expression feeding both jobs if you can, because the day they drift is the day
+rows fall between them and are in neither place.
+
+### 3. They cannot express a deletion
+
+`conflictMode: upsert` writes and updates. Nothing in these five transformations can
+say *"this work order no longer exists"*. Delete a row from RAW and re-run: the node
+stays, forever, with no indication it is orphaned.
+
+This is the same problem the contextualization spine solves with `superseded`
+([Chapter 17](17-cross-cutting-mastery.md) section 17.1c) — **silence is not agreement** —
+and it has the same two honest answers:
+
+| Approach | How | When |
+|---|---|---|
+| **Tombstones** | The source emits a row marked deleted; the transformation writes a status property rather than removing the node | When downstream consumers need to know it *was* deleted — almost always, in maintenance data |
+| **Reconcile and remove** | A separate job lists what the model holds, diffs it against what the source now contains, and deletes the difference | When the source genuinely cannot emit deletions |
+
+⚠️ `[COMMON MISTAKE]` Reaching for `conflictMode: delete` to solve this. It is not a
+reconciliation mode — it deletes the rows your `select` **returns**, which is the exact
+opposite of the rows you want gone.
+
+💡 `[GOOD TO KNOW]` Tombstones interact badly with `is_new()` if you are not careful: a
+deletion row must update the watermark column, or the incremental load will never see
+it. A model where deletions are invisible to the very mechanism that reads changes is
+a common and expensive combination of two individually sensible decisions.
+
+---
+
 ## 5.8 [ACTION] Build, deploy, run
 
 ```bash
