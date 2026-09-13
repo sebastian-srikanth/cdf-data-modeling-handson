@@ -1,0 +1,130 @@
+name: course evaluation
+
+# Deploys the whole course to CDF from this branch, runs every transformation, function
+# and the workflow, self-checks every chapter, scores it, and tears down. The score lands
+# in the Actions job summary and as a comment on the pull request.
+#
+# This is the check that says "the course still works", as opposed to "the course still
+# parses" -- that one is checks.yml and runs in seconds with no credentials.
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "tools/**"
+      - "training/**"
+      - ".github/workflows/course-evaluation.yml"
+  workflow_dispatch:
+    inputs:
+      participant:
+        description: Participant name to deploy under
+        required: true
+        default: EVAL
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# One at a time: every run deploys under a participant name, and two runs sharing a name
+# would tear down each other's spaces.
+concurrency:
+  group: course-evaluation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    environment: live-verification
+    timeout-minutes: 75
+    env:
+      # A distinct name per PR so two open PRs never collide, and teardown only ever
+      # touches resources carrying this name.
+      PARTICIPANT: PR${{ github.event.pull_request.number || github.run_id }}
+      CDF_PROJECT: ${{ secrets.CDF_PROJECT }}
+      CDF_CLUSTER: ${{ secrets.CDF_CLUSTER }}
+      IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
+      IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+      IDP_TENANT_ID: ${{ secrets.IDP_TENANT_ID }}
+      LOGIN_FLOW: client_credentials
+      PROVIDER: entra_id
+      CI: "true"
+    steps:
+      - name: Are the CDF secrets configured?
+        id: guard
+        run: |
+          if [ -z "${CDF_PROJECT}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No CDF secrets on the live-verification environment — skipping."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v6
+        if: steps.guard.outputs.configured == 'true'
+
+      - uses: astral-sh/setup-uv@v4
+        if: steps.guard.outputs.configured == 'true'
+
+      - uses: actions/setup-python@v6
+        if: steps.guard.outputs.configured == 'true'
+        with:
+          python-version: "3.11"
+
+      - run: uv sync --frozen
+        if: steps.guard.outputs.configured == 'true'
+
+      - name: Derive the remaining CDF variables
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          echo "CDF_URL=https://${CDF_CLUSTER}.cognitedata.com" >> "$GITHUB_ENV"
+          echo "IDP_SCOPES=https://${CDF_CLUSTER}.cognitedata.com/.default" >> "$GITHUB_ENV"
+          echo "IDP_TOKEN_URL=https://login.microsoftonline.com/${IDP_TENANT_ID}/oauth2/v2.0/token" >> "$GITHUB_ENV"
+          echo "TRAINING_CDF_CLIENT_ID=${IDP_CLIENT_ID}" >> "$GITHUB_ENV"
+          echo "TRAINING_CDF_CLIENT_SECRET=${IDP_CLIENT_SECRET}" >> "$GITHUB_ENV"
+
+      - name: Offline checks first — never deploy a broken tree
+        if: steps.guard.outputs.configured == 'true'
+        run: uv run python tools/check_docs.py
+
+      - name: Deploy, run, self-check every chapter
+        if: steps.guard.outputs.configured == 'true'
+        run: uv run python tools/live_e2e.py "$PARTICIPANT"
+
+      - name: Score it
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          uv run python tools/assess.py --part-a-only \
+            --json evaluation.json --summary evaluation.md
+          cat evaluation.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment the score on the pull request
+        if: steps.guard.outputs.configured == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('evaluation.md', 'utf8')
+                         + '\n<!-- course-evaluation -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const existing = await github.rest.issues.listComments({ owner, repo, issue_number });
+            // Update in place rather than stacking a comment per push.
+            const mine = existing.data.find(c => c.body.includes('<!-- course-evaluation -->'));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Upload the result
+        if: steps.guard.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: course-evaluation-${{ env.PARTICIPANT }}
+          path: |
+            evaluation.json
+            evaluation.md
+          if-no-files-found: warn
+
+      - name: Tear down (always — a failed evaluation must not leave resources behind)
+        if: always() && steps.guard.outputs.configured == 'true'
+        run: uv run python tools/live_e2e.py "$PARTICIPANT" --teardown-only
