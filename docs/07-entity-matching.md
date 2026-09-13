@@ -206,8 +206,8 @@ match" and route them to manual review rather than silently accepting a low-conf
 guess; and let a caller pass explicit overrides for known exceptions. The
 `MatchDocuments` Function you write in section 7.7 implements this **full cascade**: optional
 manual overrides → regex → EM-on-miss → threshold gate. Because the regex resolves both
-of this lab's PDFs, a normal call **never reaches EM** (`em_ran: false`, no model
-created) — which is exactly right: EM is the expensive fallback, not the default. You
+of this lab's PDFs, a normal call **never reaches EM** (`entity_matching_used: false`,
+no model created) — which is exactly right: EM is the expensive fallback, not the default. You
 watch `fit`/`predict` run for real in the **notebook** (section 7.6), where you can see and
 interpret the scores — including the P&ID's weak, below-threshold hit that is *why* you
 don't call EM first.
@@ -507,11 +507,14 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     # fitting one anyway is exactly the waste this cascade exists to avoid.
     if not sources:
         result = _write_and_report(
-            client, space, v_file, files, resolved, matches, below, rules, model_used=False
+            client, space, v_file, files, resolved, matches, below, rules,
+            model_used=False, retract=_retractions(prior, resolved),
+            unresolved=unresolved
         )
         result["suggestions_recorded"] = _write_spine(
             client, space, sdm, version, run_id, resolved, below, unresolved, rules,
-            started, prior=prior, workflow_execution=workflow_execution)
+            started, prior=prior, workflow_execution=workflow_execution,
+            retracted=result.get("links_retracted", 0))
         result["run_id"] = run_id
         return result
 
@@ -581,11 +584,14 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                             "evidence": f"entity matching scored {score:.3f}"}
 
     result = _write_and_report(
-        client, space, v_file, files, resolved, matches, below, rules, model_used=True
+        client, space, v_file, files, resolved, matches, below, rules,
+        model_used=True, retract=_retractions(prior, resolved),
+        unresolved=[f for f in unresolved if f.external_id not in resolved]
     )
     result["suggestions_recorded"] = _write_spine(
         client, space, sdm, version, run_id, resolved, below, unresolved, rules,
-        started, prior=prior, workflow_execution=workflow_execution)
+        started, prior=prior, workflow_execution=workflow_execution,
+        retracted=result.get("links_retracted", 0))
     result["run_id"] = run_id
 
     try:
@@ -597,7 +603,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 
 def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolved,
                  rules, started, prior=None, technique="entity-matching",
-                 workflow_execution=None):
+                 workflow_execution=None, retracted=0):
     """Persist the run and the current state of every suggestion it considered.
 
     This is the difference between a pipeline you can operate and one you can only
@@ -670,7 +676,7 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
     # Silence is not agreement. A pair the pipeline applied last week and did not
     # produce today is a *change*, and leaving its row reading `auto-applied` is how a
     # link nobody can justify any more survives an audit.
-    stale = 0
+    superseded = 0
     for xid, props in prior.items():
         if xid in seen:
             continue
@@ -678,7 +684,7 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
             continue                      # a person owns this row; it is not stale
         if props.get("decision") == "superseded":
             continue                      # already reconciled by an earlier run
-        stale += 1
+        superseded += 1
         nodes.append(NodeApply(space=space, external_id=xid,
             sources=[NodeOrEdgeData(source=sug_view, properties={
                 "runId": run_id,
@@ -714,7 +720,10 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
             "reviewCount": _count("needs-review"),
             "rejectedCount": _count("rejected") + _count("rejected-by-human"),
             "unresolvedCount": _count("unresolved"),
-            "staleRemovedCount": stale,
+            # Links actually taken off file.assets -- not suggestions marked
+            # superseded. The alert is about data that changed, not bookkeeping.
+            "staleRemovedCount": retracted,
+            "supersededCount": superseded,
             "failedCount": 0,
             "workflowExecutionId": workflow_execution,
         })]))
@@ -723,10 +732,55 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
     return len(nodes) - 1
 
 
+def _retractions(prior: dict, resolved: dict) -> list[tuple]:
+    """Links that must be **removed** from file.assets, as (source, target) pairs.
+
+    Applying a link is only half a pipeline. Two things have to un-apply it, and a
+    system that does neither quietly accumulates links nobody can justify:
+
+    * **A person rejected the pair.** Their decision is the whole point of a review
+      queue. Recording the rejection and leaving the link in place means the reviewer
+      does the work, the record says "rejected", and Fusion still shows the bad link.
+    * **We applied it and no longer produce it.** Somebody edited a rule or a source
+      system renamed something. Silence is not agreement -- see Chapter 17 section 17.1c.
+
+    Note the asymmetry in what each case is allowed to touch. A *person's* rejection
+    retracts the link whoever created it: they looked at this exact pair and said no.
+    A *pipeline* retraction only removes what the pipeline itself applied -- which is
+    knowable only because the suggestion recorded `decidedBy`. Without that record the
+    safe implementation is to remove nothing, and the links accumulate forever.
+    """
+    produced = {f"{src}|{info['target']}" for src, info in resolved.items()}
+    out = []
+    for props in prior.values():
+        source = props.get("sourceExternalId")
+        target = props.get("targetExternalId")
+        if not source or not target:
+            continue
+        decided_by = props.get("decidedBy")
+        decision = props.get("decision")
+        by_human = decided_by not in (None, "", "pipeline")
+        if by_human and decision == "rejected":
+            out.append((source, target))
+        elif (not by_human and decision == "auto-applied"
+              and f"{source}|{target}" not in produced):
+            out.append((source, target))
+    return out
+
+
 def _write_and_report(client, space, v_file, files, resolved, matches, below, rules,
-                      *, model_used: bool) -> dict:
+                      *, model_used: bool, retract=None, unresolved=()) -> dict:
     """One write path for all three rungs, so a rule-matched file is applied exactly
-    the same way an entity-matched one is."""
+    the same way an entity-matched one is -- and one retraction path, so a link can
+    come off again."""
+    retract = retract or []
+    # Group by file: a single read-modify-write per node, never one per pair, or the
+    # second write of the pair silently reinstates what the first removed.
+    drop: dict[str, set] = {}
+    for src_id, tgt_id in retract:
+        drop.setdefault(src_id, set()).add(tgt_id)
+
+    retracted = 0
     applies: list[NodeApply] = []
     for src_id, info in resolved.items():
         tgt_id = info["target"]
@@ -745,6 +799,12 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
                     existing_assets.append(
                         DirectRelationReference(rel.get("space", space), rel["externalId"])
                     )
+        # Anything retracted for this file comes off in the same write that adds it,
+        # never in a second write -- two writes to one node and the later one wins.
+        kept = [a for a in existing_assets
+                if getattr(a, "external_id", None) not in drop.get(src_id, ())]
+        retracted += len(existing_assets) - len(kept)
+        existing_assets = kept
         if not any(getattr(a, "external_id", None) == tgt_id for a in existing_assets):
             existing_assets.append(DirectRelationReference(space, tgt_id))
         applies.append(
@@ -752,6 +812,29 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
                 space=space,
                 external_id=src_id,
                 sources=[NodeOrEdgeData(source=v_file, properties={"assets": existing_assets})],
+            )
+        )
+
+    # Files with nothing to add this run but something to take away still need writing.
+    for src_id, targets in drop.items():
+        if src_id in resolved:
+            continue                      # already handled in the loop above
+        existing = next((f for f in files if f.external_id == src_id), None)
+        if existing is None:
+            continue
+        keep = []
+        for rel in existing.properties.get(v_file, {}).get("assets") or []:
+            xid = rel.external_id if hasattr(rel, "external_id") else rel.get("externalId")
+            rel_space = rel.space if hasattr(rel, "space") else rel.get("space", space)
+            if xid in targets:
+                retracted += 1
+                continue
+            keep.append(DirectRelationReference(rel_space, xid))
+        applies.append(
+            NodeApply(
+                space=space,
+                external_id=src_id,
+                sources=[NodeOrEdgeData(source=v_file, properties={"assets": keep})],
             )
         )
 
@@ -768,6 +851,10 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
         "resolved_by": by_rung,          # how much each rung actually did
         "rules_loaded": len(rules),
         "entity_matching_used": model_used,
+        "links_retracted": retracted,
+        # An honest result says what it did *not* do. A caller that only ever sees
+        # `matches` has no way to tell "nothing was left over" from "nothing ran".
+        "unresolved_count": len(unresolved),
     }
 ```
 
@@ -775,26 +862,33 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
 
 | Code | What it does | Why it is written this way |
 |---|---|---|
-| `TAG_RE = r"(\d{2}-[A-Z]{2}-\d{4}[A-Z]?)"` | Finds an equipment tag like `21-PA-2001A` in a filename | Mirrors the site tag convention: *area–type–number–suffix*. The trailing `[A-Z]?` catches the `A`/`B` that distinguishes duty and standby pumps |
-| `AREA_RE = r"(TRN-\d{2}-[A-Z]+)"` | Fallback: finds an area tag like `TRN-21-SEP` | A P&ID covers a whole separation area, not one pump — so it matches at area level. Tried **only if** `TAG_RE` misses |
+| `AUTO_APPLY_AT = 0.80` / `REVIEW_AT = 0.45` | Three bands, not one threshold | A single cut-off forces every uncertain match into one of two wrong answers — apply it silently, or throw it away with no trace. The middle band is where contextualization actually lives |
+| `TAG_IN_FILENAME = re.compile(r"\b(\d{2}-[A-Z]{2}-\d{4}[A-Z]?)\b")` | Rung 2: finds a tag like `21-PA-2001A` anywhere in a file name | Mirrors the site tag convention *area–type–number–suffix*. The trailing `[A-Z]?` catches the `A`/`B` that distinguishes duty and standby pumps; the `\b` anchors stop it matching inside a longer number |
+| `_load_mapping_rules(client, raw_db, table)` | Rung 1: reads the rules out of a RAW table | **Rules are data, not code.** An engineer corrects a bad match by editing a row — no code change, no deploy, no Python. That is the whole argument for section 7.2 |
+| `except Exception: return []` in `_load_mapping_rules` | An absent rule table yields no rules | A missing table is a *valid state*, not an error — somebody who has not created it yet must still get a working cascade |
+| `sorted(rules, key=lambda r: r["matchType"] != "exact")` | Exact rules are tried before regex rules | Order in the table is policy. An exact rule is a person naming one specific pair; a regex is a generalisation. The specific statement wins |
+| `except re.error: continue` | A malformed regex in a data row is skipped, not fatal | The moment you let humans edit rules, one of those rules will be `(unclosed`. One bad row must not take the pipeline down |
 | `def handle(client, ...)` | Entry point — must be named `handle` | `client` arrives **already authenticated** as the Function's own identity. Never construct a `CogniteClient` inside a Function. [Functions](https://docs.cognite.com/cdf/functions/) |
 | `os.environ["PARTICIPANT"]` / `["INSTANCE_SPACE"]` | Reads your name and space | Injected via `envVars` in the `.Function.yaml` below. This is precisely why the Python is byte-identical for 15 people |
-| `model_xid = f"emp_{participant}_..."` | Names the EM model with **your** name | EM models are project-global, so unlike a view or container this one **must** be name-scoped or it collides |
+| `run_id = data.get("runId") or f"ctxrun-..."` | One correlation ID for everything this run writes | A caller — a Workflow — can pass its own, so every record from one execution carries the same ID. Generate one when nobody does, so a hand-call is still traceable |
+| `prior = _existing_decisions(...)` | Loads every existing suggestion **before** doing any work | It drives both re-run rules: a person's decision outranks the machine's, and a pair a previous run made and this one does not is stale, not absent ([Chapter 17](17-cross-cutting-mastery.md) section 17.1c) |
+| `model_xid = f"emp_{participant}_..."` | Names the EM model with **your** name | EM models are project-global, so unlike a view or container this one **must** be name-scoped or it collides with the rest of the cohort |
 | `retrieve_nodes(nodes=[...], sources=[v_file])` | Fetches your two PDF nodes | `sources=` asks for properties *as seen through* the `CogniteFile` view. Without it you get the node but not its typed properties. [Data modeling](https://docs.cognite.com/cdf/dm/) |
 | `instances.list(..., space=space, limit=-1)` | Fetches all your assets as match candidates | `space=space` is the isolation boundary — you can only ever match against your own 8 assets. `limit=-1` means "all" |
-| `manual_map = data.get("manual")` | Human overrides passed in the call payload | Stage 1. In production this is the review queue: a person has already decided, so nothing should second-guess them |
-| `if src_id in manual_map and manual_map[src_id] in asset_xids` | Accepts an override **only** if the target really exists | Never trust a payload blindly — a typo in an override would otherwise write a dangling relation |
-| `TAG_RE.search(name) or AREA_RE.search(name)` | Stage 2: deterministic filename match | Free, instant, and explainable. Resolves the common case before any ML is considered |
-| `unresolved.append(f)` | Collects the leftovers | Only these reach the paid API. On a good day this list is empty and `_entity_match` never runs |
-| `_apply_asset(...)` → `DirectRelationReference(space, tgt_id)` | Writes the answer into `CogniteFile.assets` | **This is the actual contextualization.** Everything before it is just deciding; this line is what makes the link appear in Fusion |
+| `if target is not None and target not in asset_ids` | A rule naming an asset that does not exist resolves to nothing | Never trust a data row blindly. A typo in a rule would otherwise write a dangling relation that looks exactly like a real one |
+| `human_decisions.get(f"{f.external_id}\|{target}") == "rejected"` | A vetoed pair is dropped on the **rule** rung too | A rule is not more authoritative than a person who looked at the link and said no; it is only cheaper. Applying this to the model's output alone is the bug that re-applies every rejection nightly |
+| `vetoed.add(f.external_id)` | A vetoed file never reaches Entity Matching | Escalating to a paid rung to re-propose something a person already rejected is the worst of both outcomes |
+| `if not sources:` → early return | When rules and regex resolve everything, EM never runs | Fitting a model on an empty source list is exactly the waste the cascade exists to avoid. On this lab's two PDFs this is the path you take |
 | `client.entity_matching.fit(...)` | Trains a model on name→name similarity | `feature_type="bigram"` compares two-character sequences, so it tolerates punctuation and spacing differences that exact matching would fail on |
-| `deadline = time.time() + 300` | Hard 300-second poll ceiling | A Function has a wall-clock limit. An unbounded `while` would burn the whole budget and be killed with no result and no cleanup |
-| `predict.wait_for_completion(timeout=600)` | Blocks until the job finishes, with a bound | The SDK's own wait. A hand-rolled polling loop is what produced the bug in the ⚠️ below |
-| `result_items = ...` (the 5 defensive lines) | Normalises the response shape | The predict result has arrived as a list, as `{"items": [...]}`, and as an attribute across SDK versions. Written defensively so a minor version bump does not silently return zero matches |
-| `if score < 0.5: below.append(row); continue` | The confidence gate | Low-confidence matches are **reported but never written**. Auto-applying a bad match is worse than applying nothing — a wrong link is silently believed by every downstream consumer |
+| `model.wait_for_completion(timeout=600)` | Blocks until the job finishes, with a bound | The SDK's own wait. A hand-rolled polling loop is what produced the bug in the ⚠️ below — "completed with zero matches, no error" |
+| `predict.get_result()` | A **method**, not a `.result` property | `getattr(predict, "result", None)` returns `None` and you get zero matches with no error at all. This one cost an afternoon |
+| `band = _band(score)` then `if band != "auto-applied"` | Low-confidence matches are **recorded but never written** | Auto-applying a bad match is worse than applying nothing — a wrong link is silently believed by every downstream consumer. Recording it is what makes a review queue possible |
+| `_retractions(prior, resolved)` | Works out which links must come **off** | Applying is only half a pipeline. A rejected pair and a pair we no longer produce both have to un-apply, or the graph accumulates links nobody can justify |
+| `_write_and_report(..., retract=...)` | One write path for all three rungs, and one retraction path | A rule-matched file is applied exactly the same way an entity-matched one is. Additions and removals for a file go in **one** write. Two `NodeApply` entries for the same node in one call are rejected outright (`Duplicate node externalIds ... | code: 400`), and across two calls the second write **replaces** the list rather than merging into it — so a split write would silently reinstate what the first removed |
+| `_write_spine(...)` | Persists the run and every suggestion | `file.assets` says a link exists. These records say which rung made it, on what evidence, how confident it was, and who signed it off |
 | `client.entity_matching.delete(...)` in `try/except` × 3 | Deletes the model on **every** exit path | Success, fit failure, predict failure. `except: pass` on the pre-emptive delete because "it was not there" is the expected case, not an error |
-| `meta["model_delete_warning"]` | Surfaces a failed cleanup instead of hiding it | If deletion fails you **must** know — you now own a global object that collides with the rest of the cohort |
-| `return {...}` | Counts and lists, JSON-serializable | This dict is what appears in the Function's call-result log. Note it reports `below_threshold` and `unresolved_count` too — an honest result says what it did *not* do |
+| `result["model_delete_warning"]` | Surfaces a failed cleanup instead of hiding it | If deletion fails you **must** know — you now own a global object that collides with the rest of the cohort |
+| `return {...}` | Counts and lists, JSON-serializable | This dict is what appears in the Function's call-result log. Note it reports `below_threshold`, `unresolved_count` and `links_retracted` too — an honest result says what it did *not* do, and what it undid |
 
 📚 `[DOCS]` [Cognite Functions](https://docs.cognite.com/cdf/functions/) ·
 [Entity matching](https://docs.cognite.com/cdf/integration/guides/contextualization/match_entities) ·
@@ -838,8 +932,14 @@ differences: no interactive login (the Function runs under its own managed ident
 hardcoded space string (it reads `INSTANCE_SPACE` from `envVars`), a hard 300-second
 poll deadline on the EM path instead of "just wait and see," and it returns a
 JSON-serializable dict instead of printing — that dict (`matches`, `below_threshold`,
-`em_ran`, `unresolved_count`) is what shows up in the Function's call-result log
+`resolved_by`, `rules_loaded`, `entity_matching_used`, `links_retracted`, `run_id`,
+`suggestions_recorded`) is what shows up in the Function's call-result log
 ([Chapter 17](17-cross-cutting-mastery.md)).
+
+💡 `[GOOD TO KNOW]` Those key names are checked against the handler by
+`tools/check_docs.py`. A chapter that documents a field the code stopped returning is
+worse than one that documents nothing — the learner trusts it, gets `None`, and blames
+their own code.
 
 ---
 
@@ -860,10 +960,28 @@ result = client.functions.call(external_id="fnc_<YOURNAME>_Training_MatchDocumen
 print(result.get_response())
 ```
 
-✅ `[VERIFY]` On this lab's two PDFs the regex resolves both, so the response should
-show: `matches` = two entries each with `"method": "regex"`, `below_threshold` empty,
-`unresolved_count: 0`, and **`em_ran: false`** — no entity-matching model is created or
-deleted on this call. Then open both files in Fusion and confirm the `assets` relation
+✅ `[VERIFY]` On this lab's two PDFs **rung 1 resolves both** — the mapping rules in RAW
+name them explicitly (section 7.2) — so the response should show:
+
+```json
+{
+  "matches": [
+    {"source": "file_<YOURNAME>_TRN_PID_21_SEP",     "target": "TRN-21-SEP",  "resolvedBy": "rule", "score": 1.0},
+    {"source": "file_<YOURNAME>_TRN_DS_21_PA_2001A", "target": "21-PA-2001A", "resolvedBy": "rule", "score": 1.0}
+  ],
+  "below_threshold": [],
+  "resolved_by": {"rule": 2},
+  "rules_loaded": 2,
+  "entity_matching_used": false,
+  "links_retracted": 0,
+  "run_id": "ctxrun-...-matchdocuments",
+  "suggestions_recorded": 2
+}
+```
+
+`resolvedBy` is `"rule"`, not `"regex"` — the regex rung exists for files the rules do
+*not* name, and on this lab's two files it never fires. **`entity_matching_used: false`**:
+no entity-matching model is created or deleted on this call. Then open both files in Fusion and confirm the `assets` relation
 (`TRN-21-SEP`, `21-PA-2001A`). *Files linked correctly* is the success criterion —
 **not** "EM scored them." You saw `fit`/`predict` run for real in the notebook (section 7.6);
 the Function reaches EM only for a file the regex can't resolve.
@@ -896,12 +1014,14 @@ training-scale problem this small.
 - The notebook ran end to end and you personally watched a `fit`/`predict` cycle
   complete (the notebook is where EM actually runs)
 - Both files show the correct `assets` relation in Fusion — linked by the Function's
-  **regex** path (the call returned `em_ran: false`)
+  **rule** path (the call returned `resolved_by: {"rule": 2}` and
+  `entity_matching_used: false`)
 - The entity-matching model is confirmed deleted after the **notebook** run; and you've
   confirmed the **Function** call created **no** model (regex resolved both files, so
   there was nothing to clean up)
 - You can explain when you'd reach for each of the three techniques — and why a normal
-  Function call returns `em_ran: false` while the notebook's EM cell does not
+  Function call returns `entity_matching_used: false` while the notebook's EM cell
+  runs a real `fit`/`predict`
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
 → [Chapter 08 — Diagram Annotation](08-diagram-annotation.md)

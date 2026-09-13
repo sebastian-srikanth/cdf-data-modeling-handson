@@ -218,11 +218,14 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     # fitting one anyway is exactly the waste this cascade exists to avoid.
     if not sources:
         result = _write_and_report(
-            client, space, v_file, files, resolved, matches, below, rules, model_used=False
+            client, space, v_file, files, resolved, matches, below, rules,
+            model_used=False, retract=_retractions(prior, resolved),
+            unresolved=unresolved
         )
         result["suggestions_recorded"] = _write_spine(
             client, space, sdm, version, run_id, resolved, below, unresolved, rules,
-            started, prior=prior, workflow_execution=workflow_execution)
+            started, prior=prior, workflow_execution=workflow_execution,
+            retracted=result.get("links_retracted", 0))
         result["run_id"] = run_id
         return result
 
@@ -292,11 +295,14 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                             "evidence": f"entity matching scored {score:.3f}"}
 
     result = _write_and_report(
-        client, space, v_file, files, resolved, matches, below, rules, model_used=True
+        client, space, v_file, files, resolved, matches, below, rules,
+        model_used=True, retract=_retractions(prior, resolved),
+        unresolved=[f for f in unresolved if f.external_id not in resolved]
     )
     result["suggestions_recorded"] = _write_spine(
         client, space, sdm, version, run_id, resolved, below, unresolved, rules,
-        started, prior=prior, workflow_execution=workflow_execution)
+        started, prior=prior, workflow_execution=workflow_execution,
+        retracted=result.get("links_retracted", 0))
     result["run_id"] = run_id
 
     try:
@@ -308,7 +314,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 
 def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolved,
                  rules, started, prior=None, technique="entity-matching",
-                 workflow_execution=None):
+                 workflow_execution=None, retracted=0):
     """Persist the run and the current state of every suggestion it considered.
 
     This is the difference between a pipeline you can operate and one you can only
@@ -381,7 +387,7 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
     # Silence is not agreement. A pair the pipeline applied last week and did not
     # produce today is a *change*, and leaving its row reading `auto-applied` is how a
     # link nobody can justify any more survives an audit.
-    stale = 0
+    superseded = 0
     for xid, props in prior.items():
         if xid in seen:
             continue
@@ -389,7 +395,7 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
             continue                      # a person owns this row; it is not stale
         if props.get("decision") == "superseded":
             continue                      # already reconciled by an earlier run
-        stale += 1
+        superseded += 1
         nodes.append(NodeApply(space=space, external_id=xid,
             sources=[NodeOrEdgeData(source=sug_view, properties={
                 "runId": run_id,
@@ -425,7 +431,10 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
             "reviewCount": _count("needs-review"),
             "rejectedCount": _count("rejected") + _count("rejected-by-human"),
             "unresolvedCount": _count("unresolved"),
-            "staleRemovedCount": stale,
+            # Links actually taken off file.assets -- not suggestions marked
+            # superseded. The alert is about data that changed, not bookkeeping.
+            "staleRemovedCount": retracted,
+            "supersededCount": superseded,
             "failedCount": 0,
             "workflowExecutionId": workflow_execution,
         })]))
@@ -434,10 +443,55 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
     return len(nodes) - 1
 
 
+def _retractions(prior: dict, resolved: dict) -> list[tuple]:
+    """Links that must be **removed** from file.assets, as (source, target) pairs.
+
+    Applying a link is only half a pipeline. Two things have to un-apply it, and a
+    system that does neither quietly accumulates links nobody can justify:
+
+    * **A person rejected the pair.** Their decision is the whole point of a review
+      queue. Recording the rejection and leaving the link in place means the reviewer
+      does the work, the record says "rejected", and Fusion still shows the bad link.
+    * **We applied it and no longer produce it.** Somebody edited a rule or a source
+      system renamed something. Silence is not agreement -- see Chapter 17 section 17.1c.
+
+    Note the asymmetry in what each case is allowed to touch. A *person's* rejection
+    retracts the link whoever created it: they looked at this exact pair and said no.
+    A *pipeline* retraction only removes what the pipeline itself applied -- which is
+    knowable only because the suggestion recorded `decidedBy`. Without that record the
+    safe implementation is to remove nothing, and the links accumulate forever.
+    """
+    produced = {f"{src}|{info['target']}" for src, info in resolved.items()}
+    out = []
+    for props in prior.values():
+        source = props.get("sourceExternalId")
+        target = props.get("targetExternalId")
+        if not source or not target:
+            continue
+        decided_by = props.get("decidedBy")
+        decision = props.get("decision")
+        by_human = decided_by not in (None, "", "pipeline")
+        if by_human and decision == "rejected":
+            out.append((source, target))
+        elif (not by_human and decision == "auto-applied"
+              and f"{source}|{target}" not in produced):
+            out.append((source, target))
+    return out
+
+
 def _write_and_report(client, space, v_file, files, resolved, matches, below, rules,
-                      *, model_used: bool) -> dict:
+                      *, model_used: bool, retract=None, unresolved=()) -> dict:
     """One write path for all three rungs, so a rule-matched file is applied exactly
-    the same way an entity-matched one is."""
+    the same way an entity-matched one is -- and one retraction path, so a link can
+    come off again."""
+    retract = retract or []
+    # Group by file: a single read-modify-write per node, never one per pair, or the
+    # second write of the pair silently reinstates what the first removed.
+    drop: dict[str, set] = {}
+    for src_id, tgt_id in retract:
+        drop.setdefault(src_id, set()).add(tgt_id)
+
+    retracted = 0
     applies: list[NodeApply] = []
     for src_id, info in resolved.items():
         tgt_id = info["target"]
@@ -456,6 +510,12 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
                     existing_assets.append(
                         DirectRelationReference(rel.get("space", space), rel["externalId"])
                     )
+        # Anything retracted for this file comes off in the same write that adds it,
+        # never in a second write -- two writes to one node and the later one wins.
+        kept = [a for a in existing_assets
+                if getattr(a, "external_id", None) not in drop.get(src_id, ())]
+        retracted += len(existing_assets) - len(kept)
+        existing_assets = kept
         if not any(getattr(a, "external_id", None) == tgt_id for a in existing_assets):
             existing_assets.append(DirectRelationReference(space, tgt_id))
         applies.append(
@@ -463,6 +523,29 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
                 space=space,
                 external_id=src_id,
                 sources=[NodeOrEdgeData(source=v_file, properties={"assets": existing_assets})],
+            )
+        )
+
+    # Files with nothing to add this run but something to take away still need writing.
+    for src_id, targets in drop.items():
+        if src_id in resolved:
+            continue                      # already handled in the loop above
+        existing = next((f for f in files if f.external_id == src_id), None)
+        if existing is None:
+            continue
+        keep = []
+        for rel in existing.properties.get(v_file, {}).get("assets") or []:
+            xid = rel.external_id if hasattr(rel, "external_id") else rel.get("externalId")
+            rel_space = rel.space if hasattr(rel, "space") else rel.get("space", space)
+            if xid in targets:
+                retracted += 1
+                continue
+            keep.append(DirectRelationReference(rel_space, xid))
+        applies.append(
+            NodeApply(
+                space=space,
+                external_id=src_id,
+                sources=[NodeOrEdgeData(source=v_file, properties={"assets": keep})],
             )
         )
 
@@ -479,4 +562,8 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
         "resolved_by": by_rung,          # how much each rung actually did
         "rules_loaded": len(rules),
         "entity_matching_used": model_used,
+        "links_retracted": retracted,
+        # An honest result says what it did *not* do. A caller that only ever sees
+        # `matches` has no way to tell "nothing was left over" from "nothing ran".
+        "unresolved_count": len(unresolved),
     }

@@ -139,8 +139,17 @@ message in it, which nobody will ever see.
 """
 
 import os
+import time
 
 from cognite.client.data_classes.data_modeling import ViewId
+
+# Data modeling reads lag writes. Measured on bluefield, an instance became visible to
+# instances.list() between 0.8 s and 2.4 s after apply() returned. A gate that runs as
+# the next Workflow task after the job it is gating therefore races it: it reads the
+# PREVIOUS run's record, passes on yesterday's healthy numbers, and reports green for a
+# run it never saw. Poll instead of assuming.
+SETTLE_TIMEOUT = 30.0
+SETTLE_INTERVAL = 1.0
 
 
 class QualityGateFailed(AssertionError):
@@ -161,22 +170,47 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     data = data or {}
 
     run_view = ViewId(sdm, "ContextualizationRun", version)
-    runs = client.data_modeling.instances.list(sources=run_view, space=space, limit=-1)
-    if not runs:
+
+    # A caller can pin the gate to one run; a Workflow passes the ID its own upstream
+    # task produced, so the gate cannot accidentally pass on last night's healthy run.
+    wanted = data.get("runId")
+    # `after` lets an unpinned caller say "only consider runs newer than this", which is
+    # the weaker guard you fall back on when the upstream task cannot return an ID.
+    after = data.get("startedAfter")
+
+    deadline = time.time() + SETTLE_TIMEOUT
+    run = None
+    while True:
+        runs = client.data_modeling.instances.list(
+            sources=run_view, space=space, limit=-1)
+        candidates = runs
+        if wanted:
+            candidates = [n for n in runs
+                          if n.properties[run_view].get("runId") == wanted]
+        elif after:
+            candidates = [n for n in runs
+                          if (n.properties[run_view].get("startedTime") or "") > after]
+        if candidates:
+            run = max(candidates,
+                      key=lambda n: n.properties[run_view].get("startedTime") or "")
+            break
+        if time.time() >= deadline:
+            break
+        time.sleep(SETTLE_INTERVAL)
+
+    if run is None:
+        if wanted:
+            raise QualityGateFailed(
+                f"run {wanted!r} was never recorded, and did not appear within "
+                f"{SETTLE_TIMEOUT:.0f}s. Either the upstream task did not write its run, "
+                "or it failed before it got that far.")
+        if after:
+            raise QualityGateFailed(
+                f"no ContextualizationRun started after {after!r} appeared within "
+                f"{SETTLE_TIMEOUT:.0f}s -- the run being gated never wrote a record.")
         raise QualityGateFailed(
             "no ContextualizationRun records exist -- either contextualization never "
             "ran, or it ran and wrote no provenance at all. Both are failures.")
-
-    # A caller can pin the gate to one run; a Workflow passes the ID its own first task
-    # produced, so the gate cannot accidentally pass on last night's healthy run.
-    wanted = data.get("runId")
-    if wanted:
-        picked = [n for n in runs if n.properties[run_view].get("runId") == wanted]
-        if not picked:
-            raise QualityGateFailed(f"run {wanted!r} was never recorded")
-        run = picked[0]
-    else:
-        run = max(runs, key=lambda n: n.properties[run_view].get("startedTime") or "")
 
     p = dict(run.properties[run_view])
     failures: list[str] = []
@@ -449,7 +483,12 @@ workflowDefinition:
       parameters:
         function:
           externalId: fnc_<YOURNAME>_Training_QualityGate
-          data: {}
+          # Pin the gate to the run match_documents just produced. Without this the
+          # gate asks for "the latest run" and, because data modeling reads lag writes
+          # by a second or two (Chapter 17 section 17.1d), can satisfy itself with the
+          # PREVIOUS run -- passing on last night's healthy numbers.
+          data:
+            runId: ${match_documents.output.response.run_id}
         isAsyncComplete: false
       retries: 0
       timeout: 900

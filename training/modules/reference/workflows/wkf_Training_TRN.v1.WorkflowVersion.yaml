@@ -148,7 +148,12 @@ workflowDefinition:
       parameters:
         function:
           externalId: fnc_{{ participant }}_Training_QualityGate
-          data: {}
+          # Pin the gate to the run match_documents just produced. Without this the
+          # gate asks for "the latest run" and, because data modeling reads lag writes
+          # by a second or two (Chapter 17 section 17.1d), can satisfy itself with the
+          # PREVIOUS run -- passing on last night's healthy numbers.
+          data:
+            runId: ${match_documents.output.response.run_id}
         isAsyncComplete: false
       retries: 0
       timeout: 900

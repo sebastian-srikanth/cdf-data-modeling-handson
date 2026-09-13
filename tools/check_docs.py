@@ -558,6 +558,108 @@ def check_query_story_contracts() -> int:
     return len(contracts)
 
 
+def check_function_return_keys() -> int:
+    """A chapter may not name a Function return field the handler never returns.
+
+    This one exists because the chapters documented `em_ran` and `unresolved_count`
+    for months after the handler stopped returning either. A learner reads the VERIFY
+    step, prints the response, sees no such key, and concludes they broke something.
+    A doc that is confidently wrong costs more than a doc that is silent.
+
+    The handler's keys are collected from every `return {...}` and every
+    `result["key"] = ...` in the reference functions; chapter claims are the
+    backticked identifiers inside a fenced block or prose that look like return keys.
+    """
+    import ast
+
+    returned: set[str] = set()
+    for handler in (REFERENCE / "functions").rglob("handler.py"):
+        tree = ast.parse(handler.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Dict):
+                for key in node.keys:
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                        returned.add(key.value)
+            # result["links_retracted"] = ... and result.get("x") both count
+            elif isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+                if isinstance(node.slice.value, str):
+                    returned.add(node.slice.value)
+
+    # Only words that look like response fields, and only where the chapter is
+    # clearly talking about a call result.
+    claimed = re.compile(r"`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`")
+    context = re.compile(
+        r"(get_response|call-result|the response|response should|returns? a?\s*"
+        r"JSON-serializable|that dict|the call returned)", re.I)
+
+    checked = 0
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        for para in text.split("\n\n"):
+            if not context.search(para):
+                continue
+            for key in claimed.findall(para):
+                # snake_case identifiers that are plainly not response fields
+                if key in {"external_id", "data_set_id", "get_response", "start_node",
+                           "end_node", "instance_type", "match_fields", "feature_type",
+                           "wait_for_completion", "num_matches", "get_result",
+                           "auto_create_direct_relations", "config_yaml", "cdf_project",
+                           "client_id", "client_secret", "tenant_id", "token_url",
+                           "data_modeling", "space_sdm", "model_version",
+                           # not a Function response field: an Agents API field that
+                           # Chapter 15 names while warning the alpha shape can change
+                           "runtime_version"}:
+                    continue
+                checked += 1
+                if key not in returned:
+                    fail(f"returnkey  {md.name}: documents Function return field "
+                         f"{key!r}, which no handler in the reference module returns")
+    return checked
+
+
+# Words that appear in a walkthrough fragment but are language or SDK vocabulary, not
+# something the handler must contain verbatim.
+WALKTHROUGH_IGNORE = {
+    "lambda", "except", "return", "continue", "import", "client", "self", "None",
+    "True", "False", "data", "then", "class", "async", "await", "yield", "print",
+}
+
+
+def check_walkthrough_fragments() -> int:
+    """Code quoted in a 'Line-by-line walkthrough' table must exist in the handler.
+
+    These tables are prose, so no generated-block check covers them, and they rot
+    invisibly: this repo shipped a table describing `TAG_RE`, `AREA_RE`, `manual_map`,
+    `_apply_asset`, `_entity_match` and a `deadline` variable for a handler that had
+    none of them. Every row read plausibly. All eight were fiction.
+
+    Matching is by identifier rather than by exact string, because a table cell
+    legitimately abbreviates -- `_write_and_report(..., retract=...)` is a fair way to
+    write a call with six arguments. Every identifier of four characters or more must
+    appear somewhere in some reference handler.
+    """
+    sources = "\n".join(h.read_text() for h in (REFERENCE / "functions").rglob("handler.py"))
+    ident = re.compile(r"[A-Za-z_][A-Za-z0-9_]{3,}")
+    checked = 0
+
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        for block in re.findall(
+                r"### Line-by-line walkthrough\n(.*?)(?=\n## |\n### |\Z)", text, re.S):
+            for line in block.splitlines():
+                if not line.startswith("|") or line.startswith("|---"):
+                    continue
+                cell = line.split("|")[1]
+                for frag in re.findall(r"`([^`]+)`", cell):
+                    checked += 1
+                    missing = [w for w in ident.findall(frag)
+                               if w not in WALKTHROUGH_IGNORE and w not in sources]
+                    if missing:
+                        fail(f"walkthru  {md.name}: walkthrough quotes {frag!r} but "
+                             f"{', '.join(sorted(set(missing)))} is not in any handler")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -575,6 +677,8 @@ def main() -> int:
     attribution = check_no_attribution()
     tools = check_tools_import()
     contracts = check_query_story_contracts()
+    retkeys = check_function_return_keys()
+    walkthru = check_walkthrough_fragments()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -593,6 +697,8 @@ def main() -> int:
     print(f"  attribution      {attribution:>4} files: no tool attribution")
     print(f"  tools import     {tools:>4} tools imported")
     print(f"  story contracts  {contracts:>4} query/agent invariants checked")
+    print(f"  return keys      {retkeys:>4} documented Function fields exist")
+    print(f"  walkthroughs     {walkthru:>4} quoted fragments exist in a handler")
     for note in notes:
         print(f"  note: {note}")
 

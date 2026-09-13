@@ -92,6 +92,16 @@ properties:
     nullable: true
     name: Unresolved
     description: Candidates no rung could resolve at all.
+  supersededCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Superseded count
+    description: >-
+      Suggestions a previous run made that this one no longer produces. Distinct from
+      staleRemovedCount - a suggestion can go stale without a link ever having been
+      applied, for instance one that sat in the review queue until the rule changed.
   staleRemovedCount:
     type:
       type: int32

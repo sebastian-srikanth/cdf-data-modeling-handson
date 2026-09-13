@@ -448,6 +448,35 @@ entirely. If the node is there but your view is not showing it, you have found y
 ---
 
 
+### 3.8c What a write to an instance actually does — measured
+
+Four questions decide whether your write code is correct, and all four are answered by
+the same API behaviour. These were measured against a live project, not read off a page:
+
+| You do this | What happens |
+|---|---|
+| Write a node, naming only some properties | Properties you did **not** name are left alone. `instances.apply` patches by default (`replace=False`) |
+| Write a **list** property that already has values | The new list **replaces** the old one. It does not merge, append, or de-duplicate |
+| Write an **empty list** to a list property | The relation is cleared. This is how you un-link something |
+| Send **two entries for the same node** in one `apply` call | Rejected outright: `Duplicate node externalIds for space '...' present in request \| code: 400` |
+
+Rows two and four together are the whole reason `MatchDocuments` in
+[Chapter 07](07-entity-matching.md) does one read-modify-write per file rather than one
+per link.
+
+⚠️ `[COMMON MISTAKE]` Treating a direct-relation list as append-only — writing
+`assets: [new_one]` and expecting the existing entries to survive. They do not. You must
+read the current list, add to it, and write the whole thing back. The failure mode is
+brutal precisely because it looks like success: your link appears in Fusion, and
+somebody else's link, on the same file, is gone.
+
+⚠️ `[COMMON MISTAKE]` Building a list of `NodeApply`s in a loop over *pairs* rather than
+over *nodes*. Two pairs that share a source node produce two entries for that node, and
+the whole call fails with a 400 that names a duplicate external ID — which reads like a
+data problem and is actually a loop-shape problem.
+
+---
+
 ## 3.9 [INFO] Connection properties — the four ways to link two things
 
 You have used exactly one of these so far. There are four, they behave differently, and
@@ -966,6 +995,16 @@ properties:
     nullable: true
     name: Unresolved
     description: Candidates no rung could resolve at all.
+  supersededCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Superseded count
+    description: >-
+      Suggestions a previous run made that this one no longer produces. Distinct from
+      staleRemovedCount - a suggestion can go stale without a link ever having been
+      applied, for instance one that sat in the review queue until the rule changed.
   staleRemovedCount:
     type:
       type: int32
@@ -1474,6 +1513,12 @@ properties:
       externalId: ContextualizationRun
       type: container
     containerPropertyIdentifier: unresolvedCount
+  supersededCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: supersededCount
   staleRemovedCount:
     container:
       space: ssp_<YOURNAME>_MaintenanceInsight_sdm

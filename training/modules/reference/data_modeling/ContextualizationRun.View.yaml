@@ -81,6 +81,12 @@ properties:
       externalId: ContextualizationRun
       type: container
     containerPropertyIdentifier: unresolvedCount
+  supersededCount:
+    container:
+      space: {{ schema_space_sdm }}
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: supersededCount
   staleRemovedCount:
     container:
       space: {{ schema_space_sdm }}

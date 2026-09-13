@@ -173,8 +173,22 @@ stop trusting the system permanently. There is no second chance at that.
 
 A pair the pipeline applied last week and does not produce today is a **change**, not an
 absence. Somebody edited a rule, or a source name moved. The handler compares what it just
-produced against what it finds already recorded, and marks the difference `superseded`
-with the run that orphaned it — counted as `staleRemovedCount`.
+produced against what it finds already recorded, marks the difference `superseded`
+(counted as `supersededCount`), **and takes the link back off `file.assets`** (counted as
+`staleRemovedCount`).
+
+Both halves are required. Marking a suggestion superseded while leaving the link in place
+means the record says one thing and Fusion shows another, and the graph accumulates links
+nobody can justify. The same applies to a human rejection: recording it and not un-linking
+means the reviewer did the work, the record says "rejected", and the bad link is still
+there.
+
+💡 `[GOOD TO KNOW]` Note the asymmetry in what each retraction is allowed to touch. A
+**person's** rejection removes the link whoever created it — they looked at this exact
+pair and said no. A **pipeline** retraction only removes what the pipeline itself applied,
+which is knowable *only* because the suggestion recorded `decidedBy`. Without that record
+the safe implementation is to remove nothing, and the links accumulate forever. This is
+provenance doing real work, not paperwork.
 
 🚧 `[LIMITS]` A run whose `staleRemovedCount` suddenly jumps is the single highest-value
 alert in this whole chapter. It is what a broken rule, a renamed source system or a bad
@@ -218,6 +232,67 @@ assert run["reviewCount"] <= 10, "review backlog is growing faster than it is cl
 missing `status` are **bugs** — code that threw, or a job that died. Unresolved and review
 counts are the business signal. Conflating them is how a crashing pipeline gets explained
 away as "the data is messy this week".
+
+---
+
+## 17.1d [OPTIMIZE] Reads lag writes — the race that makes a gate lie
+
+`instances.apply()` returning success does **not** mean the next reader sees the data.
+
+Measured on this project, five writes, timed from `apply()` returning to the instance
+being visible:
+
+| Read path | min | max | mean |
+|---|---|---|---|
+| `instances.retrieve()` by ID | 0.58 s | 2.15 s | 1.01 s |
+| visible to `instances.list()` | 0.83 s | 2.39 s | 1.26 s |
+
+RAW, for comparison, was under a second for both a delete and an insert to become
+visible to `rows.list()`.
+
+Two seconds sounds like nothing. It is not, because of *where* it lands.
+
+⚠️ `[COMMON MISTAKE]` A Workflow whose next task reads what the previous task wrote.
+That is not a rare edge — it is the shape of every pipeline in this chapter. The quality
+gate in [Chapter 12](12-workflows.md) reads the `ContextualizationRun` record that
+`match_documents` wrote *moments* earlier. Write it naively and it reads the **previous**
+run, passes on last night's healthy numbers, and reports green for a run it never looked
+at. Nothing errors. Nothing is red. The gate is simply not a gate any more.
+
+This is worse than a flaky test, because it fails in the safe-looking direction: a gate
+that races usually still passes, so you find out the first time it was supposed to catch
+something and did not.
+
+✅ `[VERIFY]` Two defences, and the Function uses both:
+
+```python
+# 1. Poll rather than assume -- a bounded wait, never an unbounded one.
+deadline = time.time() + 30
+while True:
+    runs = client.data_modeling.instances.list(sources=run_view, space=space, limit=-1)
+    ...
+    if candidates:
+        break
+    if time.time() >= deadline:
+        raise QualityGateFailed("the run being gated never wrote a record")
+    time.sleep(1)
+```
+
+```python
+# 2. Pin to identity, not to recency. A caller that knows the run ID passes it, so
+#    "the latest run" can never quietly mean "some earlier run".
+call(external_id="fnc_..._QualityGate", data={"runId": run_id})
+```
+
+💡 `[GOOD TO KNOW]` Notice which defence does the real work. Polling only buys time; if
+the gate is still reading "the most recent run" it can satisfy itself with the wrong one
+the instant one exists. **Pinning to the run ID is what makes the check correct** — the
+poll just stops it from being flaky while it waits for the right record to land.
+
+🚧 `[LIMITS]` A bounded wait, always. An unbounded `while True` in a Function does not
+hang politely: it burns the wall-clock limit and is killed with no result, no error you
+can read, and no cleanup — the failure mode [Chapter 07](07-entity-matching.md) warns
+about for entity-matching jobs, in a different costume.
 
 ---
 
