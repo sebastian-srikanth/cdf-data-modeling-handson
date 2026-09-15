@@ -14,10 +14,11 @@ Three times this course has said you were building "the model an application or 
 agent queries." Here is the uncomfortable truth behind that sentence:
 
 **An agent cannot ask a question your model cannot answer.** It has no special access. It
-issues the same `/query`, `/aggregate` and `/search` calls you wrote by hand in
-[Chapter 13](13-querying-the-graph.md), against the same views, subject to the same
-limits. When an agent gives a vague answer, the instinct is to rewrite the prompt. Nine
-times out of ten the model is what needs rewriting.
+uses the same model reads you wrote by hand in [Chapter 13](13-querying-the-graph.md),
+against the same views, subject to the same limits. Datapoints are a separate API and
+need a separate tool—the same two-phase boundary as Chapter 13 section 13.10. When an
+agent gives a vague answer, the instinct is to rewrite the prompt. Nine times out of ten
+the model or tool contract is what needs rewriting.
 
 Which means the work you have already done *is* the agent:
 
@@ -43,16 +44,19 @@ improving the model.**
 Two objects, and the distinction matters:
 
 - an **agent** — an external ID, instructions, and a list of tools
-- its **tools** — the capabilities it may use. The one that matters for you is
-  `QueryKnowledgeGraphAgentTool`, which is pointed at *specific data models and spaces*
+- its **tools** — the capabilities it may use. You need one tool to resolve the graph
+  context and one to retrieve the sensor values
 
 ```mermaid
 flowchart LR
   Q["Your question<br/><i>in English</i>"] --> AG[Atlas AI agent]
   AG --> T["QueryKnowledgeGraphAgentTool<br/><i>scoped to MaintenanceInsight</i>"]
+  AG --> TS["QueryTimeSeriesDatapointsAgentTool"]
   T --> DMS["/query · /aggregate · /search"]
   DMS --> V["Your views<br/><i>Asset · EquipmentHealthProfile · WorkOrder</i>"]
+  V --> TS
   V --> AN[Answer with citations]
+  TS --> AN
 ```
 
 ℹ️ `[INFO]` **Scoping is a correctness feature, not just a permission.** An agent pointed
@@ -75,7 +79,8 @@ variables — then add the cells below.
 ```python
 from cognite.client.data_classes.agents import (
     AgentUpsert, QueryKnowledgeGraphAgentToolUpsert,
-    QueryKnowledgeGraphAgentToolConfiguration, DataModelInfo, InstanceSpaces, Message,
+    QueryKnowledgeGraphAgentToolConfiguration, QueryTimeSeriesDatapointsAgentToolUpsert,
+    DataModelInfo, InstanceSpaces, Message,
 )
 
 tool = QueryKnowledgeGraphAgentToolUpsert(
@@ -88,11 +93,23 @@ tool = QueryKnowledgeGraphAgentToolUpsert(
     configuration=QueryKnowledgeGraphAgentToolConfiguration(
         data_models=[DataModelInfo(
             space=SDM_SPACE, external_id="MaintenanceInsight", version=MODEL_VERSION,
-            # Naming views narrows the search further. Omit to expose the whole model.
-            view_external_ids=["Asset", "EquipmentHealthProfile", "WorkOrder"],
+            # Expose the smallest view set that can answer every promised question.
+            view_external_ids=[
+                "Asset", "EquipmentHealthProfile", "WorkOrder", "CogniteEquipment",
+                "CogniteTimeSeries", "CogniteFile", "CogniteDiagramAnnotation",
+            ],
         )],
         # Scope to YOUR instances — not every node in the project.
         instance_spaces=InstanceSpaces(type="manual", spaces=[INSTANCE_SPACE]),
+    ),
+)
+
+datapoints_tool = QueryTimeSeriesDatapointsAgentToolUpsert(
+    name="sensor_history",
+    description=(
+        "Retrieve time-series datapoints after maintenance_graph has identified the "
+        "relevant CogniteTimeSeries nodes. Use it for trends and measured values; "
+        "never infer an engineering limit that the graph does not contain."
     ),
 )
 
@@ -103,10 +120,10 @@ agent = client.agents.upsert(AgentUpsert(
     instructions=(
         "You answer maintenance and reliability questions about one FPSO separation "
         "train. Always cite the externalIds of the instances you used. Units are "
-        "declared on the properties -- state them. If the graph does not contain the "
-        "answer, say so plainly instead of guessing."
+        "declared on the properties -- state them. If the configured tools do not contain "
+        "the answer, say so plainly instead of guessing."
     ),
-    tools=[tool],
+    tools=[tool, datapoints_tool],
 ))
 print(agent.external_id, "->", [t.name for t in agent.tools])
 ```
@@ -117,6 +134,11 @@ it appears in Fusion under **Atlas AI → Agents**.
 ⚠️ `[COMMON MISTAKE]` Writing a thin tool `description`. That string is how the agent
 decides *whether to use this tool at all*. "The maintenance graph" is not enough; say what
 is in it, in the vocabulary a user would use.
+
+⚠️ `[COMMON MISTAKE]` Assuming a time-series node includes its datapoints. The knowledge
+graph tool discovers that `21-VT-2002` belongs to the pump; the datapoints tool retrieves
+its measurements. Without both, the agent can repeat time-series metadata but cannot
+honestly describe the trend.
 
 ---
 
@@ -134,7 +156,7 @@ def ask(question: str) -> str:
     print(f"Q: {question}\n\nA: {response.text}\n")
     return response.text
 
-ask("Which work orders are open against pump 21-PA-2001A, and what do they cost?")
+ask("Which work orders are not closed against pump 21-PA-2001A, and what do they cost?")
 ```
 
 ✅ `[VERIFY]` The answer names **WO-1001**, `IN_PROGRESS`, **18500 EUR**. You verified those
@@ -181,15 +203,18 @@ Stop and notice what had to be true for that to work:
 🟢 `[ACTION]` And the one that crosses three techniques at once:
 
 ```python
-ask("Pump 21-PA-2001A: is anything wrong with it? "
-    "Use its vibration trend, its open work orders and its design limits.")
+ask("Pump 21-PA-2001A: what evidence suggests degraded performance, "
+    "what maintenance response is underway, and what does its datasheet tell us?")
 ```
 
 ✅ `[VERIFY]` A useful answer connects the rising vibration on `21-VT-2002`
 ([Chapter 11](11-datapoints.md)) with the in-progress seal replacement `WO-1001`
 ([Chapter 05](05-transformations.md)) and the nameplate specs
 ([Chapter 10](10-datasheet-parsing.md)). Three chapters, three ingestion techniques, one
-English sentence.
+English sentence. It must keep those claims separate: sensor values are evidence,
+`WO-1001` is the recorded response and seal-wear hypothesis, and the datasheet is
+nameplate context. This graph contains no vibration alarm threshold and no confirmed
+root-cause finding, so a trustworthy answer must not invent either one.
 
 ---
 
@@ -278,7 +303,8 @@ agent — delete it here.
 
 **Do not proceed to Chapter 17 until:**
 
-- Your agent exists, is scoped to `MaintenanceInsight` and your instance space, and answers
+- Your agent exists, has both graph and datapoint tools, is scoped to
+  `MaintenanceInsight` and your instance space, and answers
   the WO-1001 question with the same values you computed by hand in section 13.5
 - You have asked a question the graph cannot answer and seen it decline rather than invent
 - You can name the **three** schema decisions that make the rated-power question

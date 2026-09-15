@@ -13,6 +13,9 @@ Checks
   6. every [WRITE] yaml block matches the reference module byte for byte
   7. no notebook cell uses a name it never defines
   8. every hands-on chapter has a Gate and a next-chapter link
+  9. every Python tool imports successfully
+ 10. query-story contracts preserve safe scoping, bounded traversal, batching, and
+     the Atlas AI tool coverage required by the exercises
 """
 from __future__ import annotations
 
@@ -445,6 +448,32 @@ def check_no_attribution() -> int:
     return checked
 
 
+# ------------------------------------------------------ 8f. unit references ----
+def check_unit_references() -> int:
+    """Every `unit:` block must carry `space: cdf_units`.
+
+    This is not style. CDF stores and returns the field, and the Toolkit diffs local
+    YAML against the API response, so a unit without it makes every future dry-run
+    report a change that will never happen. Measured: with it, 0 to update; without it,
+    1 container to update forever.
+
+    A rebase once dropped it from all six properties and every other check still
+    passed, which is why this one exists.
+    """
+    checked = 0
+    for path in (REFERENCE / "data_modeling").glob("*.Container.yaml"):
+        lines = path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.strip() != "unit:":
+                continue
+            checked += 1
+            block = lines[i + 1 : i + 4]
+            if not any(l.strip() == "space: cdf_units" for l in block):
+                fail(f"unit       {path.name}: a unit near line {i + 1} has no "
+                     f"`space: cdf_units` (see the comment at the top of that file)")
+    return checked
+
+
 # ------------------------------------------------------- 9. the tools import ----
 def check_tools_import() -> int:
     """Every tool must at least import.
@@ -473,6 +502,53 @@ def check_tools_import() -> int:
     return checked
 
 
+# ---------------------------------------------------- 10. query story contracts ----
+def check_query_story_contracts() -> int:
+    """Protect the course's architectural promises, not just its syntax.
+
+    These checks are intentionally few and semantic. They cover regressions that all
+    produce valid Python while making the multi-participant exercise wrong, expensive,
+    or unable to answer the question it asks.
+    """
+    query_chapter = (DOCS / "13-querying-the-graph.md").read_text()
+    query_notebook = (NOTEBOOKS / "07_query_the_graph.ipynb").read_text()
+    diagram_notebook = (NOTEBOOKS / "02_diagram_detect.ipynb").read_text()
+    atlas_chapter = (DOCS / "15-atlas-ai-agent.md").read_text()
+    atlas_notebook = (NOTEBOOKS / "09_atlas_ai_agent.ipynb").read_text()
+
+    contracts = {
+        "chapter 13 scopes the hero-pump anchor to its instance space":
+            'flt.SpaceFilter(INSTANCE_SPACE, "node")' in query_chapter,
+        "query notebook scopes the hero-pump anchor to its instance space":
+            'flt.SpaceFilter(INSTANCE_SPACE, \\"node\\")' in query_notebook,
+        "graph traversals are explicitly bounded to one edge":
+            "max_distance=1" in query_chapter
+            and "max_distance=1" in query_notebook
+            and "max_distance=1" in diagram_notebook,
+        "latest datapoints are retrieved in one batch":
+            "retrieve_latest(" in query_chapter
+            and "instance_id=[" in query_chapter
+            and "retrieve_latest(\\n" in query_notebook
+            and "instance_id=[" in query_notebook,
+        "sync selects only work-order instances":
+            "NodeResultSetExpressionSync" in query_chapter
+            and "HasData(views=[WORKORDER])" in query_chapter
+            and "NodeResultSetExpressionSync" in query_notebook
+            and "HasData(views=[WORKORDER])" in query_notebook,
+        "Atlas AI has a datapoints tool, not only graph metadata":
+            "QueryTimeSeriesDatapointsAgentToolUpsert" in atlas_chapter
+            and "QueryTimeSeriesDatapointsAgentToolUpsert" in atlas_notebook,
+        "Atlas AI graph scope includes evidence-bearing CDM views":
+            all(view in atlas_chapter and view in atlas_notebook for view in (
+                "CogniteTimeSeries", "CogniteFile", "CogniteDiagramAnnotation"
+            )),
+    }
+    for description, holds in contracts.items():
+        if not holds:
+            fail(f"contract   {description}")
+    return len(contracts)
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -484,10 +560,12 @@ def main() -> int:
     shapes = check_chapter_shape()
     markers = check_marker_emoji()
     tables = check_chapter_tables()
+    units = check_unit_references()
     envkeys = check_env_example()
     counts = check_advertised_counts()
     attribution = check_no_attribution()
     tools = check_tools_import()
+    contracts = check_query_story_contracts()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -500,10 +578,12 @@ def main() -> int:
     print(f"  chapter shape    {shapes:>4} chapters checked for Gate + next link")
     print(f"  marker emoji     {markers:>4} markers: consistent emoji")
     print(f"  chapter tables   {tables:>4} rows: label matches link target")
+    print(f"  unit references  {units:>4} units carry space: cdf_units")
     print(f"  .env.example     {envkeys:>4} required keys present")
     print(f"  advertised counts{counts:>4} claims match the files")
     print(f"  attribution      {attribution:>4} files: no tool attribution")
     print(f"  tools import     {tools:>4} tools imported")
+    print(f"  story contracts  {contracts:>4} query/agent invariants checked")
     for note in notes:
         print(f"  note: {note}")
 

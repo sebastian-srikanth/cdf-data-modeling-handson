@@ -27,8 +27,9 @@ practitioner.
 Here you will **create every file yourself** — including your own
 `config.<YOURNAME>-training.yaml` — inside your own folder, understand *why* each
 resource exists and is shaped the way it is, run real jobs against a real CDF project
-(`<your-cdf-project>`), watch a real industrial story unfold (a pump quietly
-failing), and open a real pull request scoped so tightly that a dozen of them could be
+(`<your-cdf-project>`), watch a realistic industrial decision story unfold (a pump
+developing a degradation signature while maintenance responds), and open a real pull
+request scoped so tightly that a dozen of them could be
 merged the same afternoon with zero collisions.
 
 By the end you will have:
@@ -156,7 +157,7 @@ Work through the chapters in order — each builds on the last. Go at your own p
 | [10 — Datasheet parsing](10-datasheet-parsing.md) | Both techniques upserting the same EHP node; `ParseDatasheet` deployed |
 | [11 — Datapoints](11-datapoints.md) | 4,320 datapoints written; the degradation story is now visible |
 | [12 — Workflows](12-workflows.md) | The whole pipeline running as one DAG |
-| [13 — Querying the graph](13-querying-the-graph.md) | `/query`, `/search`, `/aggregate`, `/sync`; traversal from the pump to its work orders |
+| [13 — Querying the graph](13-querying-the-graph.md) | `/query`, `/search`, `/aggregate`, `/sync`; work orders, P&ID, and live sensor evidence from one pump |
 | [14 — Debugging broken links](14-debugging-broken-links.md) | Dangling, orphaned and absent records found, traced and fixed at source |
 | [15 — Atlas AI agent](15-atlas-ai-agent.md) | An agent answering in English, and why the model is what makes it work |
 | [16 — Access management](16-access-management.md) | Who can see and change what, and how to prove it |

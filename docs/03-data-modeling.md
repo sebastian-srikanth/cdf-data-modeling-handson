@@ -263,7 +263,7 @@ of nodes.
 
 ## 3.7 [OPTIMIZE] Search, indexing, and property choices
 
-Two features you'll use in `WorkOrder`:
+The first two physical-design features you'll use in `WorkOrder` are:
 
 ```yaml
 constraints:
@@ -280,10 +280,40 @@ indexes:
 cheaper to catch at write time than to detect and dedupe later.
 - **B-tree indexes** speed up equality/range filtering on that property (`status = 'OPEN'`) at query time — without one, that filter is a full scan of the container.
 
+The index type must match the access pattern:
+
+| Query shape | Physical design |
+|---|---|
+| Equality, range or sort on one or more scalar properties | **B-tree** index |
+| Membership search inside a list property | **Inverted** index |
+| Stable pagination with a custom sort | A **cursorable B-tree** whose property order matches the sort |
+
+An index belongs to a **container**, not to a view and not to a property in isolation.
+That has two consequences senior reviewers look for:
+
+1. A composite index can only contain properties stored in the same container. A view
+   assembled from three containers cannot acquire one cross-container index.
+2. You can tune only containers you own. `WorkOrder.assets` is inherited from
+   `cdf_cdm:CogniteActivity`; this course cannot add an index to Cognite's container.
+   If asset → work-order lookup is a hard latency/SLA requirement at production scale,
+   model that relationship as an edge you own instead of depending forever on reverse
+   membership filtering over a CDM list.
+
+⚠️ `[COMMON MISTAKE]` Using a B-tree for a list because the query uses equality-like
+language. Lists use **inverted** indexes. B-trees are for primitive scalar lookups and
+range scans. List properties also need a deliberate `maxListSize`; an unbounded
+many-to-many relationship is usually an edge trying to escape from a property.
+
 ⚠️ `[COMMON MISTAKE]` Indexing every property "to be safe." Indexes cost write
 throughput and storage; add them for properties you know you'll filter or sort on
 (here: `status`, because dashboards and workflows will query "give me all `OPEN`
 work orders"), not speculatively.
+
+💡 `[GOOD TO KNOW]` Creating an index returns before the index is necessarily usable.
+Read the container back and check the index `state`: `pending` means it is still
+building, `current` means the planner can use it, and `failed` means it cannot. Fix the
+data that prevented the build and explicitly retry it; a failed index does not repair
+itself. A green deploy is therefore not the same thing as a green physical design.
 
 ### The `requires` constraint — the one everybody forgets
 
@@ -448,9 +478,9 @@ Solid arrows are stored data. The dotted arrow stores nothing at all — it is a
 that lets you walk the solid one backwards.
 
 ⚠️ `[COMMON MISTAKE]` Assuming a direct relation is traversable both ways because the
-data "is there". It is not. `WorkOrder.assets` points at the pump, but you cannot ask the
-pump for its work orders through that property — DMS keeps no reverse index for list
-membership, and [Chapter 13](13-querying-the-graph.md) section 13.5 shows you the exact error.
+data "is there". It is not. `WorkOrder.assets` points at the pump, but `/query` cannot
+walk that list property inwards from the pump. [Chapter 13](13-querying-the-graph.md)
+section 13.5 shows you the exact error and the supported filter fallback.
 
 ### Reverse direct relations
 
@@ -1288,13 +1318,12 @@ uv run cdf deploy --cdf-project <your-cdf-project> --dry-run --include data_mode
 ✅ `[VERIFY]` The second dry-run reports **0 to create, 0 to update, 10 unchanged**. A
 resource still listed as *create* is one that silently failed the first time.
 
-💡 `[GOOD TO KNOW]` That clean second run is the reason two lines in your containers look
-redundant: `cursorable: false` on each btree index, and `space: cdf_units` on each unit.
-CDF **fills both in itself** if you omit them — but the Toolkit compares your local YAML
-against what the API returns, so an omitted default reads as a difference and every
-future dry-run reports those containers as *update* forever. The deploy is a harmless
-no-op; the noise is not, because it hides the one real change you are looking for. Write
-server defaults explicitly whenever you find one, and your plan stays honest.
+💡 `[GOOD TO KNOW]` That clean second run is the reason `cursorable: false` is explicit
+on each B-tree index. CDF fills it in if you omit it, but the Toolkit compares your local
+YAML against what the API returns, so an omitted default can make every future dry-run
+report the container as *update*. Unit definitions are different: their supported keys
+are `externalId` and optional `sourceUnit`; a `space` key is not part of the container
+unit schema.
 
 ✅ `[VERIFY]` In Fusion → **Data management → Data models**, both `TrainingCore` and
 `MaintenanceInsight` appear at `v1.0.0`. Open `MaintenanceInsight` → `Asset` and confirm
