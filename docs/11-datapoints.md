@@ -60,7 +60,7 @@ additionally get a **`degrade` term that is zero for 600 points and then ramps t
 the final 120** — which is what makes vibration climb and flow fall in the last 5 days,
 explaining work order `WO-1001` ("replace mechanical seal").
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_GenerateDatapoints/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_GenerateDatapoints/handler.py`
 
 ```python
 """Generate 720 hourly datapoints per training timeseries with a degradation signature."""
@@ -163,7 +163,7 @@ A deliberate teaching choice, not laziness in the data generator.
 
 📝 `[WRITE]` `requirements.txt`: `cognite-sdk==8.10.0`
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/GenerateDatapoints.Function.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/GenerateDatapoints.Function.yaml`
 
 ```yaml
 externalId: fnc_<YOURNAME>_Training_GenerateDatapoints

@@ -285,6 +285,18 @@ WRITE_PY = re.compile(
 FUNCTION_FOLDER = re.compile(r"fnc_.*?_Training_(\w+)")
 
 
+def _handler_for(capability: str):
+    """Locate a reference handler by capability name, wherever the module tree puts it.
+
+    Hard-coding `reference/functions/...` broke the moment the modules were split by
+    lifecycle. The handlers are found by search now, so the checks survive the next
+    reshuffle too.
+    """
+    for path in REFERENCE.rglob(f"fnc_REFERENCE_Training_{capability}/handler.py"):
+        return path
+    return REFERENCE / "missing" / capability / "handler.py"
+
+
 def _reference_handler(path: str):
     parts = pathlib.PurePosixPath(path).parts
     if "functions" not in parts:
@@ -292,7 +304,7 @@ def _reference_handler(path: str):
     m = FUNCTION_FOLDER.match(parts[parts.index("functions") + 1])
     if not m:
         return None
-    candidate = REFERENCE / "functions" / f"fnc_REFERENCE_Training_{m.group(1)}" / "handler.py"
+    candidate = _handler_for(m.group(1))
     return candidate if candidate.exists() else None
 
 
@@ -392,10 +404,10 @@ COUNT_CLAIMS = [
 WORD_NUMBERS = {"four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 SPELLED = [
     (re.compile(r"(\w+) transformations"),
-     lambda: len(list((ROOT / "training/modules/reference/transformations")
+     lambda: len(list((ROOT / "training/modules/reference/03_data/transformations")
                       .glob("*.Transformation.yaml"))), "transformations"),
     (re.compile(r"(\w+) Cognite Functions"),
-     lambda: len(list((ROOT / "training/modules/reference/functions").glob("fnc_*"))),
+     lambda: len(list((ROOT / "training/modules/reference/04_compute/functions").glob("fnc_*"))),
      "functions"),
 ]
 
@@ -577,7 +589,7 @@ def check_function_return_keys() -> int:
     import ast
 
     returned: set[str] = set()
-    for handler in (REFERENCE / "functions").rglob("handler.py"):
+    for handler in REFERENCE.rglob("handler.py"):
         tree = ast.parse(handler.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Dict):
@@ -642,7 +654,7 @@ def check_walkthrough_fragments() -> int:
     write a call with six arguments. Every identifier of four characters or more must
     appear somewhere in some reference handler.
     """
-    sources = "\n".join(h.read_text() for h in (REFERENCE / "functions").rglob("handler.py"))
+    sources = "\n".join(h.read_text() for h in REFERENCE.rglob("handler.py"))
     ident = re.compile(r"[A-Za-z_][A-Za-z0-9_]{3,}")
     checked = 0
 
@@ -728,6 +740,56 @@ def check_selfcheck_is_space_scoped() -> int:
     return checked
 
 
+# The reference module is split by rate of change, not by tidiness (Chapter 01 1.3).
+# A resource type in the wrong module is not a build error -- the Toolkit does not care --
+# so it has to be a check here, or the split quietly decays back into one bucket.
+LIFECYCLE = {
+    "data_modeling": "01_schema",
+    "auth": "02_access", "data_sets": "02_access", "locations": "02_access",
+    "raw": "03_data", "files": "03_data", "transformations": "03_data",
+    "functions": "04_compute", "workflows": "04_compute",
+}
+
+
+def check_module_layout() -> int:
+    """Each resource type sits in its lifecycle module, and each module declares itself."""
+    checked = 0
+    seen_modules = set()
+
+    for resource, module in LIFECYCLE.items():
+        found = [d for d in REFERENCE.rglob(resource) if d.is_dir()]
+        if not found:
+            continue
+        checked += 1
+        for directory in found:
+            parent = directory.parent.name
+            seen_modules.add(parent)
+            if parent != module:
+                fail(f"layout    {resource}/ is in {parent}/, expected {module}/ "
+                     "-- see Chapter 01 section 1.3 for why the split is by rate of change")
+
+    for module in sorted(set(LIFECYCLE.values())):
+        directory = REFERENCE / module
+        if not directory.exists():
+            fail(f"layout    reference/{module}/ is missing")
+            continue
+        checked += 1
+        if not (directory / "module.toml").exists():
+            fail(f"layout    reference/{module}/ has no module.toml -- the Toolkit will "
+                 "not treat it as a module, and cdf build will report fewer than 4")
+
+    # the chapters must teach the same paths the reference actually uses
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        for resource, module in LIFECYCLE.items():
+            stale = f"participants/<YOURNAME>/{resource}/"
+            if stale in text:
+                checked += 1
+                fail(f"layout    {md.name}: writes to {stale} but {resource}/ lives "
+                     f"under {module}/ now")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -749,6 +811,7 @@ def main() -> int:
     walkthru = check_walkthrough_fragments()
     testcount = check_test_count()
     scoped = check_selfcheck_is_space_scoped()
+    layout = check_module_layout()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -771,6 +834,7 @@ def main() -> int:
     print(f"  walkthroughs     {walkthru:>4} quoted fragments exist in a handler")
     print(f"  test count       {testcount:>4} claim(s) match tests/")
     print(f"  participant scope{scoped:>4} selfcheck reads are space-scoped")
+    print(f"  module layout    {layout:>4} resource dirs in their lifecycle module")
     for note in notes:
         print(f"  note: {note}")
 

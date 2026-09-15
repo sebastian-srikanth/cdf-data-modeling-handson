@@ -26,7 +26,7 @@ clean key — that's exactly where a Transformation stops being the right tool.
 
 ## 5.2 [WRITE] Transform 1 — Load Assets (with the null-parent trap)
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_Assets.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_Assets.Transformation.yaml`
 (unscoped filename — the scoped identity lives in `externalId:`, see the `[COMMON MISTAKE]` below)
 
 ```yaml
@@ -117,7 +117,7 @@ wide, stringly-typed scans joined late.
 
 ## 5.3 [WRITE] Transform 2 — Load Equipment
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_Equipment.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_Equipment.Transformation.yaml`
 — identical shape to section 5.2 (unscoped filename, no `queryFile`), with:
 
 ```yaml
@@ -169,7 +169,7 @@ appears.
 
 ## 5.4 [WRITE] Transform 3 — Load TimeSeries
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_TimeSeries.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_TimeSeries.Transformation.yaml`
 — same shape (unscoped filename, no `queryFile`), `destination.view` → `{ space: cdf_cdm, externalId: CogniteTimeSeries, version: v1 }`.
 
 📝 `[WRITE]` `tra_Training_TRN_Load_TimeSeries.sql`:
@@ -198,7 +198,7 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_TimeSeries`
 
 ## 5.5 [WRITE] Transform 4 — Load Work Orders
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_WorkOrders.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_WorkOrders.Transformation.yaml`
 — same shape (unscoped filename, no `queryFile`), `destination.view` → your own `WorkOrder`:
 
 ```yaml
@@ -284,14 +284,14 @@ one work order — from `rwt_Training_TRN_WorkOrderOperations`, joined to the wo
 you loaded in section 5.5. Eight source rows go in. Six nodes come out. That is correct, and
 by the end of this section you will be able to say exactly why.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_WorkOrderOperations.Table.yaml`
 
 ```yaml
 dbName: rwd_<YOURNAME>_Training_TRN
 tableName: rwt_Training_TRN_WorkOrderOperations
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.csv`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_WorkOrderOperations.Table.csv`
 
 ```csv
 key,operationNumber,workOrderNumber,tagExternalId,description,durationHours,craft
@@ -462,7 +462,7 @@ explicitly as above, or make sure the source writes a value RAW cannot read as a
 
 ### 5.6.6 The finished transformation
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations.Transformation.yaml`
 
 ```yaml
 externalId: tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations
@@ -488,7 +488,7 @@ authentication:
 
 📝 `[WRITE]` `.../transformations/tra_Training_TRN_Load_WorkOrderOperations.sql` — the
 full query is in the reference module at
-`training/modules/reference/transformations/`, with every clause commented against the
+`training/modules/reference/03_data/transformations/`, with every clause commented against the
 subsection it came from. Type it yourself; the comments are the lesson.
 
 ✅ `[VERIFY]` After running it:

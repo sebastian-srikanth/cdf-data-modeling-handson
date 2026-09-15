@@ -128,14 +128,14 @@ the reader mistakes for which. On a scanned P&ID that is where most misses come 
 `"name": [name, a.external_id]` gives every asset two spellings to match on. If you need
 `PMP` to find `PUMP`, add it there, not here.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_TagAliases.Table.yaml`
 
 ```yaml
 dbName: rwd_<YOURNAME>_Training_TRN
 tableName: rwt_Training_TRN_TagAliases
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.csv`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_TagAliases.Table.csv`
 
 ```text
 key,character,alternatives,addedBy,reason
@@ -329,7 +329,7 @@ result["items"]           ← one block PER FILE (not per detection)
 Reaching for `result["annotations"]` or `region["xMin"]` is the most common way to get zero
 annotations out of a job that actually succeeded.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_DetectDiagramTags/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_DetectDiagramTags/handler.py`
 
 ```python
 """Detect tags on the Area 21 P&ID and create CogniteDiagramAnnotation edges.
@@ -590,7 +590,7 @@ edge-type id. Live API check: that call returns 400
 
 📝 `[WRITE]` `requirements.txt`: `cognite-sdk==8.10.0`
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/DetectDiagramTags.Function.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/DetectDiagramTags.Function.yaml`
 
 ```yaml
 externalId: fnc_<YOURNAME>_Training_DetectDiagramTags

@@ -20,12 +20,14 @@ import types
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-REFERENCE = ROOT / "training" / "modules" / "reference" / "functions"
+REFERENCE = ROOT / "training" / "modules" / "reference"
 
 
 def load_handler(function_dir: str) -> types.ModuleType:
     """Import a reference handler by path, the way Cognite Functions does."""
-    path = REFERENCE / function_dir / "handler.py"
+    # Found by search: the modules are split by lifecycle, and hard-coding the path
+    # is what broke these imports when that happened.
+    path = next(REFERENCE.rglob(f"{function_dir}/handler.py"))
     spec = importlib.util.spec_from_file_location(f"handler_{function_dir}", path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module

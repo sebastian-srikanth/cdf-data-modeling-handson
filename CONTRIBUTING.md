@@ -55,6 +55,29 @@ uv run python tools/check_mermaid.py  # if you touched a diagram
 learner to write against the module in `training/modules/reference/`, so a chapter can
 never quietly teach something different from what it ships.
 
+## Where a new resource goes
+
+`training/modules/reference/` is **four Toolkit modules**, split by how often things
+change rather than by what they are:
+
+| Module | Holds | Changes |
+|---|---|---|
+| `01_schema` | `data_modeling` | rarely; every change is a negotiation |
+| `02_access` | `auth`, `data_sets`, `locations` | constantly, often urgently |
+| `03_data` | `raw`, `files`, `transformations` | when a source system changes |
+| `04_compute` | `functions`, `workflows` | daily, while building |
+
+Put a new resource in the module whose cadence it shares, and add the mapping to
+`LIFECYCLE` in `tools/check_docs.py`. The layout check enforces three things: every
+resource type is in its expected module, every module has a `module.toml`, and no chapter
+still teaches a pre-split path. The Toolkit itself does not care where the folders sit —
+which is exactly why the rule has to live in a check.
+
+The full argument is in [Chapter 01](docs/01-naming-isolation-and-setup.md) section 1.3,
+and the short version is: schema changes are rare and dangerous, compute changes are
+frequent and cheap, and putting them in one module means every routine handler fix drags
+your containers along for the review.
+
 ## If you change the reference module
 
 Two things embed it, and both go stale silently.

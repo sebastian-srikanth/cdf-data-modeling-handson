@@ -39,7 +39,7 @@ that produced (or failed to produce) each value, works entirely offline.
 vendor template, a reflowed PDF, or OCR'd (rather than text) PDF breaks every pattern
 at once, silently, with no severity signal beyond "missing."
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_ParseDatasheet_Regex/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_ParseDatasheet_Regex/handler.py`
 *(build this one in the notebook and read it here — the deployed Function you'll ship
 in section 10.5 is the Technique 2 version; keep this one as your own local comparison)*:
 
@@ -179,7 +179,7 @@ Compare what you deployed in Chapter 03 against a description-engineered version
 
 🟢 `[ACTION]` Enrich your container with descriptions before running Technique 2.
 
-📝 `[WRITE]` update `participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.Container.yaml`
+📝 `[WRITE]` update `participants/<YOURNAME>/01_schema/data_modeling/EquipmentHealthProfile.Container.yaml`
 — add a `description:` to each spec property (`ratedFlowM3h`, `ratedHeadM`,
 `ratedPowerKw`, `designPressureBarg`, `designTemperatureC`, `dryWeightKg`,
 `casingMaterial`, `sealType`), following the pattern above: **state the unit,
@@ -440,7 +440,7 @@ you wrote in section 10.3.
 Change what gets extracted by editing a **description in the data model**, not by editing and
 redeploying Python. That is what makes this genuinely agentic rather than a fancier regex.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_ParseDatasheet/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_ParseDatasheet/handler.py`
 
 ```python
 """Parse the pump datasheet PDF into EquipmentHealthProfile."""
@@ -621,7 +621,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 
 📝 `[WRITE]` `requirements.txt`: `cognite-sdk==8.10.0`
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/ParseDatasheet.Function.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/ParseDatasheet.Function.yaml`
 
 ```yaml
 externalId: fnc_<YOURNAME>_Training_ParseDatasheet

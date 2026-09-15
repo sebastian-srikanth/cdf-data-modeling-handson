@@ -106,13 +106,13 @@ pipeline to contrast it against.
 
 ## 4.3 [WRITE] RAW database + tables
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwd_<YOURNAME>_Training_TRN.Database.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwd_<YOURNAME>_Training_TRN.Database.yaml`
 
 ```yaml
 dbName: rwd_<YOURNAME>_Training_TRN
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_Assets.Table.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_Assets.Table.yaml`
 (unscoped filename — see the `[COMMON MISTAKE]` below)
 
 ```yaml
@@ -121,7 +121,7 @@ tableName: rwt_Training_TRN_Assets
 ```
 
 📝 `[WRITE]` the sibling CSV **with the byte-identical basename**,
-`participants/<YOURNAME>/raw/rwt_Training_TRN_Assets.Table.csv` — content from the
+`participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_Assets.Table.csv` — content from the
 **Assets** block in section 4.2.
 
 📝 `[WRITE]` repeat the same `.Table.yaml` / `.Table.csv` pair for
@@ -187,13 +187,13 @@ cp docs/assets/TRN-21-SEP-3D.mtl              $P/files/
 ✅ `[VERIFY]`
 
 ```bash
-ls training/modules/participants/<YOURNAME>/files/
+ls training/modules/participants/<YOURNAME>/03_data/files/
 ```
 
 Expect `TRN-21-SEP-PID.pdf`, `TRN-21-PA-2001A-Datasheet.pdf`, `TRN-21-SEP-3D.obj`,
 `TRN-21-SEP-3D.mtl`.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/files/pid.CogniteFile.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/files/pid.CogniteFile.yaml`
 
 ```yaml
 space: isp_<YOURNAME>_TRN
@@ -207,7 +207,7 @@ assets:
     externalId: TRN-21-SEP
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/files/datasheet.CogniteFile.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/files/datasheet.CogniteFile.yaml`
 
 ```yaml
 space: isp_<YOURNAME>_TRN
@@ -221,7 +221,7 @@ assets:
     externalId: 21-PA-2001A
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/files/model3d.FileMetadata.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/files/model3d.FileMetadata.yaml`
 
 ```yaml
 externalId: file_<YOURNAME>_TRN_3D_21_SEP
@@ -259,7 +259,7 @@ and the deploy resolves the staged binary correctly.
 ## 4.6 [ACTION] Build, dry-run, deploy
 
 📝 `[WRITE]` **first** — the data set itself, because the resources above reference it:
-`participants/<YOURNAME>/data_sets/dts_<YOURNAME>_Training_TRN.DataSet.yaml`
+`participants/<YOURNAME>/02_access/data_sets/dts_<YOURNAME>_Training_TRN.DataSet.yaml`
 
 ```yaml
 externalId: dts_<YOURNAME>_Training_TRN

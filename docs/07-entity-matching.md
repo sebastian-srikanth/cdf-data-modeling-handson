@@ -47,14 +47,14 @@ wrong match at 23:00, the fix is a code change, a review, a deploy, and a pipeli
 So in production the rules do not live in code. **They live in a RAW table**, and the
 pipeline reads them on every run:
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_MappingRules.Table.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_MappingRules.Table.yaml`
 
 ```yaml
 dbName: rwd_<YOURNAME>_Training_TRN
 tableName: rwt_Training_TRN_MappingRules
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_MappingRules.Table.csv`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_MappingRules.Table.csv`
 
 ```text
 key,sourcePattern,targetExternalId,matchType,addedBy,reason
@@ -284,7 +284,7 @@ spend compute only on the genuine leftovers.
 > one resource in the whole lab that does not isolate itself. See
 > [Chapter 17](17-cross-cutting-mastery.md) section 17.7.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_MatchDocuments/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_MatchDocuments/handler.py`
 
 ```python
 """Match PDF CogniteFile nodes to CogniteAsset nodes, cheapest technique first.
@@ -899,13 +899,13 @@ def _write_and_report(client, space, v_file, files, resolved, matches, below, ru
 [Entity matching](https://docs.cognite.com/cdf/integration/guides/contextualization/match_entities) ·
 [Data modeling](https://docs.cognite.com/cdf/dm/)
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_MatchDocuments/requirements.txt`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_MatchDocuments/requirements.txt`
 
 ```
 cognite-sdk==8.10.0
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/MatchDocuments.Function.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/MatchDocuments.Function.yaml`
 
 ```yaml
 externalId: fnc_<YOURNAME>_Training_MatchDocuments

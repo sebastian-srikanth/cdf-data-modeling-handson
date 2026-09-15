@@ -188,7 +188,7 @@ Write this before the workflow, because the workflow references it by external I
 Workflow version whose task names a Function that does not exist deploys happily and then
 fails at run time.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_QualityGate/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_QualityGate/handler.py`
 
 ```python
 """The quality gate: assert the last contextualization run, and fail if it is bad.
@@ -331,13 +331,13 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     return report
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_QualityGate/requirements.txt`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_QualityGate/requirements.txt`
 
 ```
 cognite-sdk==8.10.0
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/QualityGate.Function.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/QualityGate.Function.yaml`
 
 ```yaml
 externalId: fnc_<YOURNAME>_Training_QualityGate
@@ -395,7 +395,7 @@ and the two behave identically right up to the day you need one of them.
 
 ## 12.3 [WRITE] The Workflow and its version
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/workflows/wkf_<YOURNAME>_Training_TRN.Workflow.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/workflows/wkf_<YOURNAME>_Training_TRN.Workflow.yaml`
 
 ```yaml
 externalId: wkf_<YOURNAME>_Training_TRN
@@ -403,7 +403,7 @@ description: End-to-end contextualization pipeline for <YOURNAME>.
 dataSetExternalId: dts_<YOURNAME>_Training_TRN
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/workflows/wkf_<YOURNAME>_Training_TRN.v1.WorkflowVersion.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/workflows/wkf_<YOURNAME>_Training_TRN.v1.WorkflowVersion.yaml`
 
 ```yaml
 workflowExternalId: wkf_<YOURNAME>_Training_TRN

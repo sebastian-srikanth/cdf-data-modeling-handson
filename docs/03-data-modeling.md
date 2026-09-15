@@ -593,7 +593,7 @@ Same edges, two declarations, no extra data.
 
 ## 3.10 [WRITE] Your spaces
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/isp_<YOURNAME>_TRN.Space.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/isp_<YOURNAME>_TRN.Space.yaml`
 
 ```yaml
 space: isp_<YOURNAME>_TRN
@@ -601,7 +601,7 @@ name: <YOURNAME> TRN Training Instances
 description: Instance (data) space for <YOURNAME> - CDF data modeling hands-on.
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ssp_<YOURNAME>_TrainingCore_edm.Space.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ssp_<YOURNAME>_TrainingCore_edm.Space.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -609,7 +609,7 @@ name: <YOURNAME> Training Core EDM
 description: Enterprise schema space for <YOURNAME> - Training Core EDM.
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ssp_<YOURNAME>_MaintenanceInsight_sdm.Space.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ssp_<YOURNAME>_MaintenanceInsight_sdm.Space.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -625,7 +625,7 @@ description: Solution schema space for <YOURNAME> - Rotating-Equipment Maintenan
 
 ## 3.11 [WRITE] Your containers
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/WorkOrder.Container.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/WorkOrder.Container.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -721,7 +721,7 @@ indexes:
       - status
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.Container.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/EquipmentHealthProfile.Container.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -898,7 +898,7 @@ declaring them here means you deploy your model **once**. The full argument for 
 production system needs them is [Chapter 17](17-cross-cutting-mastery.md) §17.1c; the short
 version is that a system which can only tell you *what* is linked cannot be operated.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ContextualizationRun.Container.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationRun.Container.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1036,7 +1036,7 @@ indexes:
 
 🔧 `[CHANGE]` The `space:` line only.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ContextualizationSuggestion.Container.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationSuggestion.Container.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1160,7 +1160,7 @@ Containers store; **views are what you query**. Every transformation destination
 Fusion screen, every Atlas AI agent and every line of Chapters 05–15 addresses a view,
 never a container. Three of them.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/WorkOrder.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/WorkOrder.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -1229,7 +1229,7 @@ Read what this view does **not** contain. There is no `name`, no `description`, 
 that is the whole point of section 3.3's layering: your view is small because the core model
 carries the rest.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/EquipmentHealthProfile.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1354,7 +1354,7 @@ specs. Two containers behind one view means the implicit `hasData` filter requir
 in **both** — write only the specs and the node vanishes from the view. That is section 3.8b,
 and it is the single most expensive afternoon in this course.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/Asset.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/Asset.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1427,7 +1427,7 @@ right now. `healthProfile` fills in when Chapter 10 writes the profiles;
 `diagrams.AssetLink` edges. Declaring them now means neither chapter has to redeploy a
 model to see its own output.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ContextualizationRun.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationRun.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1539,7 +1539,7 @@ properties:
     containerPropertyIdentifier: workflowExecutionId
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ContextualizationSuggestion.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationSuggestion.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1632,7 +1632,7 @@ never populate would only re-create §3.8b's empty-view trap for no benefit.
 A data model is a published, versioned **list of views** — the contract an application
 binds to. It holds no data and no properties of its own.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/TrainingCore.DataModel.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/TrainingCore.DataModel.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -1692,7 +1692,7 @@ views:
     type: view
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/MaintenanceInsight.DataModel.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/MaintenanceInsight.DataModel.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
