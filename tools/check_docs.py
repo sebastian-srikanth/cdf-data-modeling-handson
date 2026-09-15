@@ -690,6 +690,44 @@ def check_test_count() -> int:
     return checked
 
 
+def check_selfcheck_is_space_scoped() -> int:
+    """Every data-modeling read in selfcheck.py must be scoped to the participant.
+
+    This project holds every participant's data at once, and the external IDs are
+    identical across them -- everybody has a `21-PA-2001A`. A read without a space
+    scope does not error; it returns somebody else's pump, and with `limit=1` it
+    returns a different person's pump on different days.
+
+    That is exactly how this file shipped a Chapter 13 check that passed locally and
+    failed in CI, while the chapter it exists to verify had the space filter right all
+    along. A grader that can silently grade the wrong participant is worse than no
+    grader.
+    """
+    source = (ROOT / "tools" / "selfcheck.py").read_text()
+    lines = source.splitlines()
+    checked = 0
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+
+        # every instances.list(...) call must carry space=
+        if "instances.list(" in stripped:
+            checked += 1
+            call = "\n".join(lines[i:i + 8])
+            if "space=" not in call:
+                fail(f"unscoped  selfcheck.py:{i + 1}: instances.list() with no space= "
+                     "-- it can read another participant's data")
+
+        # an externalId anchor in a query must sit inside a space-scoped filter
+        if 'flt.Equals(["node", "externalId"]' in stripped:
+            checked += 1
+            window = "\n".join(lines[max(0, i - 8):i + 2])
+            if "SpaceFilter" not in window:
+                fail(f"unscoped  selfcheck.py:{i + 1}: externalId anchor with no "
+                     "SpaceFilter -- external IDs are not unique across participants")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -710,6 +748,7 @@ def main() -> int:
     retkeys = check_function_return_keys()
     walkthru = check_walkthrough_fragments()
     testcount = check_test_count()
+    scoped = check_selfcheck_is_space_scoped()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -731,6 +770,7 @@ def main() -> int:
     print(f"  return keys      {retkeys:>4} documented Function fields exist")
     print(f"  walkthroughs     {walkthru:>4} quoted fragments exist in a handler")
     print(f"  test count       {testcount:>4} claim(s) match tests/")
+    print(f"  participant scope{scoped:>4} selfcheck reads are space-scoped")
     for note in notes:
         print(f"  note: {note}")
 

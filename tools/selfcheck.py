@@ -47,14 +47,18 @@ def check_03(client, name, r: Report) -> None:
         for c in client.data_modeling.containers.list(limit=-1, include_global=False)
         if c.space in mine
     }
-    r.check("containers deployed", sorted(containers), ["EquipmentHealthProfile", "WorkOrder"])
+    r.check("containers deployed", sorted(containers),
+            ["ContextualizationRun", "ContextualizationSuggestion",
+             "EquipmentHealthProfile", "WorkOrder"])
 
     views = {
         v.external_id
         for v in client.data_modeling.views.list(limit=-1, include_global=False)
         if v.space in mine
     }
-    r.check("views deployed", sorted(views), ["Asset", "EquipmentHealthProfile", "WorkOrder"])
+    r.check("views deployed", sorted(views),
+            ["Asset", "ContextualizationRun", "ContextualizationSuggestion",
+             "EquipmentHealthProfile", "WorkOrder"])
 
     models = {
         m.external_id
@@ -325,10 +329,22 @@ def check_13(client, name, r: Report) -> None:
         NodeResultSetExpression, Query, Select, SourceSelector)
 
     ehp_view = ViewId(sdm, "EquipmentHealthProfile", MODEL_VERSION)
+    asset_view = ViewId(sdm, "Asset", MODEL_VERSION)
     q = Query(
         with_={
+            # The anchor MUST be space-scoped, exactly as the chapter writes it.
+            # `21-PA-2001A` is not unique in this project -- every participant has one --
+            # so an externalId-only filter with limit=1 can anchor on somebody else's
+            # pump and then traverse to a profile that is not there. This check failed
+            # in CI for precisely that reason, while the chapter it exists to verify
+            # had the filter right all along.
             "pump": NodeResultSetExpression(
-                filter=flt.Equals(["node", "externalId"], "21-PA-2001A"), limit=1),
+                filter=flt.And(
+                    flt.SpaceFilter(isp, "node"),
+                    flt.HasData(views=[asset_view]),
+                    flt.Equals(["node", "externalId"], "21-PA-2001A"),
+                ),
+                limit=1),
             "profile": NodeResultSetExpression(
                 from_="pump", through=ehp_view.as_property_ref("asset"),
                 direction="inwards", limit=10),
