@@ -611,9 +611,87 @@ destructive, irreversible operation.
 
 ---
 
+## 17.8 [ACTION] Capstone — a production recovery
+
+Everything up to here you were told to do. This one you are not.
+
+**The situation.** It is 08:40. The overnight pipeline reported success, and the
+maintenance team says documents that were linked to `21-PA-2001A` yesterday are no longer
+linked this morning. Nothing is red. Nobody has an error message.
+
+**Cause it, so that it is real.** Edit `sourcePattern` in one row of
+`rwt_Training_TRN_MappingRules` so it no longer matches — change
+`TRN-21-SEP-PID.pdf` to `TRN-21-SEP-PID-RevB.pdf`, the sort of change somebody makes when
+a drawing is reissued. Then run the workflow.
+
+🟢 `[ACTION]` Now work the incident. **Do not read ahead.** Answer these in order, from
+CDF, and write your answers in `NOTES.md` as you go:
+
+1. Exactly which links are missing? Name them, do not describe them.
+2. When did they disappear? Give a run ID and a timestamp, not "last night".
+3. What changed between the run that had them and the run that did not?
+4. Did anything a **person** decided get lost?
+5. Was there any signal at all that something was wrong — and if there was, why did
+   nobody see it?
+6. Fix it, and prove the fix from the graph rather than from the fact that you edited a
+   row.
+7. Whose job is it to notice this next time, and what exactly would tell them?
+
+<details>
+<summary>What a good answer uses — open this only after you have tried</summary>
+
+**1 and 2** come from `ContextualizationSuggestion`: the rows are still there, marked
+`superseded`, and each names the run that orphaned it. You never had to guess, because the
+pipeline recorded its own disagreement with itself.
+
+**3** is `rulesVersion` on the two runs. Different values mean the rule set changed between
+them — which turns *"something broke"* into *"somebody edited the rules"* in one query,
+and that is the entire value of putting it on the run record.
+
+**4** is the important one. Check `decidedBy` on every affected suggestion. If a human
+decision was reversed, the re-run rule in section 17.1c is broken and that is a far more
+serious finding than the missing link.
+
+**5** is `staleRemovedCount`. It went from 0 to non-zero, and the quality gate passed
+anyway because the budget was 5. A signal that exists and is not watched is not a signal.
+
+**6**: fix the RAW row, re-run, and assert the link is back **and** `staleRemovedCount`
+returns to 0 **and** the previously-superseded suggestion is `auto-applied` again. Three
+assertions, because the first alone would also pass if you had linked it by hand.
+
+**7** has no single right answer, and that is why it is the last question. Tighten
+`MAX_STALE_REMOVED` to 0 and the gate catches it — at the cost of going red every time
+somebody legitimately retires a rule. Leave it and you need someone reading run records.
+Whichever you choose, the person who will be woken up should hear it from you before it
+happens, not after.
+
+</details>
+
+💡 `[GOOD TO KNOW]` Notice what you did **not** need: the PDF, the logs, the Function
+source, or anybody's memory of what they changed. Every question was answerable from
+records the pipeline wrote about itself. That is the whole argument for section 17.1c,
+and this is the exercise that makes it concrete rather than a paragraph you agreed with.
+
+⚠️ `[COMMON MISTAKE]` Fixing it first and investigating afterwards. The fix destroys the
+evidence — once the rule matches again, the next run marks the superseded rows back to
+`auto-applied` and the question *"when did this start"* becomes unanswerable. In a real
+incident, capture before you repair: a run ID and a list of affected external IDs costs
+you thirty seconds and is the difference between a fix and an explanation.
+
+🚧 `[LIMITS]` This drill works because the damage was in *your* space and one rule caused
+it. Real incidents span several causes at once and someone is asking for an ETA while you
+work. The habit worth taking is the order, not the scenario: **what exactly is wrong →
+when did it start → what changed → what did we lose → fix → prove → who watches next
+time.**
+
+---
+
 ## Gate
 
 **Do not proceed to Chapter 18 until:**
+
+- You completed the section 17.8 capstone **before** opening its answer, and your
+  `NOTES.md` has your seven answers in your own words
 
 - The self-verification script above prints `PASS`
 - Every item in the manual checklist is checked

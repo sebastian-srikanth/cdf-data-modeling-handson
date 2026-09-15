@@ -706,6 +706,92 @@ batch still lands, instead of the whole request failing.
 
 ---
 
+## 10.5d [OPTIMIZE] Three things a production parser does that this one does not
+
+Your `ParseDatasheet` re-reads the PDF, believes whatever it extracts, and records nothing
+about where a number came from. At one datasheet that is fine. At forty thousand it is
+three separate problems.
+
+### 1. It re-parses a document that has not changed
+
+Every call downloads the PDF and runs the parse again. With the Document Parser API that
+is a paid call for an answer you already have.
+
+Fingerprint the bytes and skip the work:
+
+```python
+import hashlib
+
+content = client.files.download_bytes(external_id=file_xid)
+fingerprint = hashlib.sha256(content).hexdigest()
+
+if profile is not None and profile.get("sourceFingerprint") == fingerprint:
+    return {"skipped": "document unchanged", "fingerprint": fingerprint[:12]}
+```
+
+⚡ `[OPTIMIZE]` Fingerprint the **content**, not the metadata. `lastUpdatedTime` on a file
+node changes when anybody touches any property — re-linking it in
+[Chapter 07](07-entity-matching.md) is enough — and it does *not* change when somebody
+replaces the bytes under an existing file without updating the node. It is wrong in both
+directions.
+
+💡 `[GOOD TO KNOW]` The fingerprint is also the honest answer to *"which revision of the
+datasheet does this spec come from?"* Store it next to the specs and a disagreement
+between engineering and maintenance becomes a two-second lookup instead of an argument.
+
+### 2. It cannot tell you where a number came from
+
+`ratedPowerKw: 75.0` is an assertion with no provenance. When somebody insists the pump is
+90 kW, you have nothing — you cannot tell whether the parser misread, whether it read a
+different field, or whether it read a different document entirely.
+
+This is the same problem [Chapter 17](17-cross-cutting-mastery.md) section 17.1c solves for
+links, and it has the same answer: record the evidence. A
+`ContextualizationSuggestion` per field, with `method` (`regex` or `document-parser`),
+`confidence`, `evidenceText` (the line the number was read from) and `evidencePage`, gives
+a reviewer everything they need to settle it without opening the PDF.
+
+⚡ `[OPTIMIZE]` The evidence is worth more than the confidence score. *"0.82"* tells a
+reviewer nothing they can act on. *"read `RATED POWER: 75 kW` on page 2"* lets them agree
+or disagree in one glance — and when they disagree, it tells you whether your regex or
+your source document is the problem.
+
+### 3. It believes whatever it extracts
+
+A parser that reads `75` from a field labelled in **watts** writes `ratedPowerKw: 75000`.
+Nothing errors. The value is a valid double, the node writes cleanly, and the pump is now
+recorded as a thousand times more powerful than it is.
+
+```python
+PLAUSIBLE = {
+    "ratedPowerKw":        (0.1, 50_000),
+    "ratedFlowM3h":        (0.1, 100_000),
+    "ratedHeadM":          (0.1, 5_000),
+    "designPressureBarg":  (0.0, 1_000),
+    "designTemperatureC":  (-200, 1_500),
+}
+
+def _plausible(field, value):
+    low, high = PLAUSIBLE[field]
+    return low <= value <= high
+```
+
+Out-of-range values do **not** get written and do **not** get silently dropped. They go to
+the review band, with the evidence, exactly like a low-confidence link.
+
+⚠️ `[COMMON MISTAKE]` Clamping to the range instead of rejecting. Writing `50000` because
+the parse said `75000` and that is the maximum turns a detectable error into an
+undetectable one — the number is now wrong *and* plausible, and no later check can find
+it.
+
+🚧 `[LIMITS]` A range check catches the order-of-magnitude error, which is the common one.
+It cannot catch `75` when the true value is `90`: both are plausible. Nothing in the
+pipeline can catch that, which is the honest reason the review band exists and the honest
+reason `decidedBy` matters. Validation narrows what a human has to look at; it never
+removes the human.
+
+---
+
 ## 10.6 [ACTION] Build, deploy, run, compare
 
 ```bash
