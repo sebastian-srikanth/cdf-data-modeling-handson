@@ -78,6 +78,19 @@ def _apply_rules(rules: list[dict], file_xid: str, file_name: str) -> str | None
     return None
 
 
+def _rules_version(rules: list[dict]) -> str:
+    """A stable identity for the rule set, so a change in results can be attributed.
+
+    Hashes the content, sorted, so the value changes when a rule is added, removed OR
+    edited, and does not change merely because RAW returned the rows in another order.
+    """
+    import hashlib
+    material = "|".join(sorted(
+        f"{r.get('matchType')}~{r.get('pattern')}~{r.get('target')}" for r in rules))
+    digest = hashlib.sha1(material.encode()).hexdigest()[:8]
+    return f"rules:{len(rules)}:{digest}"
+
+
 def _band(score: float) -> str:
     if score >= AUTO_APPLY_AT:
         return "auto-applied"
@@ -426,9 +439,12 @@ def _write_spine(client, space, sdm, version, run_id, resolved, below, unresolve
             "runId": run_id,
             "technique": technique,
             "status": "completed",
-            # The rule set is identified by its row count, so a results change can be
-            # attributed to a rules change rather than argued about.
-            "rulesVersion": f"rules:{len(rules)}",
+            # The rule set is identified by a hash of its CONTENT, not by its row
+            # count. A count is the obvious choice and it is wrong: editing a rule --
+            # the single most common change -- leaves the count identical, so the
+            # version says nothing changed while the results say otherwise. Measured
+            # exactly that way before this was fixed.
+            "rulesVersion": _rules_version(rules),
             "startedTime": _ts(started),
             "completedTime": _ts(now),
             "scannedCount": len(resolved) + len(below) + len(unresolved),

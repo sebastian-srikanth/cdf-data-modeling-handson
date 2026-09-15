@@ -140,3 +140,37 @@ def test_a_suggestion_with_no_target_is_ignored(match_documents):
     prior = _prior(a={"sourceExternalId": "f1", "targetExternalId": None,
                       "decision": "unresolved", "decidedBy": "pipeline"})
     assert match_documents._retractions(prior, {}) == []
+
+
+# ------------------------------------------------------------------ rules version ----
+def _rules(*specs):
+    return [{"matchType": m, "pattern": p, "target": t} for m, p, t in specs]
+
+
+def test_editing_a_rule_changes_the_version(match_documents):
+    """The bug this replaced: the version was a row COUNT, so editing a rule -- the
+    single most common change -- left it identical while the results changed."""
+    before = match_documents._rules_version(_rules(("exact", "a.pdf", "A")))
+    after = match_documents._rules_version(_rules(("exact", "a-RevB.pdf", "A")))
+    assert before != after
+
+
+def test_adding_and_removing_a_rule_changes_the_version(match_documents):
+    one = match_documents._rules_version(_rules(("exact", "a.pdf", "A")))
+    two = match_documents._rules_version(
+        _rules(("exact", "a.pdf", "A"), ("regex", "^b", "B")))
+    assert one != two
+
+
+def test_row_order_does_not_change_the_version(match_documents):
+    """RAW does not promise an order. A version that moves when the rows are returned
+    differently would cry wolf on every run."""
+    a = match_documents._rules_version(
+        _rules(("exact", "a.pdf", "A"), ("regex", "^b", "B")))
+    b = match_documents._rules_version(
+        _rules(("regex", "^b", "B"), ("exact", "a.pdf", "A")))
+    assert a == b
+
+
+def test_the_version_still_carries_the_count_for_a_human(match_documents):
+    assert match_documents._rules_version(_rules(("exact", "a.pdf", "A"))).startswith("rules:1:")

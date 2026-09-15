@@ -374,7 +374,7 @@ months, and been wrong — [section 3.8c](03-data-modeling.md) had to *measure* 
 replaces. Unit tests protect your decisions; only a live run protects your assumptions
 about the platform. The course runs both on every pull request, and that is the point.
 
-✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 47 tests, well under a
+✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 51 tests, well under a
 second. The ones worth reading first are in `tests/test_quality_gate.py`, because they
 answer the question you cannot answer by watching a gate pass: *can it fail?*
 
@@ -648,12 +648,36 @@ pipeline recorded its own disagreement with itself.
 them — which turns *"something broke"* into *"somebody edited the rules"* in one query,
 and that is the entire value of putting it on the run record.
 
+It is a **hash of the rules' content**, and it has to be. The obvious implementation is a
+row count, which was what this handler shipped: it is correct for an added or deleted
+rule, and silent for an *edited* one — the change you just made, and the most common
+change there is. The count said `rules:2` on both sides of the incident while the results
+disagreed. A version that does not move when the thing it versions moves is worse than no
+version, because you will trust it.
+
 **4** is the important one. Check `decidedBy` on every affected suggestion. If a human
 decision was reversed, the re-run rule in section 17.1c is broken and that is a far more
 serious finding than the missing link.
 
-**5** is `staleRemovedCount`. It went from 0 to non-zero, and the quality gate passed
-anyway because the budget was 5. A signal that exists and is not watched is not a signal.
+**5** has a more interesting answer than it looks.
+
+Two counters moved — `staleRemovedCount` and `supersededCount` both went from 0 to
+non-zero — and neither is what caught it. Both were well inside their budgets. The gate
+went red on **`unresolvedCount`**: with the rule broken, no rung could resolve the P&ID at
+all, and `MAX_UNRESOLVED` is `0`.
+
+So the pipeline *did* fail loudly, on a counter nobody would have nominated in advance.
+Sit with that for a moment, because it cuts both ways:
+
+- The gate earned its place. A budget of `0` on unresolved documents is strict, and strict
+  is what turned a silent regression into a red task.
+- The counter you would have *designed* the alert around — links disappearing — was
+  inside budget and would have said nothing. If `MAX_STALE_REMOVED` were your only
+  guard, this incident reaches the maintenance team before it reaches you.
+
+⚡ `[OPTIMIZE]` The lesson is not "watch `staleRemovedCount`". It is that a gate with
+several independent assertions catches failures no single one of them anticipated. Cheap
+assertions are worth having even when you cannot name the failure they will catch.
 
 **6**: fix the RAW row, re-run, and assert the link is back **and** `staleRemovedCount`
 returns to 0 **and** the previously-superseded suggestion is `auto-applied` again. Three
