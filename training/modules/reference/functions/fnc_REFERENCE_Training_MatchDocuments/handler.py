@@ -280,11 +280,16 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         row = {"source": src_id, "target": tgt_id, "score": score}
         band = _band(score)
         # If somebody already ruled on this pair, their decision stands.
-        prior = human_decisions.get(f"{src_id}|{tgt_id}")
-        if prior == "rejected":
+        # NOTE the name. This used to be called `prior`, which shadowed the dict of
+        # existing suggestions loaded at the top of handle() -- so after the first
+        # entity-matching result, `prior` was a string and _retractions() crashed on
+        # it. Nothing caught it for weeks, because every test resolved both documents
+        # on the rule rung and this loop never executed.
+        ruled = human_decisions.get(f"{src_id}|{tgt_id}")
+        if ruled == "rejected":
             below.append({**row, "decision": "rejected-by-human"})
             continue
-        if prior == "approved":
+        if ruled == "approved":
             band = "auto-applied"
         if band != "auto-applied":
             # Still recorded. "We looked at this and were not sure" is information;
