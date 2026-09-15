@@ -1,7 +1,11 @@
 externalId: fnc_{{ participant }}_Training_ParseDatasheet
 name: fnc_{{ participant }}_Training_ParseDatasheet
 owner: Training
-description: Parse pump datasheet PDF into EquipmentHealthProfile.
+description: >-
+  Parse the pump datasheet PDF into EquipmentHealthProfile using Technique 1,
+  deterministic regex over pypdf text. Deliberately NOT the Document Parser API:
+  an unattended job's first requirement is that it cannot surprise you, and that
+  API's write endpoint is preview (Chapter 10 section 10.5).
 functionPath: handler.py
 runtime: {{ function_runtime }}
 dataSetExternalId: {{ dataset }}

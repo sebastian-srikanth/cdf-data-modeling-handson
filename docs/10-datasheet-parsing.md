@@ -824,9 +824,13 @@ rated-spec fields are populated and `datasheetFile` links back to your PDF.
 
 **Do not proceed to Chapter 11 until:**
 
-- `ehp_21-PA-2001A` is populated via the Document Parser API and verified in Fusion
-- You ran Technique 1 in your notebook and can name at least one field where the two
-  techniques agree, and explain what would make them disagree
+- `ehp_21-PA-2001A` is populated **by the deployed `ParseDatasheet` Function**, which
+  uses Technique 1 (deterministic regex), and you verified it in Fusion
+- You ran **both** techniques in the notebook, and can name at least one field where
+  they agree and explain what would make them disagree
+- You can say why the Function ships the regex technique rather than the newer one —
+  and that the Document Parser's `jobs/write` returned `400` in the notebook, so even
+  there it is the *read* path and the typed SDK does the writing
 - You can state, from memory, why `userPrompt` doesn't carry the schema and what does
 - Your `EquipmentHealthProfile` container has real per-property descriptions, redeployed
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight

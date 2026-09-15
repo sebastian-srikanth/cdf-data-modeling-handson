@@ -374,9 +374,62 @@ months, and been wrong — [section 3.8c](03-data-modeling.md) had to *measure* 
 replaces. Unit tests protect your decisions; only a live run protects your assumptions
 about the platform. The course runs both on every pull request, and that is the point.
 
-✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 51 tests, well under a
+✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 63 tests, well under a
 second. The ones worth reading first are in `tests/test_quality_gate.py`, because they
 answer the question you cannot answer by watching a gate pass: *can it fail?*
+
+---
+
+## 17.2c [VERIFY] The acceptance contract — eight questions, one runner
+
+You can read a chapter and believe a capability is production-shaped. You cannot *check*
+it that way. Eight questions decide it, and they are the same eight for every capability
+in this course:
+
+| # | Property | What it protects |
+|---|---|---|
+| 1 | Correct initial result | the baseline everything else is measured against |
+| 2 | An unchanged re-run is a no-op | a pipeline that churns on identical input cannot be scheduled, only supervised |
+| 3 | A changed input updates **only** the affected output | blast radius — the reason anyone dares re-run at 03:00 |
+| 4 | A removed input retires its stale output | silence is not agreement; the link has to come off |
+| 5 | Bad input becomes visible **review** data | filtering a bad row out makes the job green and the problem invisible |
+| 6 | Human decisions survive the re-run | get this wrong once and nobody trusts the system again |
+| 7 | Evidence and provenance stay queryable | *"when did that link appear, and on what basis?"* |
+| 8 | Workload and time are bounded | an unbounded job does not fail, it hangs |
+
+🟢 `[ACTION]` They are executable. Point the runner at your own participant:
+
+```bash
+uv run python tools/acceptance.py <YOURNAME>
+uv run python tools/acceptance.py <YOURNAME> contextualization    # just one
+```
+
+It writes to CDF and puts things back: it rejects a suggestion as a person would and
+checks the pipeline honours it, breaks one mapping rule and checks only that link
+retires, plants a stale annotation and an approved one and checks exactly one survives.
+
+✅ `[VERIFY]` Every property reports `PASS`, `FAIL`, or `--`. A `--` **must carry a
+reason**, and the runner raises if anybody tries to record one without:
+
+```python
+def na(self, prop, reason):
+    if not reason:
+        raise ValueError("N/A without a reason is a skipped check pretending to pass")
+```
+
+⚠️ `[COMMON MISTAKE]` Reading `--` as "fine". It is not a pass; it is a capability that
+does not claim the property yet. Diagram annotation currently reports `--` against
+property 3, because this course ships one drawing at one revision and Rev A → Rev B is not
+a fixture here. That is an honest gap, written down where you can see it — which is the
+entire difference between a limitation and a bug.
+
+💡 `[GOOD TO KNOW]` Notice which properties the capabilities *do* meet, and what it took.
+Every one of them traces back to a decision you have already made in an earlier chapter:
+deterministic identity ([Chapter 08](08-diagram-annotation.md)), recording what you
+rejected as well as what you applied (section 17.1c), retraction rather than
+add-only writes ([Chapter 07](07-entity-matching.md)), and never overwriting a row a
+person owns. None of it was added at the end. **A system is not made auditable by
+auditing it; it is made auditable by how it writes.**
 
 ---
 

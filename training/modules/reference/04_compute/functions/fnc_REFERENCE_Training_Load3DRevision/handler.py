@@ -185,10 +185,21 @@ def _list_nodes(client, model_id: int, revision_id: int) -> list[dict]:
     return items
 
 
-def _bbox_props(node: dict) -> dict[str, float]:
+def _bbox_props(node: dict):
+    """Six flat floats from the API's nested boundingBox -- or None if it has none.
+
+    **None, not a unit cube.** This used to default to 0,0,0-1,1,1 when the node carried
+    no geometry, which writes a one-metre box at the model origin and calls it the pump.
+    Nothing errors. Fusion renders it. Anyone measuring clearances off that model is
+    measuring a number this function invented.
+
+    A CAD node with no geometry is a finding to report, not a gap to fill.
+    """
     bbox = node.get("boundingBox") or {}
-    mins = bbox.get("min") or [0.0, 0.0, 0.0]
-    maxs = bbox.get("max") or [1.0, 1.0, 1.0]
+    mins = bbox.get("min")
+    maxs = bbox.get("max")
+    if not mins or not maxs or len(mins) < 3 or len(maxs) < 3:
+        return None
     return {
         "xMin": float(mins[0]),
         "yMin": float(mins[1]),
@@ -320,6 +331,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
 
     mapped: dict[str, str] = {}
     unmapped: list[str] = []
+    no_geometry: list[str] = []   # named in the mapping, but the revision has no shape
     for cad_name, asset_xid in tag_map.items():
         node = by_name.get(cad_name)
         if node is None:
@@ -328,6 +340,11 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         obj_xid = f"obj3d_{cad_name}"
         cad_xid = f"cadnode_{cad_name}"
         bbox = _bbox_props(node)
+        if bbox is None:
+            # Mapped by name, but the revision carries no geometry for it. Report it;
+            # do not invent a box and do not link the asset to a shape that is not there.
+            no_geometry.append(cad_name)
+            continue
 
         applies.append(
             NodeApply(
@@ -377,6 +394,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         "published": bool(revision.get("published")),
         "mapped": mapped,
         "unmapped": unmapped,
+        "no_geometry": no_geometry,
         "mapping_source": mapping_source,
         # CAD nodes present in the model that no rule claims. This is the triage list:
         # every one is either a real asset nobody tagged, or scaffolding you can ignore.
