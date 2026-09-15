@@ -634,8 +634,29 @@ and it has the same two honest answers:
 | **Reconcile and remove** | A separate job lists what the model holds, diffs it against what the source now contains, and deletes the difference | When the source genuinely cannot emit deletions |
 
 ⚠️ `[COMMON MISTAKE]` Reaching for `conflictMode: delete` to solve this. It is not a
-reconciliation mode — it deletes the rows your `select` **returns**, which is the exact
-opposite of the rows you want gone.
+reconciliation mode. Measured on a live project with two probe nodes and a query
+returning exactly one of them:
+
+```
+probe nodes before: ['probe-delmode-A', 'probe-delmode-B']   # RAW names only A
+job: Completed
+probe nodes after:  ['probe-delmode-B']
+```
+
+It deleted **A** — the row the `select` *returned*. That is the exact opposite of
+reconciliation, where you want to remove what the source no longer mentions. Point it at
+your load query and it deletes everything you just successfully loaded.
+
+💡 `[GOOD TO KNOW]` It is also destination-specific. The same setting against a **RAW**
+destination is refused outright:
+
+```
+raw does not support conflict mode delete | code: 400
+```
+
+So a pattern you validated against a RAW-destination transformation may not transfer to an
+instance-destination one, and vice versa. `conflictMode` is not one feature with one
+meaning — check it per destination type.
 
 💡 `[GOOD TO KNOW]` Tombstones interact badly with `is_new()` if you are not careful: a
 deletion row must update the watermark column, or the incremental load will never see
