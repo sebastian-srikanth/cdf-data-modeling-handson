@@ -619,6 +619,13 @@ Everything up to here you were told to do. This one you are not.
 maintenance team says documents that were linked to `21-PA-2001A` yesterday are no longer
 linked this morning. Nothing is red. Nobody has an error message.
 
+💡 `[GOOD TO KNOW]` Expect this run to take noticeably longer than the ones before it, and
+notice *why* — it is the exercise's first free lesson. With the rule broken, rung 1 misses,
+the file name carries no tag so rung 2 misses, and the pipeline falls through to **Entity
+Matching**, which fits and predicts a model for the first time in this whole course. The
+cascade you built in [Chapter 07](07-entity-matching.md) is doing exactly what it was
+designed to do, and you are watching what the expensive rung costs.
+
 **Cause it, so that it is real.** Edit `sourcePattern` in one row of
 `rwt_Training_TRN_MappingRules` so it no longer matches — change
 `TRN-21-SEP-PID.pdf` to `TRN-21-SEP-PID-RevB.pdf`, the sort of change somebody makes when
