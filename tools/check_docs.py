@@ -796,6 +796,35 @@ def check_module_layout() -> int:
     return checked
 
 
+# "The build summary lists 3 Spaces, 4 Containers, 5 Views, 2 Data Models" is the first
+# number a learner checks against their own terminal, and it rots every time the model
+# gains a view. Counted from the reference module, not maintained by hand.
+BUILD_SUMMARY = re.compile(
+    r"\*\*(\d+) Spaces?, (\d+) Containers?, (\d+) Views?, (\d+) Data Models?\*\*")
+
+
+def check_build_summary_counts() -> int:
+    """Any chapter quoting a build summary must quote the real one."""
+    files = list(REFERENCE.rglob("*.yaml"))
+    actual = {
+        "Spaces": sum(1 for f in files if f.name.endswith(".Space.yaml")),
+        "Containers": sum(1 for f in files if f.name.endswith(".Container.yaml")),
+        "Views": sum(1 for f in files if f.name.endswith(".View.yaml")),
+        "Data Models": sum(1 for f in files if f.name.endswith(".DataModel.yaml")),
+    }
+    checked = 0
+    for md in sorted(DOCS.glob("*.md")):
+        for m in BUILD_SUMMARY.finditer(md.read_text()):
+            checked += 1
+            claimed = dict(zip(actual, (int(g) for g in m.groups())))
+            wrong = {k: (v, actual[k]) for k, v in claimed.items() if v != actual[k]}
+            if wrong:
+                detail = ", ".join(f"{k}: says {s}, there are {a}"
+                                   for k, (s, a) in wrong.items())
+                fail(f"summary   {md.name}: build summary is wrong -- {detail}")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -818,6 +847,7 @@ def main() -> int:
     testcount = check_test_count()
     scoped = check_selfcheck_is_space_scoped()
     layout = check_module_layout()
+    summary = check_build_summary_counts()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -841,6 +871,7 @@ def main() -> int:
     print(f"  test count       {testcount:>4} claim(s) match tests/")
     print(f"  participant scope{scoped:>4} selfcheck reads are space-scoped")
     print(f"  module layout    {layout:>4} resource dirs in their lifecycle module")
+    print(f"  build summary    {summary:>4} quoted build summary matches the module")
     # ---- a check that inspects nothing is not a passing check ----------------------
     # check_unit_references was silently reduced from six units to zero by a folder move
     # and still reported "all offline checks passed", because finding nothing to check
@@ -861,6 +892,7 @@ def main() -> int:
         ("return keys", retkeys), ("walkthroughs", walkthru),
         ("test count", testcount), ("participant scope", scoped),
         ("module layout", layout),
+        ("build summary", summary),
     ):
         if count == 0 and label not in MAY_BE_ZERO:
             fail(f"empty      the {label!r} check inspected 0 items -- it is no longer "
