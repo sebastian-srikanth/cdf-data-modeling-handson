@@ -65,3 +65,65 @@ def test_the_old_unit_cube_is_gone(three_d):
             "xMax": 1.0, "yMax": 1.0, "zMax": 1.0}
     assert three_d._bbox_props({}) != unit
     assert three_d._bbox_props({"boundingBox": {"min": None, "max": None}}) != unit
+
+
+# ------------------------------------------------- the quarantine path itself ----
+# On this lab's P&ID every detection carries vertices, so a green live run proves the
+# field is returned and nothing more. These prove the path a real drawing would take.
+class _CapturingInstances:
+    def __init__(self):
+        self.applied = []
+
+    def apply(self, nodes=None, edges=None, **kw):
+        self.applied.extend(nodes or [])
+
+
+class _CapturingClient:
+    def __init__(self):
+        import types
+        self.data_modeling = types.SimpleNamespace(instances=_CapturingInstances())
+
+
+def _placeless(target="21-PA-2001A"):
+    return [{"source": "file_X_TRN_PID_21_SEP", "target": target,
+             "page": 3, "text": "21-PA-2001A", "confidence": 0.77}]
+
+
+def test_a_placeless_detection_becomes_a_review_row(detect):
+    client = _CapturingClient()
+    written = detect._record_for_review(
+        client, "isp_X_TRN", "ssp_X_MaintenanceInsight_sdm", "v1.0.0",
+        "file_X_TRN_PID_21_SEP", _placeless(), "ctxrun-test")
+    assert written == 1
+    node = client.data_modeling.instances.applied[0]
+    props = node.sources[0].properties
+    assert props["decision"] == "needs-review"
+    assert props["method"] == "diagram-detect"
+    assert props["evidencePage"] == 3
+    assert props["confidence"] == 0.77
+
+
+def test_the_review_row_says_why_it_could_not_be_placed(detect):
+    """A reviewer who cannot see the reason has to redo the investigation."""
+    client = _CapturingClient()
+    detect._record_for_review(client, "isp_X_TRN", "ssp_X_MaintenanceInsight_sdm",
+                              "v1.0.0", "file_X_TRN_PID_21_SEP", _placeless(), "r1")
+    evidence = client.data_modeling.instances.applied[0].sources[0].properties["evidenceText"]
+    assert "no vertices" in evidence and "page 3" in evidence
+
+
+def test_nothing_is_written_when_every_detection_has_geometry(detect):
+    client = _CapturingClient()
+    assert detect._record_for_review(client, "isp_X_TRN", "sdm", "v1.0.0", "f", [], "r") == 0
+    assert client.data_modeling.instances.applied == []
+
+
+def test_review_row_identity_is_stable_across_runs(detect):
+    """Two runs that both fail to place the same pair must update one row, not pile up."""
+    ids = []
+    for run in ("run-1", "run-2"):
+        client = _CapturingClient()
+        detect._record_for_review(client, "isp_X_TRN", "sdm", "v1.0.0", "f",
+                                  _placeless(), run)
+        ids.append(client.data_modeling.instances.applied[0].external_id)
+    assert ids[0] == ids[1]

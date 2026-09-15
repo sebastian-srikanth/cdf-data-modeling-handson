@@ -374,7 +374,7 @@ months, and been wrong — [section 3.8c](03-data-modeling.md) had to *measure* 
 replaces. Unit tests protect your decisions; only a live run protects your assumptions
 about the platform. The course runs both on every pull request, and that is the point.
 
-✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 59 tests, well under a
+✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 63 tests, well under a
 second. The ones worth reading first are in `tests/test_quality_gate.py`, because they
 answer the question you cannot answer by watching a gate pass: *can it fail?*
 
