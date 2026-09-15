@@ -92,3 +92,38 @@ transformation and function, runs `selfcheck.py all`, and tears down — in
 `.github/workflows/live-e2e.yml`, manually or weekly. It deliberately never calls
 `cdf clean --drop-data` (destroys the whole project) or `cdf data purge space` (requires a
 human to type the project name). Point it at a scratch project.
+
+## `acceptance.py` — the eight-property production contract
+
+```bash
+uv run python tools/acceptance.py <PARTICIPANT>                  # every capability
+uv run python tools/acceptance.py <PARTICIPANT> contextualization
+```
+
+Asks one live capability the eight questions that decide whether it is production-shaped:
+correct first result, unchanged re-run is a no-op, a changed input moves only what it
+should, a removed input retires its stale output, bad input becomes visible review data,
+human decisions survive, evidence stays queryable, work is bounded.
+
+**It writes to CDF and puts things back.** Point it at a scratch participant, never at a
+cohort member's. Every property reports `PASS`, `FAIL` or `--`, and `--` raises unless it
+carries a reason — a skipped check that prints like a pass is exactly how this repo
+shipped a broken `check_unit_references` for several commits.
+
+Teaching text: [Chapter 17](../docs/17-cross-cutting-mastery.md) section 17.2c.
+
+## `check_build_insights.py` — read what the build printed
+
+```bash
+CI=true uv run cdf build --config-yaml training/config.REFERENCE-training.yaml
+uv run python tools/check_build_insights.py
+```
+
+The offline build exits **0** while printing *"Do not proceed to deploy"* — it cannot
+resolve `cdf_cdm` without credentials. Both halves are defensible and together they are a
+trap: a real modelling error prints among fourteen expected ones, under a banner everyone
+has learned to ignore, with a passing exit code.
+
+This classifies every insight against a stated reason and fails on anything left over.
+Adding a new expected class means adding the reason, in `EXPECTED` — it is a claim that
+has been checked, not a mute button.
