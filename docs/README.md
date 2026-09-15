@@ -184,15 +184,15 @@ training/
     └── participants/<YOURNAME>/           # ← the ONLY path you add/edit
         ├── NOTES.md                       # running notes, filled in as you go
         ├── FEEDBACK.md                    # course feedback, filled in at the end
-        ├── data_sets/
-        ├── raw/
-        ├── files/
-        ├── data_modeling/
-        ├── transformations/
-        ├── functions/
-        ├── workflows/
-        └── locations/
+        ├── 01_schema/data_modeling/       # what the data IS
+        ├── 02_access/{auth,data_sets,locations}/     # who may SEE it
+        ├── 03_data/{raw,files,transformations}/      # the data ITSELF
+        └── 04_compute/{functions,workflows}/         # what RUNS over it
 ```
+
+Those four are **four Toolkit modules**, split by how often they change rather than by
+what they contain — schema rarely, access constantly, data when a source shifts, compute
+daily. [Chapter 01](01-naming-isolation-and-setup.md) section 1.3 makes the argument.
 
 Your `config.<YOURNAME>-training.yaml` `selected:` list points at exactly one path:
 
