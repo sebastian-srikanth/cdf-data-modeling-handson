@@ -18,6 +18,77 @@ and how to leave cleanly.
 
 ---
 
+## 17.1b [INFO] Contextualization — one framework, four capabilities
+
+You have now done contextualization four times, with four different APIs. They look like
+four topics. They are one, and seeing that is the difference between someone who can call
+the APIs and someone who can design a pipeline.
+
+### Every one of them is the same ladder
+
+```mermaid
+flowchart LR
+  A["1 · Rules<br/><i>a human decided, once</i>"] --> B["2 · Deterministic<br/><i>regex, name equality</i>"]
+  B --> C["3 · Probabilistic<br/><i>ML, OCR, fuzzy</i>"]
+  C --> D["4 · Review<br/><i>below the gate</i>"]
+  A -.free.-> Z[ ]
+  B -.free.-> Z
+  C -.costs money.-> Z
+  D -.costs attention.-> Z
+  style Z fill:none,stroke:none
+```
+
+| Chapter | Rung 1 — rules | Rung 2 — deterministic | Rung 3 — probabilistic | Rung 4 — review |
+|---|---|---|---|---|
+| 07 documents → assets | `MappingRules` table | regex on file name | Entity Matching | `below_threshold` |
+| 08 P&ID → assets | `TagAliases` table | exact tag text | fuzzy match, OCR | `status: Suggested` |
+| 09 CAD → assets | `Model3DMappings` table | name equality | *(none — you decide)* | `cad_nodes_unclaimed` |
+| 10 datasheet → specs | *(none needed)* | regex per template | Document Parser | fields that came back empty |
+
+⚡ `[OPTIMIZE]` **Spend in that order, always.** A rule is free and certain. A regex is free
+and predictable. A model costs a fit, a predict, polling, and a threshold you have to
+defend. Attention is the most expensive thing in the list, so protect it: only what
+survives the first three rungs should ever reach a human.
+
+### Rules are data, not code — in all four
+
+Three RAW tables, one shape:
+
+| Table | Chapter | Decides |
+|---|---|---|
+| `rwt_Training_TRN_MappingRules` | 07 | this document belongs to that asset |
+| `rwt_Training_TRN_TagAliases` | 08 | `PMP` and `P` both mean `PUMP` |
+| `rwt_Training_TRN_Model3DMappings` | 09 | `DECK` is the separation train |
+
+Every one carries `addedBy` and `reason`. Neither does anything technically, and without
+them a mapping table becomes untouchable within a year — everyone can see *what* it does
+and nobody dares say whether it is still true.
+
+💡 `[GOOD TO KNOW]` The reason this matters is organisational, not technical. **The person
+who knows that `DECK` is the separation train is almost never the person who can deploy a
+Cognite Function.** Put the rules in code and you have made a drawing-office engineer wait
+on a release. Put them in RAW and they fix it themselves —
+[Chapter 16](16-access-management.md) is how you grant exactly that and nothing more.
+
+### The three questions to ask about any new capability
+
+When CDF ships something you have not seen, or a vendor offers you a matching tool:
+
+1. **What does it match on?** Text, shape, geometry, numbers? That decides whether your
+   input is even eligible — Full diagram parsing is useless on a scanned P&ID
+   ([Chapter 08](08-diagram-annotation.md) section 8.3b).
+2. **What does a wrong answer cost?** A wrong link is worse than a missing one, because
+   nobody audits a relationship that already exists.
+3. **Where does the gate live, and who watches it?** A confidence threshold with no review
+   queue behind it is not a gate, it is a shrug.
+
+⚠️ `[COMMON MISTAKE]` Reaching for the newest capability first. [Chapter 10](10-datasheet-parsing.md)
+ships deterministic regex rather than the Document Parser API, deliberately, because an
+unattended job's first duty is to be predictable. **Newest is a reason to evaluate, never
+a reason to deploy.**
+
+---
+
 ## 17.2 [INFO] Idempotency & re-runnability — why every handler upserts
 
 Look back across every handler you wrote: `client.data_modeling.instances.apply(...)`

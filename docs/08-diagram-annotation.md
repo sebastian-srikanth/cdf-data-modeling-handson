@@ -66,6 +66,116 @@ two-identity gap from section 2.3 — not a bug in this chapter.
 
 ---
 
+## 8.3b [INFO] What you can tune — and the symbol library you cannot deploy
+
+Everyone asks the same question at this point: *can I load my own symbol library so it
+recognises a pump from its shape?*
+
+**Yes — but not with the API this chapter uses.** CDF has two different diagram
+capabilities and conflating them is the mistake:
+
+| | **Tag detection** (this chapter) | **Full diagram parsing** |
+|---|---|---|
+| What it matches | **text** — strings matching entities you supply | **symbols**, via a symbol library you choose |
+| Also produces | tag annotations | geometries, connections between symbols, pipe-connectivity verification |
+| Input | any PDF, scanned or vector | **vector diagrams only** |
+| Driven from | `client.diagrams.detect` — automatable, what your Function calls | Fusion's parsing UI, with Symbols and Connections tabs for review |
+| In the pinned SDK | yes | **no** — `client.diagrams` has exactly three methods: `detect`, `convert`, `get_detect_jobs` |
+
+🚧 `[LIMITS]` So: **symbol libraries exist in CDF, and they are not reachable from the API
+this Function uses.** If your drawings are vector and you need symbol and connection
+topology — *which pipe runs from which pump to which valve* — that is Full diagram
+parsing, and today you drive it from Fusion rather than from a Cognite Function. If your
+drawings are scans, symbol detection is not available to you at all and tag detection is
+the whole game.
+
+📚 `[DOCS]` https://docs.cognite.com/cdf/integration/guides/contextualization/parse_diagrams
+
+⚠️ `[COMMON MISTAKE]` Choosing the capability by ambition rather than by input. Full
+diagram parsing is strictly better *if* your diagrams are vector. Run it on a scanned
+1990s P&ID and you get nothing — and the failure is silent, because there are simply no
+paths to detect.
+
+### What you can tune on the path you are automating
+
+Since this chapter automates tag detection, the quality levers are matching parameters,
+and **that is where the real work is**:
+
+| Parameter | What it decides |
+|---|---|
+| `substitutions` | which **single characters** the OCR confuses — `0` for `O`, `1` for `I`. **Keys must be one character; the API rejects longer ones** |
+| `min_fuzzy_score` / `customize_fuzziness` | how close is close enough. The precision/recall dial |
+| `read_embedded_text` | vector PDFs carry real text. Read it; OCR is the fallback, not the default |
+| `remove_leading_zeros` | `21-PA-2001` vs `21-PA-02001`. The same class of bug [Chapter 05](05-transformations.md) fixes with `lpad`, on the other side |
+| `case_sensitive`, `partial_match`, `min_tokens` | matching strictness |
+| `pattern_mode` | detect tags by *pattern* instead of a fixed entity list |
+
+### The character-substitution library belongs in RAW
+
+⚠️ `[COMMON MISTAKE]` Reading `substitutions` as a word-alias feature — *"tell it that PMP
+means PUMP"*. It is not, and the API says so:
+
+```
+configuration.substitutions.PUMP.key: Length must be 1. | code: 400
+```
+
+**Keys must be a single character.** This is an *OCR confusion* table: which characters
+the reader mistakes for which. On a scanned P&ID that is where most misses come from —
+`21-PA-2001A` read as `21-PA-2OO1A`, zero for the letter O.
+
+💡 `[GOOD TO KNOW]` Word-level aliases are a different mechanism entirely: you pass
+**several strings per entity** in `name`. Your handler already does it —
+`"name": [name, a.external_id]` gives every asset two spellings to match on. If you need
+`PMP` to find `PUMP`, add it there, not here.
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.yaml`
+
+```yaml
+dbName: rwd_<YOURNAME>_Training_TRN
+tableName: rwt_Training_TRN_TagAliases
+```
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.csv`
+
+```text
+key,character,alternatives,addedBy,reason
+sub-001,0,O|o,course,OCR reads the digit zero as a letter O on scanned sheets; 21-PA-2OO1A is the classic miss.
+sub-002,1,I|l,course,Digit one versus capital I and lowercase L in the drawing-office font.
+sub-003,5,S,course,Digit five versus capital S in stencilled tag numbers.
+sub-004,8,B,course,Digit eight versus capital B when the scan is poor.
+```
+
+Alternatives are pipe-separated because a comma would fight the CSV. `addedBy` and
+`reason` are here for the same reason as in [Chapter 07](07-entity-matching.md) section
+7.2: in a year, *"who decided 5 and S are interchangeable, and is that still true for this
+scanner"* is the only question that matters.
+
+⚠️ `[COMMON MISTAKE]` Calling `.strip()` on what you read back from that table. **RAW
+types its values** — a column containing `0`, `1`, `5`, `8` comes back as `int`, not
+`str`, and the Function dies with `AttributeError: 'int' object has no attribute 'strip'`
+*inside* the detect job, where you will not see it until you read the logs. Coerce with
+`str(...)` first. This is the same family as the leading-zero trap in
+[Chapter 05](05-transformations.md): **never assume a RAW column is text.**
+
+🚧 `[LIMITS]` Every substitution you add widens the match space for **every** tag, so each
+one buys recall and sells precision globally. Four well-chosen character pairs are worth
+more than twenty speculative ones — and the handler skips any row whose key is not exactly
+one character rather than letting a bad row fail the whole detect job.
+
+💡 `[GOOD TO KNOW]` An alias library is **not** a symbol library — it is the other half of
+the problem. Full diagram parsing teaches CDF what a pump *looks like*; this teaches it
+what a pump is *called* on your drawings. On scanned diagrams the second is all you have,
+and even on vector ones a drawing office that changed its abbreviation in 2011 costs you
+detections that no shape model recovers.
+
+⚠️ `[COMMON MISTAKE]` Tuning `min_fuzzy_score` down until the count looks good. Every
+point you lower it buys detections and sells precision, and a wrong annotation is worse
+than a missing one — it silently attaches a document to the wrong asset, and nobody
+checks a link that already exists. Raise the score, add an alias, and let the genuinely
+ambiguous ones fail into review.
+
+---
+
 ## 8.4 [WRITE] + [ACTION] Notebook: `02_diagram_detect.ipynb`
 
 📝 `[WRITE]` Recreate `docs/notebooks/02_diagram_detect.ipynb`. Cell
@@ -200,9 +310,47 @@ def _bbox(region: dict) -> tuple[float, float, float, float]:
     return 0.0, 0.1, 0.0, 0.1  # degenerate fallback if the API omits vertices
 
 
+from cognite.client.data_classes.contextualization import DiagramDetectConfig
+
+
+def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
+    """Character substitutions for the OCR, from RAW.
+
+    `substitutions` keys must be a SINGLE CHARACTER -- the API rejects anything longer
+    with `configuration.substitutions.PUMP.key: Length must be 1`. This is not a
+    word-alias feature. It tells the matcher which characters the OCR confuses, which on
+    a scanned P&ID is where most misses come from: 21-PA-2001A read as 21-PA-2OO1A.
+
+    Word-level aliases are a different mechanism -- you pass several strings per entity
+    in `name`, which this handler already does.
+
+    Returns {character: [alternative, ...]} for DiagramDetectConfig(substitutions=...).
+    """
+    try:
+        rows = client.raw.rows.list(
+            db_name=raw_db, table_name="rwt_Training_TRN_TagAliases", limit=-1)
+    except Exception:  # noqa: BLE001 - an absent table means "no aliases", not a failure
+        return {}
+    aliases: dict[str, list[str]] = {}
+    for row in rows:
+        c = row.columns or {}
+        # RAW TYPES its values: a column of 0, 1, 5, 8 comes back as int, not str, and
+        # .strip() on an int raises AttributeError. Same family as the leading-zero trap
+        # in Chapter 05 -- never assume a RAW column is text.
+        character = str(c.get("character") if c.get("character") is not None else "").strip()
+        alternatives = str(c.get("alternatives") or "").strip()
+        # Skip anything the API would reject rather than failing the whole detect job.
+        if len(character) != 1 or not alternatives:
+            continue
+        # pipe-separated, because a comma would fight the CSV
+        aliases[character] = [a.strip() for a in alternatives.split("|") if a.strip()]
+    return aliases
+
+
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
+    raw_db = os.environ.get("RAW_DB", f"rwd_{participant}_Training_TRN")
     file_xid = f"file_{participant}_TRN_PID_21_SEP"
     v_asset = ViewId("cdf_cdm", "CogniteAsset", "v1")
     view = ViewId("cdf_cdm", "CogniteDiagramAnnotation", "v1")
@@ -216,10 +364,26 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         name = a.properties.get(v_asset, {}).get("name") or a.external_id
         entities.append({"externalId": a.external_id, "space": space, "name": [name, a.external_id]})
 
+    # The alias library, and the tuning that goes with it. Every one of these is a
+    # precision/recall decision -- see Chapter 08 section 8.3b.
+    substitutions = _load_tag_aliases(client, raw_db)
+    config = DiagramDetectConfig(
+        substitutions=substitutions or None,
+        # Vector PDFs carry real text. Read it: OCR is the fallback, not the default.
+        read_embedded_text=True,
+        # RAW strips leading zeros from tag numbers; so does this, on the other side.
+        remove_leading_zeros=True,
+        case_sensitive=False,
+        # Below this, a "match" is a guess. Raise it to cut false positives, lower it
+        # to catch more and accept review cost.
+        min_fuzzy_score=0.7,
+    )
+
     job = client.diagrams.detect(
         entities=entities, search_field="name",
         file_instance_ids=[NodeId(space, file_xid)],
         partial_match=True, min_tokens=2,
+        configuration=config,
     )
     result = job.result  # blocks until the job completes; returns {"items": [...]}
 

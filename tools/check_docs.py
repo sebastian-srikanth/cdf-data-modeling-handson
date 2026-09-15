@@ -160,9 +160,18 @@ WRITE_BLOCK = re.compile(
 
 
 def check_write_blocks() -> int:
+    # The reference ships tra_Training_TRN_X.yaml; the chapter tells you to write
+    # tra_<YOURNAME>_Training_TRN_X.yaml. Matching on the raw basename finds nothing and
+    # SKIPS the block -- twelve were unchecked this way, one of which contained a key the
+    # chapter warns three lines earlier never to use. Index both spellings.
     by_name: dict[str, pathlib.Path] = {}
     for path in REFERENCE.rglob("*.yaml"):
         by_name.setdefault(path.name, path)
+        # tra_Training_TRN_Load_Assets... -> tra_<YOURNAME>_Training_TRN_Load_Assets...
+        for prefix in ("tra_", "fnc_", "wkf_", "rwt_", "dts_", "loc_", "rwd_"):
+            if path.name.startswith(prefix):
+                by_name.setdefault(
+                    path.name.replace(prefix, f"{prefix}<YOURNAME>_", 1), path)
 
     checked = 0
     for md in chapters():

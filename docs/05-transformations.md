@@ -389,6 +389,38 @@ So after this runs you have a brand-new asset in your graph that nobody designed
 is invisible through `CogniteAsset` (it has no data in any container that view maps) but
 perfectly real in the registry. Your asset count stays at 8; your node count goes up.
 
+### The production setting this chapter deliberately does not use
+
+The default is not the only option. A Transformation destination can refuse to invent
+targets:
+
+```yaml
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteActivity
+    version: v1
+  instanceSpace: isp_<YOURNAME>_TRN
+  autoCreate:
+    directRelations: false     # a reference to a node that does not exist now FAILS
+```
+
+⚡ `[OPTIMIZE]` **In production this is usually what you want**, and the reasoning is the
+whole trade-off in one line: with `true`, a typo becomes a silent phantom you find months
+later ([Chapter 14](14-debugging-broken-links.md)); with `false`, a typo becomes a failed
+job you find in ten minutes.
+
+The cost is real, though, and it is the reason the default exists: **`false` makes load
+order mandatory.** If operations load before the assets they reference, the job fails —
+correctly, but at 03:00. You then need the dependency ordering of
+[Chapter 12](12-workflows.md) to be right, not merely tidy.
+
+ℹ️ `[INFO]` This course leaves it at the default **on purpose**, so that
+[Chapter 14](14-debugging-broken-links.md) has a real phantom to hunt. That is a teaching
+decision, not a recommendation. When you build the real thing, decide this consciously
+and write down which way you went and why.
+
 ⚠️ `[COMMON MISTAKE]` Assuming a typo'd reference will fail loudly, or at least leave a
 detectably broken link. It does neither. This is the single most silent failure in the
 whole course, and hunting it is the first thing you do in
@@ -439,7 +471,6 @@ dataSetExternalId: dts_<YOURNAME>_Training_TRN
 ignoreNullFields: true
 conflictMode: upsert
 isPublic: true
-queryFile: tra_Training_TRN_Load_WorkOrderOperations.sql
 destination:
   type: nodes
   view:

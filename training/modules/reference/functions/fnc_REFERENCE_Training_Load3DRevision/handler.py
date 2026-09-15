@@ -17,6 +17,9 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
+# Fallback only. The real mapping lives in RAW -- see _load_3d_mappings below and
+# Chapter 09 section 9.2b. This dict is what the Function uses if the table is absent,
+# so a participant who has not created it yet still gets a working revision.
 TAG_MAP = {
     "21-VG-2001": "21-VG-2001",
     "21-PA-2001A": "21-PA-2001A",
@@ -25,6 +28,29 @@ TAG_MAP = {
     "21-XV-2001": "21-XV-2001",
     "DECK": "TRN-21-SEP",
 }
+
+
+def _load_3d_mappings(client, raw_db: str) -> dict[str, str]:
+    """CAD node name -> asset externalId, from RAW.
+
+    A 3D model is delivered by whoever built it, and their naming is not your naming.
+    Most nodes match their tag exactly; a few never will, because a modeller called the
+    structure DECK. Those exceptions are data, not code -- the person who knows that DECK
+    is the separation train is rarely the person who can deploy a Function.
+    """
+    try:
+        rows = client.raw.rows.list(
+            db_name=raw_db, table_name="rwt_Training_TRN_Model3DMappings", limit=-1)
+    except Exception:  # noqa: BLE001 - absent table means "use the built-in fallback"
+        return {}
+    mappings = {}
+    for row in rows:
+        c = row.columns or {}
+        node = (c.get("cadNodeName") or "").strip()
+        asset = (c.get("assetExternalId") or "").strip()
+        if node and asset:
+            mappings[node] = asset
+    return mappings
 
 
 def _project(client) -> str:
@@ -176,6 +202,7 @@ def _bbox_props(node: dict) -> dict[str, float]:
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
+    raw_db = os.environ.get("RAW_DB", f"rwd_{os.environ['PARTICIPANT']}_Training_TRN")
     model_name = f"trd_{participant}_TRN_CAD"
     file_xid = f"file_{participant}_TRN_3D_21_SEP"
 
@@ -285,9 +312,15 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         ),
     ]
 
+    # Technique 1: the mapping table in RAW. Technique 2 (name equality) is what most
+    # rows in that table record; the built-in TAG_MAP is only a fallback for someone who
+    # has not created the table yet. See Chapter 09 section 9.2b.
+    tag_map = _load_3d_mappings(client, raw_db) or TAG_MAP
+    mapping_source = "raw" if _load_3d_mappings(client, raw_db) else "built-in fallback"
+
     mapped: dict[str, str] = {}
     unmapped: list[str] = []
-    for cad_name, asset_xid in TAG_MAP.items():
+    for cad_name, asset_xid in tag_map.items():
         node = by_name.get(cad_name)
         if node is None:
             unmapped.append(cad_name)
@@ -344,6 +377,10 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         "published": bool(revision.get("published")),
         "mapped": mapped,
         "unmapped": unmapped,
+        "mapping_source": mapping_source,
+        # CAD nodes present in the model that no rule claims. This is the triage list:
+        # every one is either a real asset nobody tagged, or scaffolding you can ignore.
+        "cad_nodes_unclaimed": sorted(set(by_name) - set(tag_map)),
         "cad_model": cad_model_xid,
         "cad_revision": cad_rev_xid,
     }

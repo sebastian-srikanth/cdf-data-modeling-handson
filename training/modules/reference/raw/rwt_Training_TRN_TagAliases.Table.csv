@@ -1,0 +1,5 @@
+key,character,alternatives,addedBy,reason
+sub-001,0,O|o,course,OCR reads the digit zero as a letter O on scanned sheets; 21-PA-2OO1A is the classic miss.
+sub-002,1,I|l,course,Digit one versus capital I and lowercase L in the drawing-office font.
+sub-003,5,S,course,Digit five versus capital S in stencilled tag numbers.
+sub-004,8,B,course,Digit eight versus capital B when the scan is poor.

@@ -1,0 +1,7 @@
+key,cadNodeName,assetExternalId,technique,addedBy,reason
+map-001,21-VG-2001,21-VG-2001,name-equality,course,CAD node name is already the tag.
+map-002,21-PA-2001A,21-PA-2001A,name-equality,course,CAD node name is already the tag.
+map-003,21-PA-2001B,21-PA-2001B,name-equality,course,CAD node name is already the tag.
+map-004,21-HA-2001,21-HA-2001,name-equality,course,CAD node name is already the tag.
+map-005,21-XV-2001,21-XV-2001,name-equality,course,CAD node name is already the tag.
+map-006,DECK,TRN-21-SEP,manual,course,The modeller named the structure DECK; it is the separation train. No rule could infer this.
