@@ -90,20 +90,38 @@ def materialise(name: str) -> None:
     )
 
 
-def wait_for_functions(client, name: str, timeout: int = 900) -> None:
-    deadline = time.time() + timeout
+# Measured on bluefield: five functions take 6-25 minutes and do NOT finish together.
+# A 15-minute budget looked generous and was not; give it 40 and report progress, so a
+# CI log shows movement instead of twenty silent minutes.
+FUNCTION_BUILD_TIMEOUT = 2400
+
+
+def wait_for_functions(client, name: str, timeout: int = FUNCTION_BUILD_TIMEOUT) -> None:
+    started = time.time()
+    deadline = started + timeout
+    last_ready = -1
     while time.time() < deadline:
         fns = [f for f in client.functions.list(limit=-1)
                if (f.external_id or "").startswith(f"fnc_{name}_Training_")]
         statuses = {f.external_id: f.status for f in fns}
+        ready = sum(1 for s in statuses.values() if s == "Ready")
+        if ready != last_ready:
+            print(f"    {ready}/{len(FUNCTIONS)} Ready after {(time.time()-started)/60:.1f} min")
+            last_ready = ready
         if len(fns) == len(FUNCTIONS) and all(s in ("Ready", "Failed") for s in statuses.values()):
             failed = [x for x, s in statuses.items() if s == "Failed"]
             if failed:
                 raise SystemExit(f"  functions failed to deploy: {failed}")
-            print(f"    all {len(fns)} functions Ready")
+            print(f"    all {len(fns)} functions Ready in {(time.time()-started)/60:.1f} min")
             return
         time.sleep(20)
-    raise SystemExit("  timed out waiting for functions to become Ready")
+
+    stuck = {x: str(s) for x, s in statuses.items() if s != "Ready"}
+    raise SystemExit(
+        f"  timed out after {timeout/60:.0f} min waiting for functions.\n"
+        f"  still not Ready: {stuck}\n"
+        f"  Function builds are slow and variable; if this keeps happening, raise "
+        f"FUNCTION_BUILD_TIMEOUT in tools/live_e2e.py.")
 
 
 def delete_location_filter(client, name: str) -> None:

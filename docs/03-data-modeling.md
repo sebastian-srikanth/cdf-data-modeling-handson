@@ -674,6 +674,20 @@ description: >-
   count of open work orders. Example instance: the health profile of
   pump 21-PA-2001A.
 usedFor: node
+# On `space: cdf_units` further down -- do not remove it.
+#
+# The documented write schema for a unit reference lists externalId and an optional
+# sourceUnit, so `space` looks redundant. It is not, and this was settled by measuring
+# rather than by reading: CDF stores and returns `space: cdf_units`, and the Toolkit
+# diffs your local YAML against what the API returns.
+#
+# Measured on one deployed container, same server state, two dry-runs:
+#     with    space: cdf_units  ->  0 to update, 10 unchanged
+#     without space: cdf_units  ->  1 to update FOREVER, 9 unchanged
+#
+# Both deploy without error, so it is accepted either way. Omitting it does not make the
+# file more correct; it makes every future dry-run report a change that will never
+# happen, which hides the one real change you are looking for. See Chapter 03 3.14.
 properties:
   asset:
     type:

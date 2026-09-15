@@ -28,6 +28,25 @@ boundary (section 1.3) plus the space boundary (section 1.2) below.
 folder and your own config file — including anything else you might notice elsewhere
 in this repository. If it's not one of those two paths, it isn't yours to touch.
 
+### Whose CDF project do you deploy into?
+
+Either. Both work, and the course does not change:
+
+| | What you set | Notes |
+|---|---|---|
+| **A project shared with other participants** | Everyone puts the *same* `CDF_PROJECT` in their `.env`, and their *own* `PARTICIPANT` | The normal setup for a cohort. `isp_ALICE_TRN` and `isp_BRUNO_TRN` cannot touch each other — that is what section 1.2 is about |
+| **Your own project** | Your own `CDF_PROJECT`, your own `PARTICIPANT` | Working alone, or your company gave you a sandbox |
+
+💡 `[GOOD TO KNOW]` `PARTICIPANT` is the only thing that keeps a shared project sane, so
+use something unmistakably yours — `ALICE`, not `TEST` or `DEMO`. Two people who both
+pick `TEST` will deploy into the same spaces and overwrite each other's work, and the
+failure looks like "my data keeps changing on its own".
+
+🚧 `[LIMITS]` If you are sharing a project, the **Cognite Functions quota** is the ceiling.
+This course deploys five per participant, and projects are commonly capped at 100 — so
+roughly twenty people. The cap is silent until you hit it. Your facilitator can check
+ahead with `tools/cohort.py preflight`.
+
 ---
 
 ## 1.2 [INFO] The (space, externalId) identity rule

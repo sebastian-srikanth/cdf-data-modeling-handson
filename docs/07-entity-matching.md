@@ -39,6 +39,54 @@ mapping — exactly what you did in Chapter 04's `assets:` block.
 use to check an automated technique's accuracy against.
 **Wrong for:** anything that doesn't fit in your head or a spreadsheet.
 
+### Where the rules live is the whole question
+
+Hardcoding the mapping in a handler works exactly once. The moment an engineer finds a
+wrong match at 23:00, the fix is a code change, a review, a deploy, and a pipeline re-run.
+
+So in production the rules do not live in code. **They live in a RAW table**, and the
+pipeline reads them on every run:
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_MappingRules.Table.yaml`
+
+```yaml
+dbName: rwd_<YOURNAME>_Training_TRN
+tableName: rwt_Training_TRN_MappingRules
+```
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_MappingRules.Table.csv`
+
+```text
+key,sourcePattern,targetExternalId,matchType,addedBy,reason
+rule-001,TRN-21-SEP-PID.pdf,TRN-21-SEP,exact,course,The P&ID is the separation train drawing; its name carries no tag to match on.
+rule-002,^TRN-21-PA-2001A-Datasheet,21-PA-2001A,regex,course,Vendor datasheets are named <tag>-Datasheet.pdf; anchor on the prefix.
+```
+
+Five columns, and each one is there for a reason:
+
+| Column | Why it exists |
+|---|---|
+| `sourcePattern` | what to look for, in the file's name or external ID |
+| `targetExternalId` | the asset it resolves to |
+| `matchType` | `exact` or `regex`. Exact rules are evaluated first — a specific fix should always beat a general pattern |
+| `addedBy` | who decided this. Six months later, this is the column you will care about |
+| `reason` | why. A rule with no reason is a rule nobody dares delete |
+
+💡 `[GOOD TO KNOW]` `addedBy` and `reason` do nothing technically and are the two most
+valuable columns in the table. A mapping table without them becomes untouchable within a
+year — everyone can see *what* it does and nobody knows *whether it is still true*.
+
+⚠️ `[COMMON MISTAKE]` Treating the rules table as configuration and putting it in git
+instead. It is **data**: a control-room engineer who cannot open a pull request must be
+able to correct a bad match. This repository seeds two starter rows precisely because
+they are a starting point, not the whole truth.
+
+🚧 `[LIMITS]` A rule pointing at an asset that does not exist is a data error, not a
+match. The handler checks the target against the real asset list and ignores rules that
+fail it — otherwise a typo in a spreadsheet silently writes a dangling direct relation,
+which is exactly the phantom-node problem from
+[Chapter 14](14-debugging-broken-links.md).
+
 ---
 
 ## 7.3 [INFO] Technique 2 — Regex / rule-based matching
@@ -239,13 +287,20 @@ spend compute only on the genuine leftovers.
 📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_MatchDocuments/handler.py`
 
 ```python
-"""Match PDF CogniteFile nodes to CogniteAsset nodes.
+"""Match PDF CogniteFile nodes to CogniteAsset nodes, cheapest technique first.
 
-Production-shaped cascade:
-  1) optional manual overrides from the call payload (`data["manual"]`)
-  2) regex on the file name (cheap, deterministic)
-  3) Entity Matching API only for files regex/manual did not resolve
-Always deletes any EM model this call created.
+The cascade, in cost order:
+
+  1. Mapping rules from RAW   free, deterministic, auditable, editable by a human
+                              who cannot deploy code
+  2. Regex on the file name   free, deterministic, but only as good as the naming
+                              convention
+  3. Entity Matching API      costs a model, a fit, a predict and polling -- run it
+                              only on what is left, and gate the result on a score
+
+Every rung that resolves a file removes it from the next rung's input. Entity Matching
+is the fallback, not the default. A production contextualization pipeline is this shape
+whatever the domain.
 """
 
 from __future__ import annotations
@@ -261,15 +316,56 @@ from cognite.client.data_classes.data_modeling import (
     ViewId,
 )
 
-TAG_RE = re.compile(r"(\d{2}-[A-Z]{2}-\d{4}[A-Z]?)")
-AREA_RE = re.compile(r"(TRN-\d{2}-[A-Z]+)")
+# Rung 2. Matches a tag embedded anywhere in a file name: TRN-21-PA-2001A-Datasheet.pdf
+TAG_IN_FILENAME = re.compile(r"\b(\d{2}-[A-Z]{2}-\d{4}[A-Z]?)\b")
+
+SCORE_THRESHOLD = 0.5
+
+
+def _load_mapping_rules(client, raw_db: str, table: str) -> list[dict]:
+    """Rung 1. Rules live in RAW so an engineer can correct a bad match by editing a
+    row, with no code change and no deploy. Returns [] if the table is absent -- the
+    cascade must still work for someone who has not created it yet."""
+    try:
+        rows = client.raw.rows.list(db_name=raw_db, table_name=table, limit=-1)
+    except Exception:  # noqa: BLE001 - an absent table is a valid state, not an error
+        return []
+    rules = []
+    for row in rows:
+        c = row.columns or {}
+        pattern = (c.get("sourcePattern") or "").strip()
+        target = (c.get("targetExternalId") or "").strip()
+        if pattern and target:
+            rules.append({
+                "pattern": pattern,
+                "target": target,
+                "matchType": (c.get("matchType") or "exact").strip().lower(),
+                "addedBy": c.get("addedBy") or "",
+                "reason": c.get("reason") or "",
+            })
+    return rules
+
+
+def _apply_rules(rules: list[dict], file_xid: str, file_name: str) -> str | None:
+    """First matching rule wins, so order in the table is policy. Exact before regex."""
+    for rule in sorted(rules, key=lambda r: r["matchType"] != "exact"):
+        if rule["matchType"] == "exact":
+            if file_xid == rule["pattern"] or file_name == rule["pattern"]:
+                return rule["target"]
+        elif rule["matchType"] == "regex":
+            try:
+                if re.search(rule["pattern"], file_name) or re.search(rule["pattern"], file_xid):
+                    return rule["target"]
+            except re.error:
+                continue  # a bad regex in a data row must not break the pipeline
+    return None
 
 
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
+    raw_db = os.environ.get("RAW_DB", f"rwd_{participant}_Training_TRN")
     model_xid = f"emp_{participant}_Datasheet_TRN"
-    data = data or {}
 
     file_xids = [
         f"file_{participant}_TRN_PID_21_SEP",
@@ -282,122 +378,101 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
         nodes=[(space, xid) for xid in file_xids],
         sources=[v_file],
     )
+    # retrieve_nodes returns a NodeList directly (not an object with .nodes)
     assets = client.data_modeling.instances.list(
-        instance_type="node", sources=[v_asset], space=space, limit=-1,
+        instance_type="node",
+        sources=[v_asset],
+        space=space,
+        limit=-1,
     )
-    asset_xids = {a.external_id for a in assets}
 
-    # Optional human overrides: {"manual": {"file_...": "21-PA-2001A", ...}}
-    manual_map = data.get("manual") or {}
+    asset_ids = {a.external_id for a in assets}
 
-    matches, below, applies = [], [], []
-    unresolved = []  # files that still need EM
+    # ---- rungs 1 and 2: resolve everything free before spending money -------------
+    rules = _load_mapping_rules(client, raw_db, "rwt_Training_TRN_MappingRules")
+    resolved: dict[str, dict] = {}          # file externalId -> {target, how}
+    unresolved = []
 
     for f in files:
         name = f.properties.get(v_file, {}).get("name") or f.external_id
-        src_id = f.external_id
 
-        # 1) Manual override (production: review queue / known exceptions)
-        if src_id in manual_map and manual_map[src_id] in asset_xids:
-            tgt_id = manual_map[src_id]
-            matches.append({"source": src_id, "target": tgt_id, "method": "manual"})
-            applies.append(_apply_asset(space, src_id, v_file, tgt_id))
-            continue
+        target = _apply_rules(rules, f.external_id, name)
+        how = "rule"
 
-        # 2) Regex on filename
-        m = TAG_RE.search(name) or AREA_RE.search(name)
-        candidate = m.group(1) if m else None
-        if candidate and candidate in asset_xids:
-            matches.append({"source": src_id, "target": candidate, "method": "regex"})
-            applies.append(_apply_asset(space, src_id, v_file, candidate))
-            continue
+        if target is None:                                    # rung 2
+            m = TAG_IN_FILENAME.search(name) or TAG_IN_FILENAME.search(f.external_id)
+            if m and m.group(1) in asset_ids:
+                target, how = m.group(1), "regex"
 
-        unresolved.append(f)
+        # A rule naming an asset that does not exist is a data error, not a match.
+        if target is not None and target not in asset_ids:
+            target = None
 
-    # 3) EM only for leftovers
-    em_matches, em_below, em_applies, em_meta = [], [], [], {}
-    if unresolved:
-        em_matches, em_below, em_applies, em_meta = _entity_match(
-            client, space, v_file, v_asset, unresolved, assets, model_xid,
+        if target is None:
+            unresolved.append(f)
+        else:
+            resolved[f.external_id] = {"target": target, "how": how}
+
+    # ---- rung 3: Entity Matching, on the remainder only --------------------------
+    sources = []
+    for f in unresolved:
+        props = f.properties.get(v_file, {})
+        sources.append({"id": f.external_id, "name": props.get("name") or f.external_id})
+
+    targets = []
+    for a in assets:
+        props = a.properties.get(v_asset, {})
+        targets.append({"id": a.external_id, "name": props.get("name") or a.external_id})
+
+    matches: list[dict] = []
+    below: list[dict] = []
+    model = None
+
+    # If rules and regex resolved everything, there is nothing to fit a model on -- and
+    # fitting one anyway is exactly the waste this cascade exists to avoid.
+    if not sources:
+        return _write_and_report(
+            client, space, v_file, files, resolved, matches, below, rules, model_used=False
         )
-        matches.extend(em_matches)
-        below.extend(em_below)
-        applies.extend(em_applies)
 
-    if applies:
-        client.data_modeling.instances.apply(nodes=applies)
-
-    result = {
-        "matches": matches,
-        "below_threshold": below,
-        "unresolved_count": len(unresolved),
-        "em_ran": bool(unresolved),
-    }
-    if em_meta.get("model_delete_warning"):
-        result["model_delete_warning"] = em_meta["model_delete_warning"]
-    if em_meta.get("error"):
-        result["error"] = em_meta["error"]
-    return result
-
-
-def _apply_asset(space, src_id, v_file, tgt_id) -> NodeApply:
-    return NodeApply(
-        space=space,
-        external_id=src_id,
-        sources=[NodeOrEdgeData(source=v_file, properties={
-            "assets": [DirectRelationReference(space, tgt_id)]
-        })],
-    )
-
-
-def _entity_match(client, space, v_file, v_asset, files, assets, model_xid):
-    sources = [
-        {"id": f.external_id, "name": f.properties.get(v_file, {}).get("name") or f.external_id}
-        for f in files
-    ]
-    targets = [
-        {"id": a.external_id, "name": a.properties.get(v_asset, {}).get("name") or a.external_id}
-        for a in assets
-    ]
-
+    # Drop a leftover model from a previous failed run (same externalId).
     try:
         client.entity_matching.delete(external_id=model_xid)
     except Exception:
         pass
 
     model = client.entity_matching.fit(
-        sources=sources, targets=targets,
-        match_fields=[("name", "name")], feature_type="bigram",
-        external_id=model_xid, name=model_xid,
+        sources=sources,
+        targets=targets,
+        match_fields=[("name", "name")],
+        feature_type="bigram",
+        external_id=model_xid,
+        name=model_xid,
     )
-    deadline = time.time() + 300
-    while getattr(model, "status", "Completed") not in ("Completed", "Failed") and time.time() < deadline:
-        time.sleep(5)
-        model = client.entity_matching.retrieve(id=model.id)
-
-    if getattr(model, "status", None) != "Completed":
+    # Both fit and predict return job objects with a blocking wait. Use it.
+    # A hand-rolled polling loop is what produced the "completed with zero
+    # matches, no error" bug this handler used to have.
+    model.wait_for_completion(timeout=600)
+    if model.status == "Failed":
         try:
             client.entity_matching.delete(id=model.id)
         except Exception:
             pass
-        return [], [], [], {"error": f"entity matching fit status={getattr(model, 'status', None)!r}"}
+        return {"error": "entity matching fit failed", "model": model_xid}
 
     predict = client.entity_matching.predict(
-        id=model.id, num_matches=1, sources=sources, targets=targets,
+        id=model.id,
+        num_matches=1,
+        sources=sources,
+        targets=targets,
     )
-    # Both fit and predict return job objects with their own bounded wait.
     predict.wait_for_completion(timeout=600)
 
-    if predict.status != "Completed":
-        try:
-            client.entity_matching.delete(id=model.id)
-        except Exception:
-            pass
-        return [], [], [], {"error": f"entity matching predict status={predict.status!r}"}
-
+    # cognite-sdk 8.x: get_result() is a METHOD on the prediction job. There is
+    # no `.result` property -- getattr(predict, "result", None) returns None and
+    # you get zero matches with no error at all.
     result_items = (predict.get_result() or {}).get("items") or []
 
-    matches, below, applies = [], [], []
     for item in result_items:
         src = item.get("source") or item.get("sourceId") or {}
         src_id = src.get("id") if isinstance(src, dict) else src
@@ -408,20 +483,69 @@ def _entity_match(client, space, v_file, v_asset, files, assets, model_xid):
         score = float(best.get("score") or 0.0)
         tgt = best.get("target") or best.get("targetId") or {}
         tgt_id = tgt.get("id") if isinstance(tgt, dict) else tgt
-        row = {"source": src_id, "target": tgt_id, "score": score, "method": "entity_matching"}
-        if score < 0.5:
-            below.append(row)
+        row = {"source": src_id, "target": tgt_id, "score": score}
+        if score < SCORE_THRESHOLD:
+            below.append(row)          # never written; surfaced for a human to review
             continue
-        matches.append(row)
-        applies.append(_apply_asset(space, src_id, v_file, tgt_id))
+        resolved[src_id] = {"target": tgt_id, "how": "entity-matching", "score": score}
 
-    meta = {}
+    result = _write_and_report(
+        client, space, v_file, files, resolved, matches, below, rules, model_used=True
+    )
+
     try:
         client.entity_matching.delete(id=model.id)
-    except Exception as exc:
-        meta["model_delete_warning"] = str(exc)
+    except Exception as exc:  # noqa: BLE001 - cleanup is best-effort
+        result["model_delete_warning"] = str(exc)
+    return result
 
-    return matches, below, applies, meta
+
+def _write_and_report(client, space, v_file, files, resolved, matches, below, rules,
+                      *, model_used: bool) -> dict:
+    """One write path for all three rungs, so a rule-matched file is applied exactly
+    the same way an entity-matched one is."""
+    applies: list[NodeApply] = []
+    for src_id, info in resolved.items():
+        tgt_id = info["target"]
+        matches.append({"source": src_id, "target": tgt_id, "resolvedBy": info["how"],
+                        **({"score": info["score"]} if "score" in info else {})})
+
+        # read-modify-write: never clobber assets somebody else put on this file
+        existing = next((f for f in files if f.external_id == src_id), None)
+        existing_assets = []
+        if existing is not None:
+            props = existing.properties.get(v_file, {})
+            for rel in props.get("assets") or []:
+                if hasattr(rel, "external_id"):
+                    existing_assets.append(DirectRelationReference(rel.space, rel.external_id))
+                elif isinstance(rel, dict):
+                    existing_assets.append(
+                        DirectRelationReference(rel.get("space", space), rel["externalId"])
+                    )
+        if not any(getattr(a, "external_id", None) == tgt_id for a in existing_assets):
+            existing_assets.append(DirectRelationReference(space, tgt_id))
+        applies.append(
+            NodeApply(
+                space=space,
+                external_id=src_id,
+                sources=[NodeOrEdgeData(source=v_file, properties={"assets": existing_assets})],
+            )
+        )
+
+    if applies:
+        client.data_modeling.instances.apply(nodes=applies)
+
+    by_rung: dict[str, int] = {}
+    for info in resolved.values():
+        by_rung[info["how"]] = by_rung.get(info["how"], 0) + 1
+
+    return {
+        "matches": matches,
+        "below_threshold": below,
+        "resolved_by": by_rung,          # how much each rung actually did
+        "rules_loaded": len(rules),
+        "entity_matching_used": model_used,
+    }
 ```
 
 ### Line-by-line walkthrough
@@ -476,6 +600,8 @@ envVars:
   SCHEMA_SPACE_SDM: "ssp_<YOURNAME>_MaintenanceInsight_sdm"
   DATASET: "dts_<YOURNAME>_Training_TRN"
   MODEL_VERSION: "v1.0.0"
+  # Rung 1 of the cascade reads its mapping rules from RAW.
+  RAW_DB: "rwd_<YOURNAME>_Training_TRN"
 ```
 
 🔧 `[CHANGE]` `handler.py` is **byte-identical** for every participant — same

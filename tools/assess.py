@@ -177,6 +177,42 @@ def part_b(client, name: str, r: Report) -> None:
         r.note("B4   observed range", f"{lo:.3f} .. {hi:.3f}")
 
 
+def markdown_summary(result: dict, a_rows, report: Report, args) -> str:
+    """A job summary a human reads in the Actions UI, or a PR comment."""
+    tick = {True: "✅", False: "❌"}
+    out = [f"## Course evaluation — {result['verdict']}", ""]
+    out.append(f"**{result['total']} / 100** &nbsp;·&nbsp; participant `{result['participant']}` "
+               f"&nbsp;·&nbsp; project `{result['project']}`")
+    out.append("")
+    out.append("### Part A — what the course asks you to build")
+    out.append("")
+    out.append("| Chapter | Checks | Points |")
+    out.append("|---|---|---|")
+    for chapter, passed, total_checks, points in a_rows:
+        mark = tick[passed == total_checks]
+        out.append(f"| {mark} {chapter} | {passed}/{total_checks} | "
+                   f"{points:.1f} / {PART_A_WEIGHTS[chapter]} |")
+    out.append(f"| | | **{result['part_a']} / 60** |")
+    out.append("")
+
+    if args.part_a_only:
+        out.append("_Part B is the participant's own work and is skipped here — in CI "
+                   "nobody has done the tasks. The score above is Part A rescaled to 100, "
+                   "so it reads as course health._")
+    else:
+        out.append("### Part B — four tasks that appear in no chapter")
+        out.append("")
+        for ok, label, detail in report.rows:
+            if label.startswith("[note]"):
+                continue
+            out.append(f"- {tick[ok]} {label} — `{detail}`")
+        out.append("")
+        out.append(f"**Part B: {result['part_b']} / 40**")
+    out.append("")
+    out.append(f"<sub>checksum `{result['checksum']}` · {result['assessed_at']}</sub>")
+    return "\n".join(out) + "\n"
+
+
 def grade(score: float) -> str:
     if score >= 90:
         return "DISTINCTION"
@@ -191,6 +227,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tasks", action="store_true", help="print Part B tasks and exit")
     parser.add_argument("--json", metavar="PATH", help="write the result to a JSON file")
+    parser.add_argument("--summary", metavar="PATH",
+                        help="write a markdown summary (for a CI job summary or PR comment)")
+    parser.add_argument("--part-a-only", action="store_true",
+                        help="score only Part A. Part B is the participant's own work and "
+                             "means nothing in CI, where nobody has done the tasks")
     args = parser.parse_args()
 
     if args.tasks:
@@ -211,27 +252,38 @@ def main() -> int:
               f"   {points:5.1f} / {PART_A_WEIGHTS[chapter]:>2} pts{flag}")
     print(f"\n    Part A subtotal: {a_points:.1f} / 60")
 
-    print("\n  PART B — four tasks that are in no chapter (40 pts)\n")
     report = Report("B")
-    try:
-        part_b(client, name, report)
-    except Exception as exc:  # noqa: BLE001
-        report.check(f"Part B could not run ({type(exc).__name__})", str(exc)[:90], ok=False)
-    checks = [r for r in report.rows if not r[1].startswith("[note]")]
-    b_passed = sum(1 for ok, _, _ in checks if ok)
-    b_points = 40 * (b_passed / len(checks)) if checks else 0.0
-    width = max(len(label) for _, label, _ in report.rows)
+    if args.part_a_only:
+        checks, b_passed, b_points = [], 0, 0.0
+        print("\n  PART B — skipped (--part-a-only)")
+    else:
+        print("\n  PART B — four tasks that are in no chapter (40 pts)\n")
+        try:
+            part_b(client, name, report)
+        except Exception as exc:  # noqa: BLE001
+            report.check(f"Part B could not run ({type(exc).__name__})", str(exc)[:90], ok=False)
+        checks = [r for r in report.rows if not r[1].startswith("[note]")]
+        b_passed = sum(1 for ok, _, _ in checks if ok)
+        b_points = 40 * (b_passed / len(checks)) if checks else 0.0
+    width = max((len(label) for _, label, _ in report.rows), default=10)
     for ok, label, detail in report.rows:
         if label.startswith("[note]"):
             print(f"         {label[6:].strip():<{width}}  {detail}")
         else:
             print(f"    [{'PASS' if ok else 'FAIL'}] {label:<{width}}  {detail}")
-    print(f"\n    Part B subtotal: {b_points:.1f} / 40  ({b_passed}/{len(checks)} checks)")
+    if not args.part_a_only:
+        print(f"\n    Part B subtotal: {b_points:.1f} / 40  ({b_passed}/{len(checks)} checks)")
 
-    total = a_points + b_points
-    verdict = grade(total)
+    if args.part_a_only:
+        # Rescale Part A to 100 so a CI run reports course health, not a failed exam.
+        total = a_points / 60 * 100
+        verdict = grade(total)
+    else:
+        total = a_points + b_points
+        verdict = grade(total)
     print("\n  " + "=" * 62)
-    print(f"  TOTAL {total:.1f} / 100 — {verdict}")
+    label = "COURSE HEALTH" if args.part_a_only else "TOTAL"
+    print(f"  {label} {total:.1f} / 100 — {verdict}")
     if verdict == "NOT YET":
         print("  Re-read the incomplete chapters above, fix, and run this again.")
     print("  " + "=" * 62 + "\n")
@@ -256,6 +308,10 @@ def main() -> int:
     if args.json:
         pathlib.Path(args.json).write_text(json.dumps(result, indent=2) + "\n")
         print(f"  result written to {args.json} (checksum {result['checksum']})\n")
+
+    if args.summary:
+        pathlib.Path(args.summary).write_text(markdown_summary(result, a_rows, report, args))
+        print(f"  summary written to {args.summary}\n")
 
     return 0 if total >= 75 else 1
 

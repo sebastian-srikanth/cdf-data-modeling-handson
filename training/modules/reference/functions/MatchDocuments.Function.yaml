@@ -12,3 +12,5 @@ envVars:
   SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
   DATASET: "{{ dataset }}"
   MODEL_VERSION: "{{ model_version }}"
+  # Rung 1 of the cascade reads its mapping rules from RAW.
+  RAW_DB: "{{ raw_db }}"
