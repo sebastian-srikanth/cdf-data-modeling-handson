@@ -346,6 +346,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
 
 from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
@@ -359,14 +360,24 @@ from cognite.client.data_classes.data_modeling import (
 EQUIPMENT_TAGS = ["21-VG-2001", "21-PA-2001A", "21-PA-2001B", "21-HA-2001", "21-XV-2001"]
 
 
-def _bbox(region: dict) -> tuple[float, float, float, float]:
-    """(xMin, xMax, yMin, yMax) from a region's vertices polygon."""
+def _bbox(region: dict):
+    """(xMin, xMax, yMin, yMax) from a region's vertices polygon, or None.
+
+    **None, not a default box.** This used to return a small rectangle at the origin
+    when the API omitted vertices, and that was wrong twice over. A fabricated box is
+    written to CDF as though it were measured, so Fusion draws a highlight over a part
+    of the drawing where nothing was found; and annotation identity is derived from the
+    geometry, so every placeless detection of the same tag collapses onto one node.
+
+    Inventing data to keep a write path happy is the most expensive kind of convenience.
+    A detection nobody can point at on the page is a *review item*, not an annotation.
+    """
     verts = region.get("vertices") or []
     xs = [float(v["x"]) for v in verts if isinstance(v, dict) and "x" in v]
     ys = [float(v["y"]) for v in verts if isinstance(v, dict) and "y" in v]
     if xs and ys:
         return min(xs), max(xs), min(ys), max(ys)
-    return 0.0, 0.1, 0.0, 0.1  # degenerate fallback if the API omits vertices
+    return None
 
 
 from cognite.client.data_classes.contextualization import DiagramDetectConfig
@@ -427,6 +438,46 @@ def _annotation_id(file_xid: str, asset_xid: str, page: int, bbox: tuple) -> str
     return f"anno_{file_xid}_{asset_xid}_{digest}"[:255]
 
 
+def _record_for_review(client, space, sdm, version, file_xid, placeless, run_id):
+    """Persist detections we could not place as ContextualizationSuggestion rows.
+
+    The same spine Chapter 17 section 17.1c builds for entity matching. A detection the
+    detector made but nobody can point at is exactly the middle band: not good enough to
+    write, far too informative to drop. Dropping it is how a reviewer never learns that
+    the P&ID they just approved had five tags the system saw and silently discarded.
+    """
+    if not placeless:
+        return 0
+    from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData
+    view = ViewId(sdm, "ContextualizationSuggestion", version)
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    nodes = []
+    for row in placeless:
+        xid = f"sug_{row['source']}_{row['target']}_noplace"[:255]
+        nodes.append(NodeApply(space=space, external_id=xid,
+            sources=[NodeOrEdgeData(source=view, properties={
+                "name": f"{row['target']} detected on {row['source']} with no coordinates",
+                "runId": run_id,
+                "sourceExternalId": row["source"],
+                "targetExternalId": row["target"],
+                "method": "diagram-detect",
+                "confidence": row.get("confidence"),
+                "decision": "needs-review",
+                "decidedBy": "pipeline",
+                "decidedTime": now,
+                "evidenceText": (f"detected text {row['text']!r} on page {row['page']}, "
+                                 "but the API returned no vertices -- it cannot be placed "
+                                 "on the drawing, so it was not written as an annotation"),
+                "evidencePage": row.get("page"),
+            })]))
+    try:
+        client.data_modeling.instances.apply(nodes=nodes, auto_create_direct_relations=False)
+    except Exception:  # noqa: BLE001 - the spine view may not be deployed yet
+        return 0
+    return len(nodes)
+
+
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     participant = os.environ["PARTICIPANT"]
     space = os.environ["INSTANCE_SPACE"]
@@ -468,6 +519,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     result = job.result  # blocks until the job completes; returns {"items": [...]}
 
     edges: list[EdgeApply] = []
+    placeless: list[dict] = []          # detected, but the API gave us no coordinates
     tags_found: list[str] = []
     idx = 0
 
@@ -478,7 +530,7 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
             page = int(region.get("page") or ann.get("page") or 1)
             text = ann.get("text") or ""
             confidence = float(ann.get("confidence") or 0.0)
-            x_min, x_max, y_min, y_max = _bbox(region)
+            box = _bbox(region)
 
             seen: set[str] = set()  # the API can list the same entity twice
             for ent in ann.get("entities") or []:
@@ -486,6 +538,19 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                 if not asset_xid or asset_xid in seen or asset_xid not in asset_xids:
                     continue
                 seen.add(asset_xid)
+
+                # No geometry means we cannot say WHERE on the drawing this is, so it
+                # cannot become an annotation -- an annotation without a location is a
+                # claim a reviewer has no way to check. It becomes a review item instead.
+                if box is None:
+                    placeless.append({
+                        "source": file_xid, "target": asset_xid,
+                        "page": page, "text": text or asset_xid,
+                        "confidence": confidence,
+                    })
+                    continue
+
+                x_min, x_max, y_min, y_max = box
                 edges.append(EdgeApply(
                     space=space,
                     external_id=_annotation_id(
@@ -543,9 +608,18 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
     if stale:
         client.data_modeling.instances.delete(edges=stale)
 
+    sdm = os.environ.get("SCHEMA_SPACE_SDM", "")
+    version = os.environ.get("MODEL_VERSION", "v1.0.0")
+    run_id = (data or {}).get("runId") or f"ctxrun-{int(time.time())}-diagramdetect"
+    review_written = _record_for_review(
+        client, space, sdm, version, file_xid, placeless, run_id)
+
     tags_missing = [t for t in EQUIPMENT_TAGS if t not in tags_found]
     return {
         "annotations_created": len(edges),
+        "detections_without_geometry": len(placeless),
+        "review_rows_written": review_written,
+        "run_id": run_id,
         "annotations_removed": len(stale),
         "reviewed_annotations_kept": reviewed_kept,
         "tags_found": tags_found,
@@ -743,6 +817,7 @@ of Chapter 03.
   empty in Fusion
 - You can state, from memory, why there's no cancel API workaround for a stuck
   `Distributed` job, and why that means "stop submitting, don't retry-loop"
+- The acceptance contract passes for this capability: `uv run python tools/acceptance.py <YOURNAME> diagram-annotation` ([Chapter 17](17-cross-cutting-mastery.md) section 17.2c)
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
 → [Chapter 09 — 3D](09-3d.md)

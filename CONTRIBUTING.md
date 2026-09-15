@@ -17,6 +17,22 @@ Functions to build — that is normal, not a hang.
 ```bash
 uv run python tools/check_docs.py
 uv run --group dev python -m pytest tests/ -q
+
+CI=true uv run cdf build --config-yaml training/config.REFERENCE-training.yaml
+uv run python tools/check_build_insights.py       # reads what the build printed
+```
+
+That last pair matters more than it looks. The build exits **0** while printing
+*"Do not proceed to deploy"*, because offline it cannot resolve `cdf_cdm` references.
+Both halves are defensible and together they are a trap: a real modelling error prints
+among fourteen expected ones, under a banner everyone has learned to ignore, with a
+passing exit code. `check_build_insights.py` classifies every finding against a stated
+reason and fails on anything left over.
+
+And when you have credentials, the eight-property acceptance contract:
+
+```bash
+uv run python tools/acceptance.py <SCRATCH-PARTICIPANT>
 ```
 
 The division is deliberate. The unit tests never talk to CDF, so they can reach the

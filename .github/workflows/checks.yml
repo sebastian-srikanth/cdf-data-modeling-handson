@@ -49,3 +49,9 @@ jobs:
         run: uv run cdf build --config-yaml training/config.REFERENCE-training.yaml
         env:
           CI: "true"
+
+      # The build exits 0 while printing "Do not proceed to deploy". Both halves are
+      # defensible; together they let a real modelling error hide among the expected
+      # cdf_cdm ones. This step reads the output and fails on anything unclassified.
+      - name: Every build insight is accounted for
+        run: uv run python tools/check_build_insights.py

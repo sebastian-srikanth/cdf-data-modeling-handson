@@ -1070,6 +1070,7 @@ training-scale problem this small.
 - You can explain when you'd reach for each of the three techniques — and why a normal
   Function call returns `entity_matching_used: false` while the notebook's EM cell
   runs a real `fit`/`predict`
+- The acceptance contract passes for this capability: `uv run python tools/acceptance.py <YOURNAME> contextualization` ([Chapter 17](17-cross-cutting-mastery.md) section 17.2c)
 - 📓 You have added your two or three lines for this chapter to `participants/<YOURNAME>/NOTES.md` — **now**, not tonight
 
 → [Chapter 08 — Diagram Annotation](08-diagram-annotation.md)

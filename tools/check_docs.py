@@ -825,6 +825,60 @@ def check_build_summary_counts() -> int:
     return checked
 
 
+# Capability name as a learner reads it -> the token that proves a handler really uses it.
+# This is the semantic half of the drift problem. The [WRITE]-block and walkthrough checks
+# compare code to code; nothing compared a *sentence* to code, and Chapter 10's Gate spent
+# months telling participants their profile must be "populated via the Document Parser
+# API" while the deployed Function was regex over pypdf. Every check was green.
+CAPABILITY_MARKERS = {
+    "document parser": "documentparser",
+    "entity matching": "entity_matching",
+    "diagram detect": "diagrams.detect",
+    "diagrams.detect": "diagrams.detect",
+}
+
+# "populated via X", "written by X", "created through X" -- an assertion that X is the
+# mechanism. Merely *mentioning* a capability is fine and often necessary: the corrected
+# Chapter 10 Gate names the Document Parser precisely to say it is NOT the write path.
+GATE_CLAIM = re.compile(
+    r"(?:populated|written|created|produced|generated|extracted|parsed|resolved|linked)"
+    r"\s+(?:via|by|through|using|with)\s+(?:the\s+)?([A-Za-z][A-Za-z .]{2,30}?)"
+    r"\s*(?:API|endpoint|Function|$|[,.)])", re.I | re.M)
+
+
+def check_gate_claims() -> int:
+    """A Gate may not assert a mechanism the reference module never uses.
+
+    A Gate bullet is a promise the participant checks their own project against. If it
+    names the wrong mechanism, they do everything right, see something else, and assume
+    they broke it. That is worse than silence.
+    """
+    handlers = "\n".join(h.read_text().lower()
+                          for h in REFERENCE.rglob("handler.py"))
+    notebooks = "\n".join(nb.read_text().lower()
+                           for nb in (DOCS / "notebooks").glob("*.ipynb"))
+    checked = 0
+
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        if "## Gate" not in text:
+            continue
+        gate = text[text.index("## Gate"):]
+        for m in GATE_CLAIM.finditer(gate):
+            phrase = m.group(1).strip().lower().rstrip(" .")
+            marker = CAPABILITY_MARKERS.get(phrase)
+            if marker is None:
+                continue
+            checked += 1
+            if marker in handlers:
+                continue
+            where = "a notebook, not a deployed Function" if marker in notebooks else "nowhere in the course"
+            fail(f"gateclaim {md.name}: the Gate says the result is "
+                 f"'{m.group(0).strip()}', but {marker!r} appears {where}. "
+                 "A Gate names the mechanism that actually runs.")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -848,6 +902,7 @@ def main() -> int:
     scoped = check_selfcheck_is_space_scoped()
     layout = check_module_layout()
     summary = check_build_summary_counts()
+    gateclaims = check_gate_claims()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -872,6 +927,7 @@ def main() -> int:
     print(f"  participant scope{scoped:>4} selfcheck reads are space-scoped")
     print(f"  module layout    {layout:>4} resource dirs in their lifecycle module")
     print(f"  build summary    {summary:>4} quoted build summary matches the module")
+    print(f"  gate claims      {gateclaims:>4} Gate mechanisms exist in a handler")
     # ---- a check that inspects nothing is not a passing check ----------------------
     # check_unit_references was silently reduced from six units to zero by a folder move
     # and still reported "all offline checks passed", because finding nothing to check
@@ -879,7 +935,7 @@ def main() -> int:
     #
     # The allowlist is for counts that are legitimately zero: they count *claims made in
     # prose*, and prose is allowed not to make them.
-    MAY_BE_ZERO = {"test count", "advertised counts"}
+    MAY_BE_ZERO = {"test count", "advertised counts", "gate claims"}
     for label, count in (
         ("links", links), ("cross-references", xrefs), ("yaml blocks", n_yaml),
         ("python blocks", n_python), ("notebook cells", cells),
@@ -893,6 +949,7 @@ def main() -> int:
         ("test count", testcount), ("participant scope", scoped),
         ("module layout", layout),
         ("build summary", summary),
+        ("gate claims", gateclaims),
     ):
         if count == 0 and label not in MAY_BE_ZERO:
             fail(f"empty      the {label!r} check inspected 0 items -- it is no longer "
