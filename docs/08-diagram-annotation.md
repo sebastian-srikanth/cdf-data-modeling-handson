@@ -128,14 +128,14 @@ the reader mistakes for which. On a scanned P&ID that is where most misses come 
 `"name": [name, a.external_id]` gives every asset two spellings to match on. If you need
 `PMP` to find `PUMP`, add it there, not here.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_TagAliases.Table.yaml`
 
 ```yaml
 dbName: rwd_<YOURNAME>_Training_TRN
 tableName: rwt_Training_TRN_TagAliases
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_TagAliases.Table.csv`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_TagAliases.Table.csv`
 
 ```text
 key,character,alternatives,addedBy,reason
@@ -257,6 +257,63 @@ not be traversed from the asset side. Modelling it as a diagram annotation **edg
 (`type=diagrams.AssetLink`, properties from view `CogniteDiagramAnnotation`)
 gives you both directions and a place to hang the per-link attributes.
 
+### What makes two detections the same detection
+
+An edge needs an external ID, and the obvious choice is a counter over the results —
+`anno_<file>_<tag>_0`, `_1`, `_2`. It is wrong, and it fails in the direction that looks
+fine.
+
+✅ `[VERIFY]` Run the Function twice against the same unchanged P&ID and count the edges.
+Measured here, with the counter version:
+
+```
+edges before: 9
+call: Completed
+edges after : 17
+```
+
+Every one of those 17 is a "correct" annotation. None is a duplicate *by external ID*.
+The detector simply returned its results in a different order, so every ID shifted, and
+`apply` created a second full set alongside the first. Nothing errors. Fusion shows the
+drawing twice-annotated, and the count grows every night.
+
+⚠️ `[COMMON MISTAKE]` Keying anything on result *order*. An external ID has to be derived
+from what the thing **is**, never from where it happened to appear in a list. This is the
+same rule as [Chapter 03](03-data-modeling.md)'s `(space, externalId)` identity: identity
+is a statement about the world, not about your loop.
+
+So what *is* a detection? A tag, at a place, on a page, of a drawing — and that is exactly
+what `_annotation_id` hashes. Three decisions in four lines:
+
+- **The geometry is in the key.** The same tag can legitimately appear twice on one
+  drawing — a pump on the process line and again in the equipment list. Those are two
+  annotations, and a key without coordinates would collapse them into one.
+- **The coordinates are rounded first.** The service is free to return `0.1000000001`
+  where it returned `0.1` last night. An identity that changes on a floating-point wobble
+  is not an identity. Four decimal places on a normalised box is finer than any real
+  detection moves and coarser than any noise.
+- **The tag stays readable in the ID.** A pure hash is correct and useless the moment you
+  are staring at a list of them trying to work out which drawing is wrong.
+
+### And what a re-run must take away
+
+Stable IDs stop the pile-up. They do not handle the opposite case: a detection that was
+there last week and is **not** there now, because somebody uploaded a new revision of the
+drawing or you tightened `min_fuzzy_score`.
+
+The Function reconciles: anything on this file that this run did not produce is deleted,
+and counted as `annotations_removed`.
+
+⚠️ `[COMMON MISTAKE]` Reconciling without checking `status`. `CogniteDiagramAnnotation`
+carries one — `Suggested` is the detector's guess, anything else means a **person**
+approved or rejected it. Delete those and you have thrown away human review work that
+cannot be recovered, on a schedule, silently. The handler skips them and reports
+`reviewed_annotations_kept`, and it is the same rule the contextualization spine applies
+in [Chapter 17](17-cross-cutting-mastery.md) section 17.1c: *a person's decision outranks
+the machine's, every time.*
+
+---
+
 ### The one thing that trips everyone up
 
 The `detect` response is nested two levels deep, and the box is a **polygon**, not a
@@ -272,7 +329,7 @@ result["items"]           ← one block PER FILE (not per detection)
 Reaching for `result["annotations"]` or `region["xMin"]` is the most common way to get zero
 annotations out of a job that actually succeeded.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/fnc_<YOURNAME>_Training_DetectDiagramTags/handler.py`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/fnc_<YOURNAME>_Training_DetectDiagramTags/handler.py`
 
 ```python
 """Detect tags on the Area 21 P&ID and create CogniteDiagramAnnotation edges.
@@ -287,11 +344,13 @@ Edge TYPE is cdf_cdm:diagrams.AssetLink. CogniteDiagramAnnotation is the edge VI
 
 from __future__ import annotations
 
+import hashlib
 import os
 
 from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     EdgeApply,
+    EdgeId,
     NodeId,
     NodeOrEdgeData,
     ViewId,
@@ -345,6 +404,27 @@ def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
         # pipe-separated, because a comma would fight the CSV
         aliases[character] = [a.strip() for a in alternatives.split("|") if a.strip()]
     return aliases
+
+
+def _annotation_id(file_xid: str, asset_xid: str, page: int, bbox: tuple) -> str:
+    """A stable external ID for one detection.
+
+    The obvious key -- a counter over the results -- is the one that does not work, and
+    it fails in the direction that looks fine: every re-run produces a *new* set of IDs,
+    so the edges accumulate instead of updating. Measured here, one re-run took a P&ID
+    from 9 annotation edges to 17, all of them "correct", none of them duplicates by
+    external ID.
+
+    What makes two detections the same detection is *where they are*: the same tag, at
+    the same place, on the same page, of the same drawing. So that is the key. The
+    coordinates are rounded before hashing because the service is free to return
+    1.0000000001 where it returned 1.0 last night, and an identity that changes on a
+    floating-point wobble is not an identity.
+    """
+    x_min, x_max, y_min, y_max = (round(float(v), 4) for v in bbox)
+    fingerprint = f"{file_xid}|{asset_xid}|{page}|{x_min}|{x_max}|{y_min}|{y_max}"
+    digest = hashlib.sha1(fingerprint.encode()).hexdigest()[:12]
+    return f"anno_{file_xid}_{asset_xid}_{digest}"[:255]
 
 
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
@@ -408,7 +488,8 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                 seen.add(asset_xid)
                 edges.append(EdgeApply(
                     space=space,
-                    external_id=f"anno_{file_xid}_{asset_xid}_{idx}",
+                    external_id=_annotation_id(
+                        file_xid, asset_xid, page, (x_min, x_max, y_min, y_max)),
                     # Edge TYPE in cdf_cdm (not the view/container externalId).
                     # File→asset diagram hits use diagrams.AssetLink; CogniteDiagramAnnotation is the view.
                     type=DirectRelationReference("cdf_cdm", "diagrams.AssetLink"),
@@ -428,12 +509,45 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                     tags_found.append(asset_xid)
             idx += 1
 
+    # ---- reconcile before writing -------------------------------------------------
+    # Silence is not agreement. A detection this drawing carried last week and does not
+    # carry today is a *change* -- somebody uploaded a new revision of the P&ID, or the
+    # tuning changed -- and leaving the old edge in place means the graph asserts a tag
+    # is on a drawing that no longer shows it.
+    #
+    # The one thing that must never be removed is an edge a person ruled on. A
+    # CogniteDiagramAnnotation carries `status`; anything other than "Suggested" means a
+    # human approved or rejected it, and that decision outranks the detector -- exactly
+    # the rule the contextualization spine applies in Chapter 17 section 17.1c.
+    produced = {e.external_id for e in edges}
+    stale: list[EdgeId] = []
+    reviewed_kept = 0
+    try:
+        existing = client.data_modeling.instances.list(
+            instance_type="edge", sources=view, space=space, limit=-1)
+    except Exception:  # noqa: BLE001 - nothing written yet is a valid first-run state
+        existing = []
+    for edge in existing:
+        if edge.start_node.external_id != file_xid:
+            continue                       # another drawing's annotations
+        if edge.external_id in produced:
+            continue
+        status = (edge.properties.get(view) or {}).get("status")
+        if status not in (None, "", "Suggested"):
+            reviewed_kept += 1             # a person owns this one
+            continue
+        stale.append(EdgeId(space, edge.external_id))
+
     if edges:
         client.data_modeling.instances.apply(edges=edges)
+    if stale:
+        client.data_modeling.instances.delete(edges=stale)
 
     tags_missing = [t for t in EQUIPMENT_TAGS if t not in tags_found]
     return {
         "annotations_created": len(edges),
+        "annotations_removed": len(stale),
+        "reviewed_annotations_kept": reviewed_kept,
         "tags_found": tags_found,
         "tags_missing": tags_missing,
     }
@@ -476,7 +590,7 @@ edge-type id. Live API check: that call returns 400
 
 📝 `[WRITE]` `requirements.txt`: `cognite-sdk==8.10.0`
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/functions/DetectDiagramTags.Function.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/04_compute/functions/DetectDiagramTags.Function.yaml`
 
 ```yaml
 externalId: fnc_<YOURNAME>_Training_DetectDiagramTags

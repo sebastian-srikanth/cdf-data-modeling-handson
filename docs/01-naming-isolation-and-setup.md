@@ -111,7 +111,7 @@ bucket where Asset/Equipment/WorkOrder/EHP nodes live.
 
 ---
 
-## 1.3 [INFO] The approved folder structure (confirmed, not redesigned)
+## 1.3 [INFO] The folder structure, and the one idea behind it
 
 ```
 docs/                                      # this course — read-only for you
@@ -120,17 +120,60 @@ training/
 └── modules/
     ├── reference/                         # the finished answer key — don't peek yet
     └── participants/<YOURNAME>/           # ← the ONLY path you create/edit
-        ├── data_sets/
-        ├── raw/
-        ├── files/
-        ├── data_modeling/
-        ├── transformations/
-        ├── functions/
-        ├── workflows/
-        ├── locations/
+        ├── 01_schema/                     # what the data IS
+        │   └── data_modeling/             #   spaces, containers, views, data models
+        ├── 02_access/                     # who may SEE it
+        │   ├── auth/                      #   groups
+        │   ├── data_sets/
+        │   └── locations/                 #   location filters
+        ├── 03_data/                       # the data ITSELF
+        │   ├── raw/
+        │   ├── files/
+        │   └── transformations/
+        ├── 04_compute/                    # what RUNS over it
+        │   ├── functions/
+        │   └── workflows/
         ├── NOTES.md                       # your running notes — fill in as you go (section 1.4)
         └── FEEDBACK.md                    # your course feedback — fill in at the end (section 1.4)
 ```
+
+ℹ️ `[INFO]` Those four folders are **four Toolkit modules**, not cosmetic grouping. Each
+carries its own `module.toml`, and `cdf build` reports `4 modules` rather than one.
+
+The split is by **rate of change**, which is the only grouping that earns its keep:
+
+| Module | Changes when | Typical cadence |
+|---|---|---|
+| `01_schema` | the meaning of your data changes | rarely, and every change is a negotiation |
+| `02_access` | somebody joins, leaves, or needs a new scope | constantly, and often urgently |
+| `03_data` | a source system changes shape | when upstream changes |
+| `04_compute` | you fix or improve a pipeline | daily, while you are building |
+
+⚡ `[OPTIMIZE]` Read the first and last rows together. Schema changes are rare and
+dangerous; compute changes are frequent and cheap. Putting them in one module means every
+routine Function fix carries your containers and views along for the ride — and the day
+somebody reviews a one-line handler change, the diff also touches the schema nobody
+intended to touch. Separate modules let you say `--include functions` and mean it.
+
+💡 `[GOOD TO KNOW]` `02_access` is separate for a different reason: it is the one people
+need changed *fast*, by somebody who should not be redeploying your data model to do it.
+A colleague adding a reader group at 17:00 on a Friday should be able to deploy access
+alone, and be unable to deploy anything else.
+
+⚠️ `[COMMON MISTAKE]` Expecting the numbers to control deploy order. They do not. Run a
+dry-run and read the summary: it is grouped by **resource type** — spaces, containers,
+views, data models, functions — across all four modules at once. The Toolkit works type by
+type, not module by module, and it already knows a view needs its container first.
+
+The numbers are for humans reading the tree, and for the `selected:` list when you choose
+to deploy modules separately. If you ever find yourself relying on folder ordering for
+correctness, the dependency is real and belongs in a workflow
+([Chapter 12](12-workflows.md)), not in a name.
+
+🚧 `[LIMITS]` Four is a judgement call, not a law. Split further and you get modules with
+one file in them and a deploy runbook nobody follows; leave it as one and you get the
+coupling above. The test is not tidiness — it is whether two things in the same module
+genuinely change together. If they do not, they are two modules.
 
 ℹ️ `[INFO]` **One path rule for the whole course:** every command you run and every
 `[WRITE]` path you see is relative to the **repo root** — the folder you landed in after
@@ -155,7 +198,17 @@ Pick your `YOURNAME` now (UPPERCASE, letters/digits only, e.g. `ALICE`). You wil
 it dozens of times over the next few hours — get it right once.
 
 ```bash
-mkdir -p training/modules/participants/<YOURNAME>/{data_sets,raw,files,data_modeling,transformations,functions,workflows,locations}
+P=training/modules/participants/<YOURNAME>
+
+mkdir -p $P/01_schema/data_modeling
+mkdir -p $P/02_access/{auth,data_sets,locations}
+mkdir -p $P/03_data/{raw,files,transformations}
+mkdir -p $P/04_compute/{functions,workflows}
+
+# each of the four is a Toolkit module and needs to say so
+for m in 01_schema 02_access 03_data 04_compute; do
+  printf '[module]\ntitle = "%s"\n' "$m" > $P/$m/module.toml
+done
 
 # Your two write-ups, seeded from the blank templates
 cp docs/templates/NOTES.md    training/modules/participants/<YOURNAME>/NOTES.md
@@ -169,8 +222,18 @@ find training/modules/participants/<YOURNAME> -type d
 ls training/modules/participants/<YOURNAME>/*.md
 ```
 
-You should see all eight subfolders, all empty, plus `NOTES.md` and `FEEDBACK.md`.
-That's expected — you fill the folders in starting Chapter 03.
+You should see the four modules and their nine resource folders, all empty, plus
+`NOTES.md`, `FEEDBACK.md`, and a `module.toml` in each of the four. That's expected — you
+fill the folders in starting Chapter 03.
+
+✅ `[VERIFY]` The Toolkit agrees they are modules. After section 1.5 creates your config:
+
+```bash
+uv run cdf build --config-yaml training/config.<YOURNAME>-training.yaml
+```
+
+The summary says **`4 modules`**. If it says `1 module`, a `module.toml` is missing;
+if it says `0`, your `selected:` path is wrong.
 
 ### `NOTES.md` — fill it in **as you go**
 
@@ -259,7 +322,8 @@ find build -type f 2>/dev/null | wc -l   # expect 0 right now
 
 - You can state the (space, externalId) rule from memory, including which resource
   types get `YOURNAME` and which stay literal
-- `participants/<YOURNAME>/` exists with all eight empty subfolders
+- `participants/<YOURNAME>/` exists with its four modules and nine empty resource
+  folders, and `cdf build` reports **4 modules**
 - `training/config.<YOURNAME>-training.yaml` exists, selects **only** your own
   folder, and builds cleanly with zero resources
 - You understand why your config has no `variables:` block

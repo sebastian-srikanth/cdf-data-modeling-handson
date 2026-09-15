@@ -216,8 +216,8 @@ Personalize the `[CHANGE]` bits:
 ### What I built (confirmed in CDF)
 - [ ] Spaces, containers, views, 2 data models
 - [ ] Data set + RAW tables + files (PID, datasheet, 3D)
-- [ ] 4 transformations (SP auth block, not interactive client)
-- [ ] 5 Functions (each preceded by its notebook)
+- [ ] 5 transformations (SP auth block, not interactive client)
+- [ ] 6 Functions (five that do work, one quality gate)
 - [ ] Workflow + location filter
 - [ ] Contextualization: manual / regex / entity-matching; datasheet regex + Doc Parser
 
@@ -277,14 +277,34 @@ conflicts.
 ## You're done
 
 You bootstrapped the Toolkit from zero, hand-authored a full CDF module — spaces,
-containers, views, two data models, a data set, RAW tables, files, four transformations,
-five Cognite Functions (each preceded by a notebook), a workflow, and a location filter
+containers, views, two data models, a data set, RAW tables, files, five transformations,
+six Cognite Functions (each preceded by a notebook), a workflow, and a location filter
 — watched a real pump degrade in real data, contextualized documents three different
 ways, parsed a datasheet two different ways including a genuinely agentic API call, and
 opened a clean PR that could be merged next to a dozen others without a single
 collision.
 
 That's the craft. Well done.
+
+---
+
+## Gate
+
+**Do not proceed to Chapter 19 until:**
+
+- Your pull request is open, and its title and body say what you built rather than
+  what you touched
+- Every check on it is green — including the course evaluation, which deploys your
+  work to CDF and scores it
+- `uv run python tools/assess.py` gave you a score you are willing to have read out
+- You reviewed your own diff, file by file, before asking anyone else to
+- You can name one thing in it you would do differently, and say why you did not
+- 📓 Your `participants/<YOURNAME>/NOTES.md` has a line for every chapter — **now**,
+  not tonight
+
+⚠️ `[COMMON MISTAKE]` Tearing down before the PR is merged. Chapter 19 removes the
+resources your evaluation deploys against; run it too early and the check that was
+green goes red with nothing left to inspect.
 
 ---
 

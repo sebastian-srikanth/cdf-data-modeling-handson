@@ -13,6 +13,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pre-commit>=4.0",
+    "pytest>=8.0",
 ]
 # Building the published site (CI only -- a learner never needs this)
 docs = [

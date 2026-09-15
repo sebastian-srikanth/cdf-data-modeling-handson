@@ -25,6 +25,18 @@ WRITE_PY = re.compile(
 FUNCTION_FOLDER = re.compile(r"fnc_.*?_Training_(\w+)")
 
 
+def _handler_for(capability: str):
+    """Locate a reference handler by capability name, wherever the module tree puts it.
+
+    Hard-coding `reference/functions/...` broke the moment the modules were split by
+    lifecycle. The handlers are found by search now, so the checks survive the next
+    reshuffle too.
+    """
+    for path in REFERENCE.rglob(f"fnc_REFERENCE_Training_{capability}/handler.py"):
+        return path
+    return REFERENCE / "missing" / capability / "handler.py"
+
+
 def reference_handler(path: str):
     parts = pathlib.PurePosixPath(path).parts
     if "functions" not in parts:
@@ -32,7 +44,7 @@ def reference_handler(path: str):
     m = FUNCTION_FOLDER.match(parts[parts.index("functions") + 1])
     if not m:
         return None
-    candidate = REFERENCE / "functions" / f"fnc_REFERENCE_Training_{m.group(1)}" / "handler.py"
+    candidate = _handler_for(m.group(1))
     return candidate if candidate.exists() else None
 
 

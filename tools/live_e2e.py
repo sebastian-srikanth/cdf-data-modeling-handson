@@ -46,7 +46,9 @@ TEMPLATE = {
 TRANSFORMATIONS = ["Load_Assets", "Load_Equipment", "Load_TimeSeries",
                    "Load_WorkOrders", "Load_WorkOrderOperations"]
 FUNCTIONS = ["MatchDocuments", "DetectDiagramTags", "Load3DRevision",
-             "ParseDatasheet", "GenerateDatapoints"]
+             "ParseDatasheet", "GenerateDatapoints",
+             # The gate is called last on purpose: it asserts what the others wrote.
+             "QualityGate"]
 
 
 def run(*args: str) -> str:
@@ -77,8 +79,12 @@ def materialise(name: str) -> None:
                 path.write_text(rendered)
     # a participant module carries no variable defaults (Chapter 01 section 1.5)
     (dst / "default.config.yaml").unlink(missing_ok=True)
-    for folder in dst.glob("functions/fnc_REFERENCE_*"):
-        folder.rename(folder.with_name(folder.name.replace("REFERENCE", name)))
+    # The module tree is split by lifecycle, so the functions live a level deeper.
+    # rglob rather than a fixed path: this broke once when the modules were split and
+    # the failure was a Function that silently kept the reference participant's name.
+    for folder in list(dst.rglob("fnc_REFERENCE_*")):
+        if folder.is_dir():
+            folder.rename(folder.with_name(folder.name.replace("REFERENCE", name)))
 
     (ROOT / f"training/config.{name}-training.yaml").write_text(
         "environment:\n"
@@ -90,7 +96,7 @@ def materialise(name: str) -> None:
     )
 
 
-# Measured on bluefield: five functions take 6-25 minutes and do NOT finish together.
+# Measured on bluefield: the functions take 6-25 minutes and do NOT finish together.
 # A 15-minute budget looked generous and was not; give it 40 and report progress, so a
 # CI log shows movement instead of twenty silent minutes.
 FUNCTION_BUILD_TIMEOUT = 2400

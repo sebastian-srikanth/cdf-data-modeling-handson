@@ -89,6 +89,213 @@ a reason to deploy.**
 
 ---
 
+## 17.1c [INFO] The production spine — runs, suggestions, bands and gates
+
+Everything so far writes **the answer**. `file.assets` gains a reference; the P&ID gains an
+edge. That is enough to demo and not enough to operate, and the gap shows up as four
+questions you cannot answer:
+
+> *When did that link appear? Which rules produced it? Somebody approved this last
+> month — will tonight's run undo it? Is contextualization getting better or worse?*
+
+Two extra records fix all four. They cost you two containers.
+
+### `ContextualizationRun` — one row per execution
+
+Run ID, technique, status, rules version, timestamps, and the counts that matter:
+`scanned`, `applied`, `review`, `rejected`, `unresolved`, `staleRemoved`, `failed`. Plus
+the `workflowExecutionId`, so a bad link traces back to the pipeline run that made it.
+
+💡 `[GOOD TO KNOW]` A run still marked `running` an hour later is **itself a finding**. A
+record with no completion is how you discover a Function that died silently — which no
+amount of looking at `file.assets` will ever tell you.
+
+### `ContextualizationSuggestion` — one row per proposed link
+
+Source, target, **method** (which rung), **confidence**, **evidence** (the text matched,
+the page, the locator), and the **decision** with who made it.
+
+⚡ `[OPTIMIZE]` `method` and `evidence` are what make a review queue possible. A reviewer
+handed *"file X → asset Y, 0.62"* has to redo your work. Handed *"matched the text
+`21-PA-2001A` on page 3 at that bounding box"*, they answer in seconds.
+
+### Three bands, not one threshold
+
+```mermaid
+flowchart LR
+  S["score"] --> A{"≥ 0.80"}
+  A -- yes --> AP["auto-applied<br/><i>write the link</i>"]
+  A -- no --> B{"≥ 0.45"}
+  B -- yes --> RV["needs-review<br/><i>a human decides</i>"]
+  B -- no --> RJ["rejected<br/><i>recorded, not written</i>"]
+```
+
+⚠️ `[COMMON MISTAKE]` One threshold. It forces every uncertain match into one of two wrong
+answers — apply it silently, or throw it away with no trace. **The middle band is where
+contextualization actually lives**, and a rejected match is still worth recording: *"we
+looked and were not sure"* is information, and discarding it is how a backlog becomes
+invisible.
+
+🚧 `[LIMITS]` Those two numbers are **calibrated, not chosen**. Label a few dozen pairs by
+hand, measure precision at several cut-offs, and set `AUTO_APPLY_AT` where precision meets
+what your use case can tolerate. A number somebody picked because it felt about right is
+not a gate, it is a shrug.
+
+### Two identity decisions carry the whole design
+
+A **run** is keyed by its run ID. Every execution adds one, and none is ever modified —
+that is the history.
+
+A **suggestion** is keyed by `(source, target)`. Run seventeen updates the same node run
+one created — that is the *current state* of one proposal, not a log of it.
+
+⚠️ `[COMMON MISTAKE]` Keying suggestions by run as well, because it feels more auditable.
+What you get is an ever-growing pile in which this morning's approval is indistinguishable
+from a stale proposal nobody has looked at since March, and a review queue that grows
+every night whether or not anyone works it. The run records are the audit trail; the
+suggestions are the working set.
+
+### The two rules that make a pipeline safe to re-run
+
+> **1. A person's decision outranks the machine's — on every rung, every run.**
+
+The handler loads the existing suggestions *before* it does anything, and refuses to
+overwrite a node whose `decidedBy` is anybody but `pipeline`. Note **every rung**: it is
+tempting to apply this only to the model's output, on the grounds that a deterministic
+rule is authoritative. It is not. A rule is only *cheaper* than a person who looked at the
+link and said no. A vetoed pair is also never escalated to a paid rung — re-proposing
+something a person already rejected, and paying for the privilege, is the worst of both.
+
+Get this wrong once — silently reverse an approval somebody made this morning — and they
+stop trusting the system permanently. There is no second chance at that.
+
+> **2. Silence is not agreement.**
+
+A pair the pipeline applied last week and does not produce today is a **change**, not an
+absence. Somebody edited a rule, or a source name moved. The handler compares what it just
+produced against what it finds already recorded, marks the difference `superseded`
+(counted as `supersededCount`), **and takes the link back off `file.assets`** (counted as
+`staleRemovedCount`).
+
+Both halves are required. Marking a suggestion superseded while leaving the link in place
+means the record says one thing and Fusion shows another, and the graph accumulates links
+nobody can justify. The same applies to a human rejection: recording it and not un-linking
+means the reviewer did the work, the record says "rejected", and the bad link is still
+there.
+
+💡 `[GOOD TO KNOW]` Note the asymmetry in what each retraction is allowed to touch. A
+**person's** rejection removes the link whoever created it — they looked at this exact
+pair and said no. A **pipeline** retraction only removes what the pipeline itself applied,
+which is knowable *only* because the suggestion recorded `decidedBy`. Without that record
+the safe implementation is to remove nothing, and the links accumulate forever. This is
+provenance doing real work, not paperwork.
+
+🚧 `[LIMITS]` A run whose `staleRemovedCount` suddenly jumps is the single highest-value
+alert in this whole chapter. It is what a broken rule, a renamed source system or a bad
+deploy looks like from the outside — *hours* before anyone notices links have gone
+missing in Fusion. Leave that count unwatched and you find out from a user instead.
+
+✅ `[VERIFY]` Ask the graph how the last run went, and what is waiting for a human:
+
+```python
+from cognite.client.data_classes.data_modeling import ViewId
+from cognite.client.data_classes import filters as flt
+
+RUN = ViewId(SDM_SPACE, "ContextualizationRun", MODEL_VERSION)
+SUG = ViewId(SDM_SPACE, "ContextualizationSuggestion", MODEL_VERSION)
+
+runs = client.data_modeling.instances.list(sources=RUN, space=INSTANCE_SPACE, limit=-1)
+for r in runs:
+    p = r.properties[RUN]
+    print(f"{p['runId']}  {p['status']}  applied={p.get('appliedCount')} "
+          f"review={p.get('reviewCount')} unresolved={p.get('unresolvedCount')}")
+
+queue = client.data_modeling.instances.list(
+    sources=SUG, space=INSTANCE_SPACE, limit=-1,
+    filter=flt.Equals(SUG.as_property_ref("decision"), "needs-review"))
+print(f"\nwaiting for a human: {len(queue)}")
+```
+
+### The quality gate
+
+A count is not a gate until something **fails** on it. The last task in your workflow
+should assert the numbers and go red when they are wrong:
+
+```python
+assert run["failedCount"] == 0, "items errored -- this is a bug, not data quality"
+assert run["status"] == "completed", "the run never finished"
+assert run["unresolvedCount"] <= 2, f"too many unresolved: {run['unresolvedCount']}"
+assert run["reviewCount"] <= 10, "review backlog is growing faster than it is cleared"
+```
+
+💡 `[GOOD TO KNOW]` Note which of those is *not* a data-quality check. `failedCount` and a
+missing `status` are **bugs** — code that threw, or a job that died. Unresolved and review
+counts are the business signal. Conflating them is how a crashing pipeline gets explained
+away as "the data is messy this week".
+
+---
+
+## 17.1d [OPTIMIZE] Reads lag writes — the race that makes a gate lie
+
+`instances.apply()` returning success does **not** mean the next reader sees the data.
+
+Measured on this project, five writes, timed from `apply()` returning to the instance
+being visible:
+
+| Read path | min | max | mean |
+|---|---|---|---|
+| `instances.retrieve()` by ID | 0.58 s | 2.15 s | 1.01 s |
+| visible to `instances.list()` | 0.83 s | 2.39 s | 1.26 s |
+
+RAW, for comparison, was under a second for both a delete and an insert to become
+visible to `rows.list()`.
+
+Two seconds sounds like nothing. It is not, because of *where* it lands.
+
+⚠️ `[COMMON MISTAKE]` A Workflow whose next task reads what the previous task wrote.
+That is not a rare edge — it is the shape of every pipeline in this chapter. The quality
+gate in [Chapter 12](12-workflows.md) reads the `ContextualizationRun` record that
+`match_documents` wrote *moments* earlier. Write it naively and it reads the **previous**
+run, passes on last night's healthy numbers, and reports green for a run it never looked
+at. Nothing errors. Nothing is red. The gate is simply not a gate any more.
+
+This is worse than a flaky test, because it fails in the safe-looking direction: a gate
+that races usually still passes, so you find out the first time it was supposed to catch
+something and did not.
+
+✅ `[VERIFY]` Two defences, and the Function uses both:
+
+```python
+# 1. Poll rather than assume -- a bounded wait, never an unbounded one.
+deadline = time.time() + 30
+while True:
+    runs = client.data_modeling.instances.list(sources=run_view, space=space, limit=-1)
+    ...
+    if candidates:
+        break
+    if time.time() >= deadline:
+        raise QualityGateFailed("the run being gated never wrote a record")
+    time.sleep(1)
+```
+
+```python
+# 2. Pin to identity, not to recency. A caller that knows the run ID passes it, so
+#    "the latest run" can never quietly mean "some earlier run".
+call(external_id="fnc_..._QualityGate", data={"runId": run_id})
+```
+
+💡 `[GOOD TO KNOW]` Notice which defence does the real work. Polling only buys time; if
+the gate is still reading "the most recent run" it can satisfy itself with the wrong one
+the instant one exists. **Pinning to the run ID is what makes the check correct** — the
+poll just stops it from being flaky while it waits for the right record to land.
+
+🚧 `[LIMITS]` A bounded wait, always. An unbounded `while True` in a Function does not
+hang politely: it burns the wall-clock limit and is killed with no result, no error you
+can read, and no cleanup — the failure mode [Chapter 07](07-entity-matching.md) warns
+about for entity-matching jobs, in a different costume.
+
+---
+
 ## 17.2 [INFO] Idempotency & re-runnability — why every handler upserts
 
 Look back across every handler you wrote: `client.data_modeling.instances.apply(...)`
@@ -107,6 +314,69 @@ done**; if a run finds nothing, leave the checkpoint where it was. None of this
 course's handlers carry a state pointer (they're idempotent full-recompute instead),
 which is exactly why they dodge this bug entirely — worth knowing for the day you
 *do* need incremental state.
+
+---
+
+## 17.2b [INFO] Testing a Function without a CDF project
+
+A Cognite Function is the worst possible place to find a logic bug. The edit-to-answer
+loop is **six to twenty-five minutes** — build the image, wait for `Ready`, call it, read
+the log — and you spend it on a mistake a test would have caught in a millisecond.
+
+Split the handler in two and the problem mostly disappears:
+
+| Part | What it is | How you test it |
+|---|---|---|
+| **Decisions** | Which rung resolved this file. What band is this score. Is this pair vetoed. What must be retracted | Plain functions of plain data. Unit tests, no CDF |
+| **Effects** | `instances.apply`, `entity_matching.fit`, `raw.rows.list` | A live run. There is no substitute |
+
+The handlers in this course are written that way on purpose. `_apply_rules`,
+`_band`, `_human_vetoes` and `_retractions` take dictionaries and return values — no
+client, no network, no space names. Everything that touches CDF lives in `handle()`,
+`_write_and_report` and `_write_spine`.
+
+```python
+def test_a_malformed_regex_in_a_data_row_does_not_break_the_pipeline():
+    """The moment humans can edit rules, one of them will be `(unclosed`."""
+    rules = [
+        {"pattern": "(unclosed", "target": "BAD", "matchType": "regex"},
+        {"pattern": "good.pdf", "target": "GOOD", "matchType": "exact"},
+    ]
+    assert _apply_rules(rules, "f1", "good.pdf") == "GOOD"
+```
+
+### Fake the client, do not mock the SDK
+
+Where a test does need a client, hand it a small fake — an object with just the methods
+under test:
+
+```python
+class FakeRaw:
+    def __init__(self, tables): self._tables, self.rows = tables, self
+    def list(self, db_name=None, table_name=None, limit=None):
+        try:
+            return self._tables[(db_name, table_name)]
+        except KeyError:
+            raise RuntimeError(f"table {db_name}.{table_name} does not exist")
+```
+
+That fake exists to assert one thing: an absent rule table is a **valid state**, not an
+error, because somebody who has not created it yet must still get a working cascade.
+
+⚠️ `[COMMON MISTAKE]` Growing the fake until it mimics the whole SDK. At that point it is
+not a test aid, it is a second implementation — with its own bugs, no users, and a
+standing invitation to write tests that pass against your fake and fail against CDF.
+Keep it thin enough to read in one screen.
+
+🚧 `[LIMITS]` Be honest about what these prove. **Nothing here tests that CDF behaves as
+documented.** A test asserting `apply()` merges a list would have passed happily for
+months, and been wrong — [section 3.8c](03-data-modeling.md) had to *measure* that, and it
+replaces. Unit tests protect your decisions; only a live run protects your assumptions
+about the platform. The course runs both on every pull request, and that is the point.
+
+✅ `[VERIFY]` `uv run --group dev python -m pytest tests/ -q` — 51 tests, well under a
+second. The ones worth reading first are in `tests/test_quality_gate.py`, because they
+answer the question you cannot answer by watching a gate pass: *can it fail?*
 
 ---
 
@@ -341,9 +611,118 @@ destructive, irreversible operation.
 
 ---
 
+## 17.8 [ACTION] Capstone — a production recovery
+
+Everything up to here you were told to do. This one you are not.
+
+**The situation.** It is 08:40. The overnight pipeline reported success, and the
+maintenance team says documents that were linked to `21-PA-2001A` yesterday are no longer
+linked this morning. Nothing is red. Nobody has an error message.
+
+💡 `[GOOD TO KNOW]` Expect this run to take noticeably longer than the ones before it, and
+notice *why* — it is the exercise's first free lesson. With the rule broken, rung 1 misses,
+the file name carries no tag so rung 2 misses, and the pipeline falls through to **Entity
+Matching**, which fits and predicts a model for the first time in this whole course. The
+cascade you built in [Chapter 07](07-entity-matching.md) is doing exactly what it was
+designed to do, and you are watching what the expensive rung costs.
+
+**Cause it, so that it is real.** Edit `sourcePattern` in one row of
+`rwt_Training_TRN_MappingRules` so it no longer matches — change
+`TRN-21-SEP-PID.pdf` to `TRN-21-SEP-PID-RevB.pdf`, the sort of change somebody makes when
+a drawing is reissued. Then run the workflow.
+
+🟢 `[ACTION]` Now work the incident. **Do not read ahead.** Answer these in order, from
+CDF, and write your answers in `NOTES.md` as you go:
+
+1. Exactly which links are missing? Name them, do not describe them.
+2. When did they disappear? Give a run ID and a timestamp, not "last night".
+3. What changed between the run that had them and the run that did not?
+4. Did anything a **person** decided get lost?
+5. Was there any signal at all that something was wrong — and if there was, why did
+   nobody see it?
+6. Fix it, and prove the fix from the graph rather than from the fact that you edited a
+   row.
+7. Whose job is it to notice this next time, and what exactly would tell them?
+
+<details>
+<summary>What a good answer uses — open this only after you have tried</summary>
+
+**1 and 2** come from `ContextualizationSuggestion`: the rows are still there, marked
+`superseded`, and each names the run that orphaned it. You never had to guess, because the
+pipeline recorded its own disagreement with itself.
+
+**3** is `rulesVersion` on the two runs. Different values mean the rule set changed between
+them — which turns *"something broke"* into *"somebody edited the rules"* in one query,
+and that is the entire value of putting it on the run record.
+
+It is a **hash of the rules' content**, and it has to be. The obvious implementation is a
+row count, which was what this handler shipped: it is correct for an added or deleted
+rule, and silent for an *edited* one — the change you just made, and the most common
+change there is. The count said `rules:2` on both sides of the incident while the results
+disagreed. A version that does not move when the thing it versions moves is worse than no
+version, because you will trust it.
+
+**4** is the important one. Check `decidedBy` on every affected suggestion. If a human
+decision was reversed, the re-run rule in section 17.1c is broken and that is a far more
+serious finding than the missing link.
+
+**5** has a more interesting answer than it looks.
+
+Two counters moved — `staleRemovedCount` and `supersededCount` both went from 0 to
+non-zero — and neither is what caught it. Both were well inside their budgets. The gate
+went red on **`unresolvedCount`**: with the rule broken, no rung could resolve the P&ID at
+all, and `MAX_UNRESOLVED` is `0`.
+
+So the pipeline *did* fail loudly, on a counter nobody would have nominated in advance.
+Sit with that for a moment, because it cuts both ways:
+
+- The gate earned its place. A budget of `0` on unresolved documents is strict, and strict
+  is what turned a silent regression into a red task.
+- The counter you would have *designed* the alert around — links disappearing — was
+  inside budget and would have said nothing. If `MAX_STALE_REMOVED` were your only
+  guard, this incident reaches the maintenance team before it reaches you.
+
+⚡ `[OPTIMIZE]` The lesson is not "watch `staleRemovedCount`". It is that a gate with
+several independent assertions catches failures no single one of them anticipated. Cheap
+assertions are worth having even when you cannot name the failure they will catch.
+
+**6**: fix the RAW row, re-run, and assert the link is back **and** `staleRemovedCount`
+returns to 0 **and** the previously-superseded suggestion is `auto-applied` again. Three
+assertions, because the first alone would also pass if you had linked it by hand.
+
+**7** has no single right answer, and that is why it is the last question. Tighten
+`MAX_STALE_REMOVED` to 0 and the gate catches it — at the cost of going red every time
+somebody legitimately retires a rule. Leave it and you need someone reading run records.
+Whichever you choose, the person who will be woken up should hear it from you before it
+happens, not after.
+
+</details>
+
+💡 `[GOOD TO KNOW]` Notice what you did **not** need: the PDF, the logs, the Function
+source, or anybody's memory of what they changed. Every question was answerable from
+records the pipeline wrote about itself. That is the whole argument for section 17.1c,
+and this is the exercise that makes it concrete rather than a paragraph you agreed with.
+
+⚠️ `[COMMON MISTAKE]` Fixing it first and investigating afterwards. The fix destroys the
+evidence — once the rule matches again, the next run marks the superseded rows back to
+`auto-applied` and the question *"when did this start"* becomes unanswerable. In a real
+incident, capture before you repair: a run ID and a list of affected external IDs costs
+you thirty seconds and is the difference between a fix and an explanation.
+
+🚧 `[LIMITS]` This drill works because the damage was in *your* space and one rule caused
+it. Real incidents span several causes at once and someone is asking for an ETA while you
+work. The habit worth taking is the order, not the scenario: **what exactly is wrong →
+when did it start → what changed → what did we lose → fix → prove → who watches next
+time.**
+
+---
+
 ## Gate
 
 **Do not proceed to Chapter 18 until:**
+
+- You completed the section 17.8 capstone **before** opening its answer, and your
+  `NOTES.md` has your seven answers in your own words
 
 - The self-verification script above prints `PASS`
 - Every item in the manual checklist is checked

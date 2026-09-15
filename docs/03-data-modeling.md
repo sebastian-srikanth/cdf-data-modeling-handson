@@ -448,6 +448,35 @@ entirely. If the node is there but your view is not showing it, you have found y
 ---
 
 
+### 3.8c What a write to an instance actually does — measured
+
+Four questions decide whether your write code is correct, and all four are answered by
+the same API behaviour. These were measured against a live project, not read off a page:
+
+| You do this | What happens |
+|---|---|
+| Write a node, naming only some properties | Properties you did **not** name are left alone. `instances.apply` patches by default (`replace=False`) |
+| Write a **list** property that already has values | The new list **replaces** the old one. It does not merge, append, or de-duplicate |
+| Write an **empty list** to a list property | The relation is cleared. This is how you un-link something |
+| Send **two entries for the same node** in one `apply` call | Rejected outright: `Duplicate node externalIds for space '...' present in request \| code: 400` |
+
+Rows two and four together are the whole reason `MatchDocuments` in
+[Chapter 07](07-entity-matching.md) does one read-modify-write per file rather than one
+per link.
+
+⚠️ `[COMMON MISTAKE]` Treating a direct-relation list as append-only — writing
+`assets: [new_one]` and expecting the existing entries to survive. They do not. You must
+read the current list, add to it, and write the whole thing back. The failure mode is
+brutal precisely because it looks like success: your link appears in Fusion, and
+somebody else's link, on the same file, is gone.
+
+⚠️ `[COMMON MISTAKE]` Building a list of `NodeApply`s in a loop over *pairs* rather than
+over *nodes*. Two pairs that share a source node produce two entries for that node, and
+the whole call fails with a 400 that names a duplicate external ID — which reads like a
+data problem and is actually a loop-shape problem.
+
+---
+
 ## 3.9 [INFO] Connection properties — the four ways to link two things
 
 You have used exactly one of these so far. There are four, they behave differently, and
@@ -564,7 +593,7 @@ Same edges, two declarations, no extra data.
 
 ## 3.10 [WRITE] Your spaces
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/isp_<YOURNAME>_TRN.Space.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/isp_<YOURNAME>_TRN.Space.yaml`
 
 ```yaml
 space: isp_<YOURNAME>_TRN
@@ -572,7 +601,7 @@ name: <YOURNAME> TRN Training Instances
 description: Instance (data) space for <YOURNAME> - CDF data modeling hands-on.
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ssp_<YOURNAME>_TrainingCore_edm.Space.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ssp_<YOURNAME>_TrainingCore_edm.Space.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -580,7 +609,7 @@ name: <YOURNAME> Training Core EDM
 description: Enterprise schema space for <YOURNAME> - Training Core EDM.
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/ssp_<YOURNAME>_MaintenanceInsight_sdm.Space.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ssp_<YOURNAME>_MaintenanceInsight_sdm.Space.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -596,7 +625,7 @@ description: Solution schema space for <YOURNAME> - Rotating-Equipment Maintenan
 
 ## 3.11 [WRITE] Your containers
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/WorkOrder.Container.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/WorkOrder.Container.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -692,7 +721,7 @@ indexes:
       - status
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.Container.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/EquipmentHealthProfile.Container.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -858,13 +887,280 @@ you.
 
 ---
 
+### 3.11b The production spine — two containers you will not fill until Chapter 07
+
+The two containers above hold **the answer**: what a work order is, what a pump's condition
+is. These next two hold **how the answer was reached** — which run produced a link, by
+which method, with what confidence, and who approved it.
+
+Write them now, empty. They cost nothing until Chapter 07 starts filling them, and
+declaring them here means you deploy your model **once**. The full argument for why a
+production system needs them is [Chapter 17](17-cross-cutting-mastery.md) §17.1c; the short
+version is that a system which can only tell you *what* is linked cannot be operated.
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationRun.Container.yaml`
+
+```yaml
+space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+externalId: ContextualizationRun
+name: ContextualizationRun
+description: >-
+  One execution of one contextualization technique. Without this you can answer
+  "what is linked" but never "when did that happen, by which rules, and did it
+  get better or worse" - which is the question every operations team asks first.
+usedFor: node
+properties:
+  runId:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Run ID
+    description: Correlation ID shared by every record this run produced. Example ctxrun-2026-09-13T09-00-00Z-matchdocuments.
+  technique:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Technique
+    description: Which contextualization this was. entity-matching, diagram-detect, datasheet-parse or three-d-mapping.
+  status:
+    type:
+      type: text
+      list: false
+    nullable: false
+    defaultValue: running
+    name: Status
+    description: running, completed or failed. A run stuck in running is itself a finding.
+  rulesVersion:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Rules version
+    description: Identity of the rule set used, so a change in results can be attributed to a change in rules. Example the RAW table lastUpdatedTime.
+  sourceSystem:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Source system
+    description: Where the input came from. Example SAP, or the P&ID file external ID.
+  startedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: false
+    name: Started
+    description: When the run began.
+  completedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    name: Completed
+    description: When it finished. Null while running, and still null means it died.
+  scannedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Scanned
+    description: Candidates considered.
+  appliedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Applied
+    description: Links written automatically.
+  reviewCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: For review
+    description: Suggestions held back for a human.
+  rejectedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Rejected
+    description: Scored below the reject band and discarded.
+  unresolvedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Unresolved
+    description: Candidates no rung could resolve at all.
+  supersededCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Superseded count
+    description: >-
+      Suggestions a previous run made that this one no longer produces. Distinct from
+      staleRemovedCount - a suggestion can go stale without a link ever having been
+      applied, for instance one that sat in the review queue until the rule changed.
+  staleRemovedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Stale removed
+    description: Previously suggested links retired because the input no longer supports them.
+  failedCount:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Failed
+    description: Items that errored. Non-zero is a bug, not a data-quality signal.
+  workflowExecutionId:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Workflow execution
+    description: The orchestration run this belonged to, so a bad link traces back to a pipeline execution.
+indexes:
+  runIdIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - runId
+```
+
+🔧 `[CHANGE]` The `space:` line only.
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationSuggestion.Container.yaml`
+
+```yaml
+space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+externalId: ContextualizationSuggestion
+name: ContextualizationSuggestion
+description: >-
+  One proposed link between two things, with the evidence for it and what was
+  decided. Writing only the link itself throws the reasoning away, and then
+  nobody can review it, audit it, or safely re-run the pipeline.
+usedFor: node
+properties:
+  runId:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Run ID
+    description: The ContextualizationRun that produced this. Example ctxrun-2026-09-13T09-00-00Z-matchdocuments.
+  sourceExternalId:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Source
+    description: What is being linked. A file, a CAD node, a datasheet field.
+  targetExternalId:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Target
+    description: What it was linked to. Null when nothing was resolved, which is itself a record worth keeping.
+  method:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Method
+    description: Which rung of the cascade decided this. rule, regex, entity-matching, name-equality or manual.
+  confidence:
+    type:
+      type: float64
+      list: false
+    nullable: true
+    name: Confidence
+    description: 0.0 to 1.0. Deterministic rungs write 1.0; only the probabilistic rung writes anything else.
+  decision:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Decision
+    description: auto-applied, needs-review, rejected or approved. The band this landed in.
+  decidedBy:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Decided by
+    description: pipeline, or the person who approved or overrode it. This is what makes a decision auditable.
+  decidedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    name: Decided
+    description: When the decision was taken.
+  evidenceText:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Evidence text
+    description: The text that was matched, or the rule that fired. What a reviewer reads first.
+  evidencePage:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Evidence page
+    description: Page in the source document, so a reviewer can go and look.
+  evidenceLocator:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Evidence locator
+    description: Where exactly. A bounding box, a CAD node ID, or a source property name.
+indexes:
+  runIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - runId
+  decisionIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - decision
+```
+
+🔧 `[CHANGE]` The `space:` line only.
+
+💡 `[GOOD TO KNOW]` Neither container has a direct relation to the file or the asset it
+talks about, and that is deliberate. A suggestion records *external IDs as text*, because a
+suggestion may name a target that **does not exist** — a tag read off a P&ID that matches
+nothing in your asset hierarchy is the single most valuable thing contextualization finds,
+and a direct relation cannot hold it. §3.9's rule stands: a direct relation is for a link
+you have already decided is true. Everything upstream of that decision is text.
+
+⚠️ `[COMMON MISTAKE]` Putting `confidence` on the link itself — an extra property on
+`EquipmentHealthProfile`, or on the annotation edge. It survives exactly until the second
+run, which overwrites it with no record that the first ever disagreed. Provenance is a
+record of its own or it is not provenance.
+
+---
+
 ## 3.12 [WRITE] Your views
 
 Containers store; **views are what you query**. Every transformation destination, every
 Fusion screen, every Atlas AI agent and every line of Chapters 05–15 addresses a view,
 never a container. Three of them.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/WorkOrder.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/WorkOrder.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -933,7 +1229,7 @@ Read what this view does **not** contain. There is no `name`, no `description`, 
 that is the whole point of section 3.3's layering: your view is small because the core model
 carries the rest.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/EquipmentHealthProfile.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/EquipmentHealthProfile.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1058,7 +1354,7 @@ specs. Two containers behind one view means the implicit `hasData` filter requir
 in **both** — write only the specs and the node vanishes from the view. That is section 3.8b,
 and it is the single most expensive afternoon in this course.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/Asset.View.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/Asset.View.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1131,6 +1427,204 @@ right now. `healthProfile` fills in when Chapter 10 writes the profiles;
 `diagrams.AssetLink` edges. Declaring them now means neither chapter has to redeploy a
 model to see its own output.
 
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationRun.View.yaml`
+
+```yaml
+space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+externalId: ContextualizationRun
+version: v1.0.0
+name: ContextualizationRun
+description: Query surface for ContextualizationRun. See Chapter 17 section 17.1c.
+implements:
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+properties:
+  runId:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: runId
+  technique:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: technique
+  status:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: status
+  rulesVersion:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: rulesVersion
+  sourceSystem:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: sourceSystem
+  startedTime:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: startedTime
+  completedTime:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: completedTime
+  scannedCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: scannedCount
+  appliedCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: appliedCount
+  reviewCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: reviewCount
+  rejectedCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: rejectedCount
+  unresolvedCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: unresolvedCount
+  supersededCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: supersededCount
+  staleRemovedCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: staleRemovedCount
+  failedCount:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: failedCount
+  workflowExecutionId:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationRun
+      type: container
+    containerPropertyIdentifier: workflowExecutionId
+```
+
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/ContextualizationSuggestion.View.yaml`
+
+```yaml
+space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+externalId: ContextualizationSuggestion
+version: v1.0.0
+name: ContextualizationSuggestion
+description: Query surface for ContextualizationSuggestion. See Chapter 17 section 17.1c.
+implements:
+  - space: cdf_cdm
+    externalId: CogniteDescribable
+    version: v1
+    type: view
+properties:
+  runId:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: runId
+  sourceExternalId:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: sourceExternalId
+  targetExternalId:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: targetExternalId
+  method:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: method
+  confidence:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: confidence
+  decision:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: decision
+  decidedBy:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: decidedBy
+  decidedTime:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: decidedTime
+  evidenceText:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: evidenceText
+  evidencePage:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: evidencePage
+  evidenceLocator:
+    container:
+      space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+      externalId: ContextualizationSuggestion
+      type: container
+    containerPropertyIdentifier: evidenceLocator
+```
+
+🔧 `[CHANGE]` The `space:` lines only. Note that neither implements `CogniteDescribable` —
+a run is not a describable thing, it is a record, and inheriting `name`/`description` you
+never populate would only re-create §3.8b's empty-view trap for no benefit.
+
 ---
 
 ## 3.13 [WRITE] Your two data models
@@ -1138,7 +1632,7 @@ model to see its own output.
 A data model is a published, versioned **list of views** — the contract an application
 binds to. It holds no data and no properties of its own.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/TrainingCore.DataModel.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/TrainingCore.DataModel.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_TrainingCore_edm
@@ -1198,7 +1692,7 @@ views:
     type: view
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/data_modeling/MaintenanceInsight.DataModel.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/01_schema/data_modeling/MaintenanceInsight.DataModel.yaml`
 
 ```yaml
 space: ssp_<YOURNAME>_MaintenanceInsight_sdm
@@ -1221,6 +1715,16 @@ views:
     type: view
   - space: ssp_<YOURNAME>_TrainingCore_edm
     externalId: WorkOrder
+    version: v1.0.0
+    type: view
+  # The production spine -- Chapter 17 section 17.1c. Every contextualization run and
+  # every suggestion it made, so results can be reviewed, audited and re-run safely.
+  - space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+    externalId: ContextualizationRun
+    version: v1.0.0
+    type: view
+  - space: ssp_<YOURNAME>_MaintenanceInsight_sdm
+    externalId: ContextualizationSuggestion
     version: v1.0.0
     type: view
   # Then the CDM views they rely on.
@@ -1277,8 +1781,8 @@ uv run cdf deploy --cdf-project <your-cdf-project> --dry-run --include data_mode
 uv run cdf deploy --cdf-project <your-cdf-project> --include data_modeling
 ```
 
-✅ `[VERIFY]` The build summary lists **3 Spaces, 2 Containers, 3 Views, 2 Data Models**.
-The dry-run shows all ten as *create*; the real deploy shows all ten as *created*.
+✅ `[VERIFY]` The build summary lists **3 Spaces, 4 Containers, 5 Views, 2 Data Models**.
+The dry-run shows all fourteen as *create*; the real deploy shows all fourteen as *created*.
 
 ⚠️ `[COMMON MISTAKE]` Panicking at the build banner. Without credentials loaded you will
 see something like:

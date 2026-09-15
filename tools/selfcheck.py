@@ -47,14 +47,18 @@ def check_03(client, name, r: Report) -> None:
         for c in client.data_modeling.containers.list(limit=-1, include_global=False)
         if c.space in mine
     }
-    r.check("containers deployed", sorted(containers), ["EquipmentHealthProfile", "WorkOrder"])
+    r.check("containers deployed", sorted(containers),
+            ["ContextualizationRun", "ContextualizationSuggestion",
+             "EquipmentHealthProfile", "WorkOrder"])
 
     views = {
         v.external_id
         for v in client.data_modeling.views.list(limit=-1, include_global=False)
         if v.space in mine
     }
-    r.check("views deployed", sorted(views), ["Asset", "EquipmentHealthProfile", "WorkOrder"])
+    r.check("views deployed", sorted(views),
+            ["Asset", "ContextualizationRun", "ContextualizationSuggestion",
+             "EquipmentHealthProfile", "WorkOrder"])
 
     models = {
         m.external_id
@@ -165,7 +169,7 @@ def check_05(client, name, r: Report) -> None:
 
 # --------------------------------------------------------------------- ch 07 ----
 def check_07(client, name, r: Report) -> None:
-    isp, _, _ = spaces_for(name)
+    isp, _, sdm = spaces_for(name)
     file_view = ViewId("cdf_cdm", "CogniteFile", "v1")
     datasheet = client.data_modeling.instances.retrieve(
         nodes=(isp, f"file_{name}_TRN_DS_21_PA_2001A"), sources=file_view).nodes
@@ -175,6 +179,38 @@ def check_07(client, name, r: Report) -> None:
     assets = datasheet[0].properties[file_view].get("assets") or []
     linked = [a.get("externalId") if isinstance(a, dict) else a.external_id for a in assets]
     r.check("datasheet linked to the pump by entity matching", linked, ["21-PA-2001A"])
+
+    # ---- the production spine (Chapter 17 section 17.1c) -------------------------
+    # A link is not enough. These check that the run and its suggestions were recorded,
+    # because a pipeline nobody can audit is not one anybody will run in production.
+    run_view = ViewId(sdm, "ContextualizationRun", MODEL_VERSION)
+    sug_view = ViewId(sdm, "ContextualizationSuggestion", MODEL_VERSION)
+
+    runs = client.data_modeling.instances.list(sources=run_view, space=isp, limit=-1)
+    r.check("contextualization run recorded", len(runs) >= 1, True)
+    if not runs:
+        return
+    latest = max(runs, key=lambda n: n.properties[run_view].get("startedTime") or "")
+    rp = latest.properties[run_view]
+    r.note("latest run", rp.get("runId"))
+    r.check("run completed", rp.get("status"), "completed")
+    r.check("run recorded no failures", rp.get("failedCount"), 0)
+    r.check("run names the technique", rp.get("technique"), "entity-matching")
+    r.check("run identifies the rule set", bool(rp.get("rulesVersion")), True)
+    r.check("run applied both documents", rp.get("appliedCount"), 2)
+    r.check("run left nothing unresolved", rp.get("unresolvedCount"), 0)
+
+    sugs = client.data_modeling.instances.list(sources=sug_view, space=isp, limit=-1)
+    r.check("one suggestion per document", len(sugs), 2)
+    props = [s.properties[sug_view] for s in sugs]
+    r.check("every suggestion carries a method",
+            all(s.get("method") for s in props), True)
+    r.check("every suggestion carries evidence",
+            all(s.get("evidenceText") for s in props), True)
+    r.check("every suggestion records who decided",
+            sorted({s.get("decidedBy") for s in props}), ["pipeline"])
+    r.check("suggestion identity is pair-scoped, not run-scoped",
+            all(s.external_id.startswith("sug_file_") for s in sugs), True)
 
 
 # --------------------------------------------------------------------- ch 08 ----
@@ -189,6 +225,21 @@ def check_08(client, name, r: Report) -> None:
         starts = {e.start_node.external_id for e in edges}
         r.check("edges start at the P&ID file",
                 all(s.startswith(f"file_{name}_TRN_PID") for s in starts), True)
+
+        # The pile-up check. Annotation identity is derived from the geometry, so two
+        # edges describing the same tag at the same place on the same page mean the
+        # Function ran twice and keyed on result order -- which is how a drawing ends
+        # up twice-annotated with no error anywhere (Chapter 08).
+        fingerprints = []
+        for e in edges:
+            props = e.properties.get(anno) or {}
+            fingerprints.append((
+                e.start_node.external_id, e.end_node.external_id,
+                props.get("startNodePageNumber"),
+                round(float(props.get("startNodeXMin") or 0), 4),
+                round(float(props.get("startNodeYMin") or 0), 4)))
+        r.check("no duplicate annotations (same tag, same place)",
+                len(set(fingerprints)), len(edges))
 
 
 # --------------------------------------------------------------------- ch 09 ----
@@ -259,7 +310,9 @@ def check_12(client, name, r: Report) -> None:
         return
     versions = client.workflows.versions.list(workflow_version_ids=xid, limit=-1)
     tasks = versions[0].workflow_definition.tasks if versions else []
-    r.check("workflow has ten tasks", len(tasks), 10)
+    r.check("workflow has eleven tasks", len(tasks), 11)
+    r.check("the last task is the quality gate",
+            any(t.external_id == "quality_gate" for t in tasks), True)
     runs = client.workflows.executions.list(workflow_version_ids=xid, limit=5)
     r.check("workflow has been executed at least once", len(runs) >= 1, True)
     if runs:
@@ -276,10 +329,22 @@ def check_13(client, name, r: Report) -> None:
         NodeResultSetExpression, Query, Select, SourceSelector)
 
     ehp_view = ViewId(sdm, "EquipmentHealthProfile", MODEL_VERSION)
+    asset_view = ViewId(sdm, "Asset", MODEL_VERSION)
     q = Query(
         with_={
+            # The anchor MUST be space-scoped, exactly as the chapter writes it.
+            # `21-PA-2001A` is not unique in this project -- every participant has one --
+            # so an externalId-only filter with limit=1 can anchor on somebody else's
+            # pump and then traverse to a profile that is not there. This check failed
+            # in CI for precisely that reason, while the chapter it exists to verify
+            # had the filter right all along.
             "pump": NodeResultSetExpression(
-                filter=flt.Equals(["node", "externalId"], "21-PA-2001A"), limit=1),
+                filter=flt.And(
+                    flt.SpaceFilter(isp, "node"),
+                    flt.HasData(views=[asset_view]),
+                    flt.Equals(["node", "externalId"], "21-PA-2001A"),
+                ),
+                limit=1),
             "profile": NodeResultSetExpression(
                 from_="pump", through=ehp_view.as_property_ref("asset"),
                 direction="inwards", limit=10),

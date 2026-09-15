@@ -68,7 +68,7 @@ before the query planner runs.
 The instinct is to write one group per person. The pattern that survives is **one group
 per role**, with people moved between them in the IdP.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/auth/reader.Group.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/02_access/auth/reader.Group.yaml`
 
 ```yaml
 name: gp_<YOURNAME>_training_reader
@@ -110,7 +110,7 @@ capabilities:
 Toolkit will deploy a group with a placeholder `sourceId`, and it will simply never match
 anybody.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/auth/developer.Group.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/02_access/auth/developer.Group.yaml`
 
 ```yaml
 name: gp_<YOURNAME>_training_developer

@@ -15,12 +15,12 @@ These are the waits that wreck a schedule if you don't plan around them.
 
 | What | Measured | Plan for |
 |---|---|---|
-| **Cognite Functions first deploy (5 functions)** | **6–25 min**, highly variable | Do this *before the break*, not after. Nothing downstream works until they are `Ready`, they do **not** finish together, and two runs of the same five functions differed by a factor of two. Budget the upper end |
+| **Cognite Functions first deploy (6 functions)** | **6–25 min**, highly variable | Do this *before the break*, not after. Nothing downstream works until they are `Ready`, they do **not** finish together, and two runs of the same set differed by a factor of two. Budget the upper end |
 | Diagram detect job | ~30–60 s | fine inline |
 | 3D revision processing | ~2–4 min | start it, then teach something else |
 | Entity-matching fit + predict | ~60 s | fine inline |
 | Five transformations | ~60 s total | fine inline |
-| Whole workflow, ten tasks | **47 s** | a satisfying live demo — run it on the projector |
+| Whole workflow, eleven tasks | **47 s** | a satisfying live demo — run it on the projector |
 | `cdf deploy` (data modeling only) | ~10 s | fine inline |
 
 ⚠️ **The function build is the single biggest scheduling risk.** Have everyone run

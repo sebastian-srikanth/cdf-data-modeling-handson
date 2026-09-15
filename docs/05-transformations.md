@@ -26,7 +26,7 @@ clean key — that's exactly where a Transformation stops being the right tool.
 
 ## 5.2 [WRITE] Transform 1 — Load Assets (with the null-parent trap)
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_Assets.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_Assets.Transformation.yaml`
 (unscoped filename — the scoped identity lives in `externalId:`, see the `[COMMON MISTAKE]` below)
 
 ```yaml
@@ -117,7 +117,7 @@ wide, stringly-typed scans joined late.
 
 ## 5.3 [WRITE] Transform 2 — Load Equipment
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_Equipment.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_Equipment.Transformation.yaml`
 — identical shape to section 5.2 (unscoped filename, no `queryFile`), with:
 
 ```yaml
@@ -169,7 +169,7 @@ appears.
 
 ## 5.4 [WRITE] Transform 3 — Load TimeSeries
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_TimeSeries.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_TimeSeries.Transformation.yaml`
 — same shape (unscoped filename, no `queryFile`), `destination.view` → `{ space: cdf_cdm, externalId: CogniteTimeSeries, version: v1 }`.
 
 📝 `[WRITE]` `tra_Training_TRN_Load_TimeSeries.sql`:
@@ -198,7 +198,7 @@ from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_TimeSeries`
 
 ## 5.5 [WRITE] Transform 4 — Load Work Orders
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_Training_TRN_Load_WorkOrders.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_Training_TRN_Load_WorkOrders.Transformation.yaml`
 — same shape (unscoped filename, no `queryFile`), `destination.view` → your own `WorkOrder`:
 
 ```yaml
@@ -284,14 +284,14 @@ one work order — from `rwt_Training_TRN_WorkOrderOperations`, joined to the wo
 you loaded in section 5.5. Eight source rows go in. Six nodes come out. That is correct, and
 by the end of this section you will be able to say exactly why.
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_WorkOrderOperations.Table.yaml`
 
 ```yaml
 dbName: rwd_<YOURNAME>_Training_TRN
 tableName: rwt_Training_TRN_WorkOrderOperations
 ```
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/raw/rwt_Training_TRN_WorkOrderOperations.Table.csv`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/raw/rwt_Training_TRN_WorkOrderOperations.Table.csv`
 
 ```csv
 key,operationNumber,workOrderNumber,tagExternalId,description,durationHours,craft
@@ -462,7 +462,7 @@ explicitly as above, or make sure the source writes a value RAW cannot read as a
 
 ### 5.6.6 The finished transformation
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/transformations/tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations.Transformation.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/03_data/transformations/tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations.Transformation.yaml`
 
 ```yaml
 externalId: tra_<YOURNAME>_Training_TRN_Load_WorkOrderOperations
@@ -488,7 +488,7 @@ authentication:
 
 📝 `[WRITE]` `.../transformations/tra_Training_TRN_Load_WorkOrderOperations.sql` — the
 full query is in the reference module at
-`training/modules/reference/transformations/`, with every clause commented against the
+`training/modules/reference/03_data/transformations/`, with every clause commented against the
 subsection it came from. Type it yourself; the comments are the lesson.
 
 ✅ `[VERIFY]` After running it:
@@ -535,6 +535,133 @@ If you get 8 nodes, your NULL guard or your dedup is missing. If you get 5, you 
 
 📚 `[DOCS]` https://docs.cognite.com/cdf/integration/guides/transformation/write_sql_queries ·
 https://docs.cognite.com/cdf/integration/guides/transformation/troubleshooting
+
+---
+
+## 5.7b [OPTIMIZE] Three things these five transformations do not do
+
+Your five transformations are correct for eight assets and wrong for eight million, in
+three specific ways. None of them is a bug here. All three are the first questions a
+reviewer will ask about the real thing.
+
+### 1. They re-read the whole table, every run
+
+Every `select` above scans its RAW table end to end. At this scale that is free. At
+production scale it is the difference between a nightly job that finishes and one that
+does not.
+
+CDF Transformations give you a watermark for this — `is_new()`:
+
+```sql
+select
+  cast(`workOrderNumber` as STRING) as externalId,
+  ...
+from `rwd_<YOURNAME>_Training_TRN`.`rwt_Training_TRN_WorkOrders`
+where is_new('workorders_watermark', lastUpdatedTime)
+```
+
+The first argument is a **name you choose** for the watermark; the second is the column
+it advances on. On each successful run CDF records the high-water mark under that name,
+and the next run sees only rows past it.
+
+✅ `[VERIFY]` Four things about that watermark, measured against a live project rather
+than assumed — build a two-row table, a transformation, and watch it:
+
+| Claim | Measured |
+|---|---|
+| The first run under a fresh watermark name processes everything | ✅ both rows written |
+| An immediate re-run, nothing changed, processes nothing | ✅ zero rows written |
+| A row whose watermark column **advances** is picked up | ✅ only that row |
+| A row edited **without** advancing the column is picked up | ❌ **never** — the edit is invisible |
+
+⚠️ `[COMMON MISTAKE]` That last row is the one that costs you. Advancing on a column the
+source system does not actually update means an edit to an existing row is invisible to
+`is_new()` **forever** — not late, not eventually: never. If `lastUpdatedTime` is set when
+the row is created and never touched again, you have built a pipeline that can only ever
+see inserts. Check what the column *means* in the source, not what it is called.
+
+💡 `[GOOD TO KNOW]` The watermark is scoped to the **transformation**, not to the name
+alone. Two transformations using the same watermark name were measured not to interfere:
+the second still processed every row on its first run, because it had its own watermark.
+Convenient, and worth knowing before you spend an afternoon assuming the opposite — but
+still name them distinctly, because the name is what you will read in six months when you
+are trying to work out which job is stuck.
+
+🚧 `[LIMITS]` A watermark is state that lives in CDF, not in your repository. It survives
+`cdf deploy`, so re-deploying a transformation does **not** replay history — and after a
+teardown that removed your instances but left the transformation, a re-run loads
+*nothing* and the tables look mysteriously empty. That is the single most confusing
+consequence of incremental loading, and it is why this course loads in full: a learner
+who re-runs Chapter 05 must get their data back.
+
+### 2. They have nowhere to put a bad row
+
+Section 5.6 taught you to *filter out* rows that would break the load — a null external
+ID, a duplicate, a reference to nothing. Filtering makes the job succeed. It also makes
+the bad rows **disappear**, and nobody is counting them.
+
+```sql
+-- the load: only rows that are safe to write
+where `operationId` is not null and `workOrderNumber` is not null
+
+-- the quarantine: a second transformation, same source, opposite predicate
+where `operationId` is null or `workOrderNumber` is null
+```
+
+Point the second one at a RAW table — `rwt_Training_TRN_WorkOrderOperations_rejected` —
+and you have turned silent data loss into a queue somebody can work. The pattern is the
+same one [Chapter 17](17-cross-cutting-mastery.md) section 17.1c applies to
+contextualization: *"we looked at this and could not use it"* is information, and
+discarding it is how a backlog becomes invisible.
+
+⚡ `[OPTIMIZE]` The two predicates must be exact complements. Write them as one
+`case` expression feeding both jobs if you can, because the day they drift is the day
+rows fall between them and are in neither place.
+
+### 3. They cannot express a deletion
+
+`conflictMode: upsert` writes and updates. Nothing in these five transformations can
+say *"this work order no longer exists"*. Delete a row from RAW and re-run: the node
+stays, forever, with no indication it is orphaned.
+
+This is the same problem the contextualization spine solves with `superseded`
+([Chapter 17](17-cross-cutting-mastery.md) section 17.1c) — **silence is not agreement** —
+and it has the same two honest answers:
+
+| Approach | How | When |
+|---|---|---|
+| **Tombstones** | The source emits a row marked deleted; the transformation writes a status property rather than removing the node | When downstream consumers need to know it *was* deleted — almost always, in maintenance data |
+| **Reconcile and remove** | A separate job lists what the model holds, diffs it against what the source now contains, and deletes the difference | When the source genuinely cannot emit deletions |
+
+⚠️ `[COMMON MISTAKE]` Reaching for `conflictMode: delete` to solve this. It is not a
+reconciliation mode. Measured on a live project with two probe nodes and a query
+returning exactly one of them:
+
+```
+probe nodes before: ['probe-delmode-A', 'probe-delmode-B']   # RAW names only A
+job: Completed
+probe nodes after:  ['probe-delmode-B']
+```
+
+It deleted **A** — the row the `select` *returned*. That is the exact opposite of
+reconciliation, where you want to remove what the source no longer mentions. Point it at
+your load query and it deletes everything you just successfully loaded.
+
+💡 `[GOOD TO KNOW]` It is also destination-specific. The same setting against a **RAW**
+destination is refused outright:
+
+```
+raw does not support conflict mode delete | code: 400
+```
+
+So a pattern you validated against a RAW-destination transformation may not transfer to an
+instance-destination one, and vice versa. `conflictMode` is not one feature with one
+meaning — check it per destination type.
+
+💡 `[GOOD TO KNOW]` Tombstones interact badly with `is_new()` if you are not careful: a
+deletion row must update the watermark column, or the incremental load will never see
+it. A model where deletions are invisible to the very mechanism that reads changes is
+a common and expensive combination of two individually sensible decisions.
 
 ---
 

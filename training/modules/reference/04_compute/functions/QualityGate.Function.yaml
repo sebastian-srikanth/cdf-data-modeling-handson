@@ -1,0 +1,19 @@
+externalId: fnc_{{ participant }}_Training_QualityGate
+name: fnc_{{ participant }}_Training_QualityGate
+owner: Training
+description: >-
+  Assert the contextualization thresholds and fail loudly when they are not met.
+  A count nobody fails on is a number on a dashboard, not a gate.
+functionPath: handler.py
+runtime: {{ function_runtime }}
+dataSetExternalId: {{ dataset }}
+envVars:
+  PARTICIPANT: "{{ participant }}"
+  INSTANCE_SPACE: "{{ instance_space }}"
+  SCHEMA_SPACE_SDM: "{{ schema_space_sdm }}"
+  MODEL_VERSION: "{{ model_version }}"
+  # The thresholds live here, not in the code, so tightening one is a config change
+  # somebody can review -- not a code change somebody has to redeploy a Function for.
+  MAX_UNRESOLVED: "0"
+  MAX_REVIEW_BACKLOG: "10"
+  MAX_STALE_REMOVED: "5"

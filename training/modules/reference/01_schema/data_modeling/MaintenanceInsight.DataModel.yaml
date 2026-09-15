@@ -20,6 +20,16 @@ views:
     externalId: WorkOrder
     version: {{ model_version }}
     type: view
+  # The production spine -- Chapter 17 section 17.1c. Every contextualization run and
+  # every suggestion it made, so results can be reviewed, audited and re-run safely.
+  - space: {{ schema_space_sdm }}
+    externalId: ContextualizationRun
+    version: {{ model_version }}
+    type: view
+  - space: {{ schema_space_sdm }}
+    externalId: ContextualizationSuggestion
+    version: {{ model_version }}
+    type: view
   # Then the CDM views they rely on.
   - space: cdf_cdm
     externalId: CogniteAsset

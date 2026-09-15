@@ -39,7 +39,7 @@ for — it's noise relative to the one use case the solution model was designed 
 
 ## 6.3 [WRITE] Your location filter
 
-📝 `[WRITE]` `training/modules/participants/<YOURNAME>/locations/loc_<YOURNAME>_TRN.LocationFilter.yaml`
+📝 `[WRITE]` `training/modules/participants/<YOURNAME>/02_access/locations/loc_<YOURNAME>_TRN.LocationFilter.yaml`
 
 ```yaml
 externalId: loc_<YOURNAME>_TRN

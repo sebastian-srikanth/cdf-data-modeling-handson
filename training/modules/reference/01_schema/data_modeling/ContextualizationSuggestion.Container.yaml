@@ -1,0 +1,97 @@
+space: {{ schema_space_sdm }}
+externalId: ContextualizationSuggestion
+name: ContextualizationSuggestion
+description: >-
+  One proposed link between two things, with the evidence for it and what was
+  decided. Writing only the link itself throws the reasoning away, and then
+  nobody can review it, audit it, or safely re-run the pipeline.
+usedFor: node
+properties:
+  runId:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Run ID
+    description: The ContextualizationRun that produced this. Example ctxrun-2026-09-13T09-00-00Z-matchdocuments.
+  sourceExternalId:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Source
+    description: What is being linked. A file, a CAD node, a datasheet field.
+  targetExternalId:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Target
+    description: What it was linked to. Null when nothing was resolved, which is itself a record worth keeping.
+  method:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Method
+    description: Which rung of the cascade decided this. rule, regex, entity-matching, name-equality or manual.
+  confidence:
+    type:
+      type: float64
+      list: false
+    nullable: true
+    name: Confidence
+    description: 0.0 to 1.0. Deterministic rungs write 1.0; only the probabilistic rung writes anything else.
+  decision:
+    type:
+      type: text
+      list: false
+    nullable: false
+    name: Decision
+    description: auto-applied, needs-review, rejected or approved. The band this landed in.
+  decidedBy:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Decided by
+    description: pipeline, or the person who approved or overrode it. This is what makes a decision auditable.
+  decidedTime:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
+    name: Decided
+    description: When the decision was taken.
+  evidenceText:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Evidence text
+    description: The text that was matched, or the rule that fired. What a reviewer reads first.
+  evidencePage:
+    type:
+      type: int32
+      list: false
+    nullable: true
+    name: Evidence page
+    description: Page in the source document, so a reviewer can go and look.
+  evidenceLocator:
+    type:
+      type: text
+      list: false
+    nullable: true
+    name: Evidence locator
+    description: Where exactly. A bounding box, a CAD node ID, or a source property name.
+indexes:
+  runIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - runId
+  decisionIndex:
+    indexType: btree
+    cursorable: false
+    properties:
+      - decision

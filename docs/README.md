@@ -36,7 +36,7 @@ By the end you will have:
 
 - Bootstrapped the Toolkit and SDK from an empty machine
 - Authored a full CDF Toolkit module by hand: spaces, containers, views, a data model,
-  a data set, RAW tables, files, transformations, five Cognite Functions (each
+  a data set, RAW tables, files, transformations, six Cognite Functions (each
   preceded by a Jupyter notebook), a workflow, and a location filter
 - Learned the **(space, externalId) identity rule** that makes 15 participants able to
   build the *same* model without a single collision
@@ -184,15 +184,15 @@ training/
     └── participants/<YOURNAME>/           # ← the ONLY path you add/edit
         ├── NOTES.md                       # running notes, filled in as you go
         ├── FEEDBACK.md                    # course feedback, filled in at the end
-        ├── data_sets/
-        ├── raw/
-        ├── files/
-        ├── data_modeling/
-        ├── transformations/
-        ├── functions/
-        ├── workflows/
-        └── locations/
+        ├── 01_schema/data_modeling/       # what the data IS
+        ├── 02_access/{auth,data_sets,locations}/     # who may SEE it
+        ├── 03_data/{raw,files,transformations}/      # the data ITSELF
+        └── 04_compute/{functions,workflows}/         # what RUNS over it
 ```
+
+Those four are **four Toolkit modules**, split by how often they change rather than by
+what they contain — schema rarely, access constantly, data when a source shifts, compute
+daily. [Chapter 01](01-naming-isolation-and-setup.md) section 1.3 makes the argument.
 
 Your `config.<YOURNAME>-training.yaml` `selected:` list points at exactly one path:
 

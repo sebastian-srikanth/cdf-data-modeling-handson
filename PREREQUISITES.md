@@ -75,7 +75,7 @@ chapter; missing one produces a `403` at that point and nowhere earlier.
 | `datasetsAcl` | READ, WRITE | Ch 04 — the training data set |
 | `transformationsAcl` | READ, WRITE | Ch 05 — deploy and run five transformations |
 | `timeSeriesAcl` | READ, WRITE | Ch 11 — vibration / flow datapoints |
-| `functionsAcl` | READ, WRITE | Ch 07–11 — five Cognite Functions |
+| `functionsAcl` | READ, WRITE | Ch 07–11 — six Cognite Functions |
 | `entitymatchingAcl` | READ, WRITE | Ch 07 — `fit` / `predict`, **and deleting your model** |
 | `diagramParsingAcl` | READ, WRITE | Ch 08 — submit `diagrams.detect` and poll it |
 | `annotationsAcl` | READ, WRITE | Ch 08 — write and read annotation edges |

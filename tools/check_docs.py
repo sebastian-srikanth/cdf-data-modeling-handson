@@ -48,7 +48,11 @@ SUBSTITUTIONS = [
 ]
 
 # Chapters that are pure process (tooling, naming, git) and deploy nothing to CDF.
-NO_GATE_EXPECTED = {"13", "14", "18", "19"}
+# Every chapter ends the same way: one "## Gate" section, bullets a learner can
+# actually check, and a link to the next chapter. The exclusion list is empty on
+# purpose -- it used to hold 13, 14, 18 and 19, and it was hiding that two of them
+# had a differently-titled gate and two had none at all.
+NO_GATE_EXPECTED: set[str] = set()
 
 failures: list[str] = []
 notes: list[str] = []
@@ -281,6 +285,18 @@ WRITE_PY = re.compile(
 FUNCTION_FOLDER = re.compile(r"fnc_.*?_Training_(\w+)")
 
 
+def _handler_for(capability: str):
+    """Locate a reference handler by capability name, wherever the module tree puts it.
+
+    Hard-coding `reference/functions/...` broke the moment the modules were split by
+    lifecycle. The handlers are found by search now, so the checks survive the next
+    reshuffle too.
+    """
+    for path in REFERENCE.rglob(f"fnc_REFERENCE_Training_{capability}/handler.py"):
+        return path
+    return REFERENCE / "missing" / capability / "handler.py"
+
+
 def _reference_handler(path: str):
     parts = pathlib.PurePosixPath(path).parts
     if "functions" not in parts:
@@ -288,7 +304,7 @@ def _reference_handler(path: str):
     m = FUNCTION_FOLDER.match(parts[parts.index("functions") + 1])
     if not m:
         return None
-    candidate = REFERENCE / "functions" / f"fnc_REFERENCE_Training_{m.group(1)}" / "handler.py"
+    candidate = _handler_for(m.group(1))
     return candidate if candidate.exists() else None
 
 
@@ -388,10 +404,10 @@ COUNT_CLAIMS = [
 WORD_NUMBERS = {"four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 SPELLED = [
     (re.compile(r"(\w+) transformations"),
-     lambda: len(list((ROOT / "training/modules/reference/transformations")
+     lambda: len(list((ROOT / "training/modules/reference/03_data/transformations")
                       .glob("*.Transformation.yaml"))), "transformations"),
     (re.compile(r"(\w+) Cognite Functions"),
-     lambda: len(list((ROOT / "training/modules/reference/functions").glob("fnc_*"))),
+     lambda: len(list((ROOT / "training/modules/reference/04_compute/functions").glob("fnc_*"))),
      "functions"),
 ]
 
@@ -468,9 +484,15 @@ def check_unit_references() -> int:
 
     A rebase once dropped it from all six properties and every other check still
     passed, which is why this one exists.
+
+    It is `rglob`, not `glob` on a fixed folder, and that matters: when the modules were
+    split by lifecycle this check silently went from inspecting six units to inspecting
+    zero -- and still reported "all offline checks passed", because a check that finds
+    nothing to check finds nothing wrong. The guard below is what turns that into a
+    failure instead of a green tick.
     """
     checked = 0
-    for path in (REFERENCE / "data_modeling").glob("*.Container.yaml"):
+    for path in REFERENCE.rglob("*.Container.yaml"):
         lines = path.read_text().splitlines()
         for i, line in enumerate(lines):
             if line.strip() != "unit:":
@@ -558,6 +580,251 @@ def check_query_story_contracts() -> int:
     return len(contracts)
 
 
+def check_function_return_keys() -> int:
+    """A chapter may not name a Function return field the handler never returns.
+
+    This one exists because the chapters documented `em_ran` and `unresolved_count`
+    for months after the handler stopped returning either. A learner reads the VERIFY
+    step, prints the response, sees no such key, and concludes they broke something.
+    A doc that is confidently wrong costs more than a doc that is silent.
+
+    The handler's keys are collected from every `return {...}` and every
+    `result["key"] = ...` in the reference functions; chapter claims are the
+    backticked identifiers inside a fenced block or prose that look like return keys.
+    """
+    import ast
+
+    returned: set[str] = set()
+    for handler in REFERENCE.rglob("handler.py"):
+        tree = ast.parse(handler.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Dict):
+                for key in node.keys:
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                        returned.add(key.value)
+            # result["links_retracted"] = ... and result.get("x") both count
+            elif isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant):
+                if isinstance(node.slice.value, str):
+                    returned.add(node.slice.value)
+
+    # Only words that look like response fields, and only where the chapter is
+    # clearly talking about a call result.
+    claimed = re.compile(r"`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`")
+    context = re.compile(
+        r"(get_response|call-result|the response|response should|returns? a?\s*"
+        r"JSON-serializable|that dict|the call returned)", re.I)
+
+    checked = 0
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        for para in text.split("\n\n"):
+            if not context.search(para):
+                continue
+            for key in claimed.findall(para):
+                # snake_case identifiers that are plainly not response fields
+                if key in {"external_id", "data_set_id", "get_response", "start_node",
+                           "end_node", "instance_type", "match_fields", "feature_type",
+                           "wait_for_completion", "num_matches", "get_result",
+                           "auto_create_direct_relations", "config_yaml", "cdf_project",
+                           "client_id", "client_secret", "tenant_id", "token_url",
+                           "data_modeling", "space_sdm", "model_version",
+                           # not a Function response field: an Agents API field that
+                           # Chapter 15 names while warning the alpha shape can change
+                           "runtime_version"}:
+                    continue
+                checked += 1
+                if key not in returned:
+                    fail(f"returnkey  {md.name}: documents Function return field "
+                         f"{key!r}, which no handler in the reference module returns")
+    return checked
+
+
+# Words that appear in a walkthrough fragment but are language or SDK vocabulary, not
+# something the handler must contain verbatim.
+WALKTHROUGH_IGNORE = {
+    "lambda", "except", "return", "continue", "import", "client", "self", "None",
+    "True", "False", "data", "then", "class", "async", "await", "yield", "print",
+}
+
+
+def check_walkthrough_fragments() -> int:
+    """Code quoted in a 'Line-by-line walkthrough' table must exist in the handler.
+
+    These tables are prose, so no generated-block check covers them, and they rot
+    invisibly: this repo shipped a table describing `TAG_RE`, `AREA_RE`, `manual_map`,
+    `_apply_asset`, `_entity_match` and a `deadline` variable for a handler that had
+    none of them. Every row read plausibly. All eight were fiction.
+
+    Matching is by identifier rather than by exact string, because a table cell
+    legitimately abbreviates -- `_write_and_report(..., retract=...)` is a fair way to
+    write a call with six arguments. Every identifier of four characters or more must
+    appear somewhere in some reference handler.
+    """
+    sources = "\n".join(h.read_text() for h in REFERENCE.rglob("handler.py"))
+    ident = re.compile(r"[A-Za-z_][A-Za-z0-9_]{3,}")
+    checked = 0
+
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        for block in re.findall(
+                r"### Line-by-line walkthrough\n(.*?)(?=\n## |\n### |\Z)", text, re.S):
+            for line in block.splitlines():
+                if not line.startswith("|") or line.startswith("|---"):
+                    continue
+                cell = line.split("|")[1]
+                for frag in re.findall(r"`([^`]+)`", cell):
+                    checked += 1
+                    missing = [w for w in ident.findall(frag)
+                               if w not in WALKTHROUGH_IGNORE and w not in sources]
+                    if missing:
+                        fail(f"walkthru  {md.name}: walkthrough quotes {frag!r} but "
+                             f"{', '.join(sorted(set(missing)))} is not in any handler")
+    return checked
+
+
+def check_test_count() -> int:
+    """Any chapter that names a number of unit tests must name the right one.
+
+    A count in prose is a claim like any other, and this one changes every time
+    somebody adds a test -- which is exactly when nobody is thinking about the docs.
+    """
+    tests_dir = ROOT / "tests"
+    if not tests_dir.exists():
+        return 0
+    actual = sum(
+        len(re.findall(r"^def (test_\w+)", f.read_text(), re.M))
+        for f in tests_dir.glob("test_*.py"))
+    pattern = re.compile(r"(\d+) tests?\b[^.\n]{0,40}\bpytest|pytest[^.\n]{0,60}?(\d+) tests?\b")
+    checked = 0
+    for md in sorted(DOCS.glob("*.md")) + [ROOT / "CONTRIBUTING.md", ROOT / "README.md"]:
+        if not md.exists():
+            continue
+        for m in pattern.finditer(md.read_text()):
+            claimed = int(m.group(1) or m.group(2))
+            checked += 1
+            if claimed != actual:
+                fail(f"testcount {md.name}: claims {claimed} unit tests, "
+                     f"tests/ defines {actual}")
+    return checked
+
+
+def check_selfcheck_is_space_scoped() -> int:
+    """Every data-modeling read in selfcheck.py must be scoped to the participant.
+
+    This project holds every participant's data at once, and the external IDs are
+    identical across them -- everybody has a `21-PA-2001A`. A read without a space
+    scope does not error; it returns somebody else's pump, and with `limit=1` it
+    returns a different person's pump on different days.
+
+    That is exactly how this file shipped a Chapter 13 check that passed locally and
+    failed in CI, while the chapter it exists to verify had the space filter right all
+    along. A grader that can silently grade the wrong participant is worse than no
+    grader.
+    """
+    source = (ROOT / "tools" / "selfcheck.py").read_text()
+    lines = source.splitlines()
+    checked = 0
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+
+        # every instances.list(...) call must carry space=
+        if "instances.list(" in stripped:
+            checked += 1
+            call = "\n".join(lines[i:i + 8])
+            if "space=" not in call:
+                fail(f"unscoped  selfcheck.py:{i + 1}: instances.list() with no space= "
+                     "-- it can read another participant's data")
+
+        # an externalId anchor in a query must sit inside a space-scoped filter
+        if 'flt.Equals(["node", "externalId"]' in stripped:
+            checked += 1
+            window = "\n".join(lines[max(0, i - 8):i + 2])
+            if "SpaceFilter" not in window:
+                fail(f"unscoped  selfcheck.py:{i + 1}: externalId anchor with no "
+                     "SpaceFilter -- external IDs are not unique across participants")
+    return checked
+
+
+# The reference module is split by rate of change, not by tidiness (Chapter 01 1.3).
+# A resource type in the wrong module is not a build error -- the Toolkit does not care --
+# so it has to be a check here, or the split quietly decays back into one bucket.
+LIFECYCLE = {
+    "data_modeling": "01_schema",
+    "auth": "02_access", "data_sets": "02_access", "locations": "02_access",
+    "raw": "03_data", "files": "03_data", "transformations": "03_data",
+    "functions": "04_compute", "workflows": "04_compute",
+}
+
+
+def check_module_layout() -> int:
+    """Each resource type sits in its lifecycle module, and each module declares itself."""
+    checked = 0
+    seen_modules = set()
+
+    for resource, module in LIFECYCLE.items():
+        found = [d for d in REFERENCE.rglob(resource) if d.is_dir()]
+        if not found:
+            continue
+        checked += 1
+        for directory in found:
+            parent = directory.parent.name
+            seen_modules.add(parent)
+            if parent != module:
+                fail(f"layout    {resource}/ is in {parent}/, expected {module}/ "
+                     "-- see Chapter 01 section 1.3 for why the split is by rate of change")
+
+    for module in sorted(set(LIFECYCLE.values())):
+        directory = REFERENCE / module
+        if not directory.exists():
+            fail(f"layout    reference/{module}/ is missing")
+            continue
+        checked += 1
+        if not (directory / "module.toml").exists():
+            fail(f"layout    reference/{module}/ has no module.toml -- the Toolkit will "
+                 "not treat it as a module, and cdf build will report fewer than 4")
+
+    # the chapters must teach the same paths the reference actually uses
+    for md in sorted(DOCS.glob("*.md")):
+        text = md.read_text()
+        for resource, module in LIFECYCLE.items():
+            stale = f"participants/<YOURNAME>/{resource}/"
+            if stale in text:
+                checked += 1
+                fail(f"layout    {md.name}: writes to {stale} but {resource}/ lives "
+                     f"under {module}/ now")
+    return checked
+
+
+# "The build summary lists 3 Spaces, 4 Containers, 5 Views, 2 Data Models" is the first
+# number a learner checks against their own terminal, and it rots every time the model
+# gains a view. Counted from the reference module, not maintained by hand.
+BUILD_SUMMARY = re.compile(
+    r"\*\*(\d+) Spaces?, (\d+) Containers?, (\d+) Views?, (\d+) Data Models?\*\*")
+
+
+def check_build_summary_counts() -> int:
+    """Any chapter quoting a build summary must quote the real one."""
+    files = list(REFERENCE.rglob("*.yaml"))
+    actual = {
+        "Spaces": sum(1 for f in files if f.name.endswith(".Space.yaml")),
+        "Containers": sum(1 for f in files if f.name.endswith(".Container.yaml")),
+        "Views": sum(1 for f in files if f.name.endswith(".View.yaml")),
+        "Data Models": sum(1 for f in files if f.name.endswith(".DataModel.yaml")),
+    }
+    checked = 0
+    for md in sorted(DOCS.glob("*.md")):
+        for m in BUILD_SUMMARY.finditer(md.read_text()):
+            checked += 1
+            claimed = dict(zip(actual, (int(g) for g in m.groups())))
+            wrong = {k: (v, actual[k]) for k, v in claimed.items() if v != actual[k]}
+            if wrong:
+                detail = ", ".join(f"{k}: says {s}, there are {a}"
+                                   for k, (s, a) in wrong.items())
+                fail(f"summary   {md.name}: build summary is wrong -- {detail}")
+    return checked
+
+
 def main() -> int:
     links = check_links()
     xrefs = check_crossrefs()
@@ -575,6 +842,12 @@ def main() -> int:
     attribution = check_no_attribution()
     tools = check_tools_import()
     contracts = check_query_story_contracts()
+    retkeys = check_function_return_keys()
+    walkthru = check_walkthrough_fragments()
+    testcount = check_test_count()
+    scoped = check_selfcheck_is_space_scoped()
+    layout = check_module_layout()
+    summary = check_build_summary_counts()
 
     print(f"  links            {links:>4} checked")
     print(f"  cross-references {xrefs:>4} checked")
@@ -593,6 +866,38 @@ def main() -> int:
     print(f"  attribution      {attribution:>4} files: no tool attribution")
     print(f"  tools import     {tools:>4} tools imported")
     print(f"  story contracts  {contracts:>4} query/agent invariants checked")
+    print(f"  return keys      {retkeys:>4} documented Function fields exist")
+    print(f"  walkthroughs     {walkthru:>4} quoted fragments exist in a handler")
+    print(f"  test count       {testcount:>4} claim(s) match tests/")
+    print(f"  participant scope{scoped:>4} selfcheck reads are space-scoped")
+    print(f"  module layout    {layout:>4} resource dirs in their lifecycle module")
+    print(f"  build summary    {summary:>4} quoted build summary matches the module")
+    # ---- a check that inspects nothing is not a passing check ----------------------
+    # check_unit_references was silently reduced from six units to zero by a folder move
+    # and still reported "all offline checks passed", because finding nothing to check
+    # means finding nothing wrong. Every count below is an assertion in its own right.
+    #
+    # The allowlist is for counts that are legitimately zero: they count *claims made in
+    # prose*, and prose is allowed not to make them.
+    MAY_BE_ZERO = {"test count", "advertised counts"}
+    for label, count in (
+        ("links", links), ("cross-references", xrefs), ("yaml blocks", n_yaml),
+        ("python blocks", n_python), ("notebook cells", cells),
+        ("[WRITE] blocks", writes), ("handler blocks", handlers),
+        ("notebook scopes", names), ("chapter shape", shapes),
+        ("marker emoji", markers), ("chapter tables", tables),
+        ("unit references", units), (".env.example", envkeys),
+        ("advertised counts", counts), ("attribution", attribution),
+        ("tools import", tools), ("story contracts", contracts),
+        ("return keys", retkeys), ("walkthroughs", walkthru),
+        ("test count", testcount), ("participant scope", scoped),
+        ("module layout", layout),
+        ("build summary", summary),
+    ):
+        if count == 0 and label not in MAY_BE_ZERO:
+            fail(f"empty      the {label!r} check inspected 0 items -- it is no longer "
+                 "checking anything. Usually a moved folder or a renamed pattern.")
+
     for note in notes:
         print(f"  note: {note}")
 

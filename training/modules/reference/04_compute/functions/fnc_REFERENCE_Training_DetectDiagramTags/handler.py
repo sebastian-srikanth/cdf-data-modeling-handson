@@ -10,11 +10,13 @@ Edge TYPE is cdf_cdm:diagrams.AssetLink. CogniteDiagramAnnotation is the edge VI
 
 from __future__ import annotations
 
+import hashlib
 import os
 
 from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     EdgeApply,
+    EdgeId,
     NodeId,
     NodeOrEdgeData,
     ViewId,
@@ -68,6 +70,27 @@ def _load_tag_aliases(client, raw_db: str) -> dict[str, list[str]]:
         # pipe-separated, because a comma would fight the CSV
         aliases[character] = [a.strip() for a in alternatives.split("|") if a.strip()]
     return aliases
+
+
+def _annotation_id(file_xid: str, asset_xid: str, page: int, bbox: tuple) -> str:
+    """A stable external ID for one detection.
+
+    The obvious key -- a counter over the results -- is the one that does not work, and
+    it fails in the direction that looks fine: every re-run produces a *new* set of IDs,
+    so the edges accumulate instead of updating. Measured here, one re-run took a P&ID
+    from 9 annotation edges to 17, all of them "correct", none of them duplicates by
+    external ID.
+
+    What makes two detections the same detection is *where they are*: the same tag, at
+    the same place, on the same page, of the same drawing. So that is the key. The
+    coordinates are rounded before hashing because the service is free to return
+    1.0000000001 where it returned 1.0 last night, and an identity that changes on a
+    floating-point wobble is not an identity.
+    """
+    x_min, x_max, y_min, y_max = (round(float(v), 4) for v in bbox)
+    fingerprint = f"{file_xid}|{asset_xid}|{page}|{x_min}|{x_max}|{y_min}|{y_max}"
+    digest = hashlib.sha1(fingerprint.encode()).hexdigest()[:12]
+    return f"anno_{file_xid}_{asset_xid}_{digest}"[:255]
 
 
 def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
@@ -131,7 +154,8 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                 seen.add(asset_xid)
                 edges.append(EdgeApply(
                     space=space,
-                    external_id=f"anno_{file_xid}_{asset_xid}_{idx}",
+                    external_id=_annotation_id(
+                        file_xid, asset_xid, page, (x_min, x_max, y_min, y_max)),
                     # Edge TYPE in cdf_cdm (not the view/container externalId).
                     # File→asset diagram hits use diagrams.AssetLink; CogniteDiagramAnnotation is the view.
                     type=DirectRelationReference("cdf_cdm", "diagrams.AssetLink"),
@@ -151,12 +175,45 @@ def handle(client, data=None, secrets=None, function_call_info=None) -> dict:
                     tags_found.append(asset_xid)
             idx += 1
 
+    # ---- reconcile before writing -------------------------------------------------
+    # Silence is not agreement. A detection this drawing carried last week and does not
+    # carry today is a *change* -- somebody uploaded a new revision of the P&ID, or the
+    # tuning changed -- and leaving the old edge in place means the graph asserts a tag
+    # is on a drawing that no longer shows it.
+    #
+    # The one thing that must never be removed is an edge a person ruled on. A
+    # CogniteDiagramAnnotation carries `status`; anything other than "Suggested" means a
+    # human approved or rejected it, and that decision outranks the detector -- exactly
+    # the rule the contextualization spine applies in Chapter 17 section 17.1c.
+    produced = {e.external_id for e in edges}
+    stale: list[EdgeId] = []
+    reviewed_kept = 0
+    try:
+        existing = client.data_modeling.instances.list(
+            instance_type="edge", sources=view, space=space, limit=-1)
+    except Exception:  # noqa: BLE001 - nothing written yet is a valid first-run state
+        existing = []
+    for edge in existing:
+        if edge.start_node.external_id != file_xid:
+            continue                       # another drawing's annotations
+        if edge.external_id in produced:
+            continue
+        status = (edge.properties.get(view) or {}).get("status")
+        if status not in (None, "", "Suggested"):
+            reviewed_kept += 1             # a person owns this one
+            continue
+        stale.append(EdgeId(space, edge.external_id))
+
     if edges:
         client.data_modeling.instances.apply(edges=edges)
+    if stale:
+        client.data_modeling.instances.delete(edges=stale)
 
     tags_missing = [t for t in EQUIPMENT_TAGS if t not in tags_found]
     return {
         "annotations_created": len(edges),
+        "annotations_removed": len(stale),
+        "reviewed_annotations_kept": reviewed_kept,
         "tags_found": tags_found,
         "tags_missing": tags_missing,
     }

@@ -3,15 +3,27 @@
 The course is code, so it changes like code: on a branch, through a pull request, with
 the checks doing the arguing.
 
-## The two gates
+## The three gates
 
 | Check | Runs | Needs credentials | Answers |
 |---|---|---|---|
-| **checks** | every push and PR | no | *Does the course still parse?* Links, cross-references, YAML, Python, notebooks, diagrams, the `[WRITE]` blocks against the reference module, the advertised counts |
+| **checks** | every push and PR | no | *Does the course still parse, and does it still tell the truth?* Links, cross-references, YAML, Python, notebooks, diagrams, the `[WRITE]` blocks against the reference module, the advertised counts, the documented Function return fields, and every code fragment quoted in a walkthrough table |
+| **unit tests** | every push and PR | no | *Is the handler logic right?* The cascade's rungs, the confidence bands, human vetoes, retraction, and whether the quality gate can actually fail |
 | **course evaluation** | every PR touching `docs/`, `tools/` or `training/` | yes | *Does the course still **work**?* Deploys the whole thing to CDF, runs it, self-checks every chapter, scores it, tears down |
 
-The first takes seconds. The second takes up to an hour, mostly waiting for Cognite
+The first two take seconds. The third takes up to an hour, mostly waiting for Cognite
 Functions to build — that is normal, not a hang.
+
+```bash
+uv run python tools/check_docs.py
+uv run --group dev python -m pytest tests/ -q
+```
+
+The division is deliberate. The unit tests never talk to CDF, so they can reach the
+cases a live run reaches only by contrivance — the middle confidence band, a deleted
+rule, a gate racing the write it checks. The live run is what proves CDF actually
+behaves the way the chapters say it does. Neither substitutes for the other, and a
+change to a handler usually needs both.
 
 ## Change a few chapters at a time
 
@@ -43,13 +55,54 @@ uv run python tools/check_mermaid.py  # if you touched a diagram
 learner to write against the module in `training/modules/reference/`, so a chapter can
 never quietly teach something different from what it ships.
 
+## Where a new resource goes
+
+`training/modules/reference/` is **four Toolkit modules**, split by how often things
+change rather than by what they are:
+
+| Module | Holds | Changes |
+|---|---|---|
+| `01_schema` | `data_modeling` | rarely; every change is a negotiation |
+| `02_access` | `auth`, `data_sets`, `locations` | constantly, often urgently |
+| `03_data` | `raw`, `files`, `transformations` | when a source system changes |
+| `04_compute` | `functions`, `workflows` | daily, while building |
+
+Put a new resource in the module whose cadence it shares, and add the mapping to
+`LIFECYCLE` in `tools/check_docs.py`. The layout check enforces three things: every
+resource type is in its expected module, every module has a `module.toml`, and no chapter
+still teaches a pre-split path. The Toolkit itself does not care where the folders sit —
+which is exactly why the rule has to live in a check.
+
+The full argument is in [Chapter 01](docs/01-naming-isolation-and-setup.md) section 1.3,
+and the short version is: schema changes are rare and dangerous, compute changes are
+frequent and cheap, and putting them in one module means every routine handler fix drags
+your containers along for the review.
+
 ## If you change the reference module
 
-Chapters embed it. Re-sync rather than hand-editing both:
+Two things embed it, and both go stale silently.
+
+**The chapters.** Re-sync rather than hand-editing both:
 
 ```bash
-uv run python tools/check_docs.py   # tells you which blocks drifted
+uv run python tools/check_docs.py         # tells you which blocks drifted
+uv run python tools/sync_write_blocks.py --write   # YAML blocks
+uv run python tools/sync_handlers.py --write       # Function handlers
 ```
+
+**Your deployed participant module.** `training/modules/participants/<NAME>/` is
+*generated* from the reference and is gitignored. Editing the reference and running
+`cdf build` does **nothing** — the build reads the generated copy, the Toolkit sees no
+change, the deploy reports success, and your Function keeps running the old code with no
+error anywhere. Re-materialise first:
+
+```bash
+uv run python -c "import sys; sys.path.insert(0,'tools'); \
+  from live_e2e import materialise; materialise('<NAME>')"
+```
+
+`tools/live_e2e.py` and `tools/cohort.py provision` both do this for you; a hand-run
+`cdf build` does not.
 
 ## If you add a chapter
 

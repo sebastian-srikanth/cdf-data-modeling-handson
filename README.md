@@ -10,7 +10,7 @@ and one deliberately real industrial data model.**
 
 You start with Python, git, and a browser. You finish having built — by hand, file by
 file — a complete CDF module: spaces, containers, views, two data models, a data set,
-RAW tables, files, five transformations, five Cognite Functions, a workflow, access
+RAW tables, files, five transformations, six Cognite Functions, a workflow, access
 groups, and a location filter. Along the way a pump develops a clear degradation
 signature, and you connect the sensor evidence, maintenance response, engineering documents,
 and physical context needed to act on it.
