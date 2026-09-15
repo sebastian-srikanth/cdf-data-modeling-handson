@@ -484,9 +484,15 @@ def check_unit_references() -> int:
 
     A rebase once dropped it from all six properties and every other check still
     passed, which is why this one exists.
+
+    It is `rglob`, not `glob` on a fixed folder, and that matters: when the modules were
+    split by lifecycle this check silently went from inspecting six units to inspecting
+    zero -- and still reported "all offline checks passed", because a check that finds
+    nothing to check finds nothing wrong. The guard below is what turns that into a
+    failure instead of a green tick.
     """
     checked = 0
-    for path in (REFERENCE / "data_modeling").glob("*.Container.yaml"):
+    for path in REFERENCE.rglob("*.Container.yaml"):
         lines = path.read_text().splitlines()
         for i, line in enumerate(lines):
             if line.strip() != "unit:":
@@ -835,6 +841,31 @@ def main() -> int:
     print(f"  test count       {testcount:>4} claim(s) match tests/")
     print(f"  participant scope{scoped:>4} selfcheck reads are space-scoped")
     print(f"  module layout    {layout:>4} resource dirs in their lifecycle module")
+    # ---- a check that inspects nothing is not a passing check ----------------------
+    # check_unit_references was silently reduced from six units to zero by a folder move
+    # and still reported "all offline checks passed", because finding nothing to check
+    # means finding nothing wrong. Every count below is an assertion in its own right.
+    #
+    # The allowlist is for counts that are legitimately zero: they count *claims made in
+    # prose*, and prose is allowed not to make them.
+    MAY_BE_ZERO = {"test count", "advertised counts"}
+    for label, count in (
+        ("links", links), ("cross-references", xrefs), ("yaml blocks", n_yaml),
+        ("python blocks", n_python), ("notebook cells", cells),
+        ("[WRITE] blocks", writes), ("handler blocks", handlers),
+        ("notebook scopes", names), ("chapter shape", shapes),
+        ("marker emoji", markers), ("chapter tables", tables),
+        ("unit references", units), (".env.example", envkeys),
+        ("advertised counts", counts), ("attribution", attribution),
+        ("tools import", tools), ("story contracts", contracts),
+        ("return keys", retkeys), ("walkthroughs", walkthru),
+        ("test count", testcount), ("participant scope", scoped),
+        ("module layout", layout),
+    ):
+        if count == 0 and label not in MAY_BE_ZERO:
+            fail(f"empty      the {label!r} check inspected 0 items -- it is no longer "
+                 "checking anything. Usually a moved folder or a renamed pattern.")
+
     for note in notes:
         print(f"  note: {note}")
 
