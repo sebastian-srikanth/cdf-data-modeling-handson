@@ -1002,6 +1002,33 @@ client.functions.call(
 )
 ```
 
+🚧 `[LIMITS]` **The rung you exercise least is the rung that breaks.**
+
+A cascade is *designed* so the expensive rung is rare. On this lab's two documents the
+mapping rules resolve everything, so rung 3 never runs — which means it is also the
+least-exercised code in the pipeline, by construction rather than by neglect.
+
+That is not hypothetical here. This handler shipped with a crash on the entity-matching
+path: a loop variable shadowed the dict of existing suggestions, so the first model result
+turned it into a string and the retraction step died on it.
+
+```
+AttributeError: 'NoneType' object has no attribute 'values'
+```
+
+Every test passed. Every live run was green. The bug was found only by deliberately
+breaking a mapping rule for the [Chapter 17](17-cross-cutting-mastery.md) section 17.8
+capstone, which is the first thing in the whole course that forces the cascade down to
+rung 3.
+
+⚠️ `[COMMON MISTAKE]` Reading "the fallback rarely runs" as reassurance. It is the
+opposite. Rarely-run code is code whose failures are discovered by your users, on the day
+the common path stops working — which is precisely the day you most need the fallback.
+Write a test that forces each rung, and if you cannot force a rung from a test, that is
+itself the finding.
+
+---
+
 ⚡ `[OPTIMIZE]` The cascade **is** the optimization: the deterministic regex handles the
 common case at zero job cost, so EM — the expensive part — runs only for files nothing
 cheaper could resolve. And when EM *does* run, the handler `fit`/`predict`/`delete`s
